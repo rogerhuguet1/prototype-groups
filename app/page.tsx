@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { CLASS_ID, SESSION_ID } from "@/lib/constants";
 import { listStudentsByClass } from "@/lib/data/students";
-import { listGroupsBySession } from "@/lib/data/groups";
+import {
+  createGroup,
+  deleteGroup,
+  listGroupsBySession,
+  renameGroup,
+} from "@/lib/data/groups";
 import {
   assignStudentToGroup,
   listMembersByGroupIds,
@@ -62,43 +67,83 @@ export default function HomePage() {
   const { students, groups, members } = state.data;
   const groupIds = groups.map((g) => g.id);
 
+  /** Refresca solo asignaciones (mutaciones que no tocan grupos). */
   async function reloadMembers() {
-    try {
-      const fresh = await listMembersByGroupIds(groupIds);
-      setState((prev) =>
-        prev.status === "ok"
-          ? { status: "ok", data: { ...prev.data, members: fresh } }
-          : prev,
-      );
-    } catch (err) {
-      setMutError(errorMessage(err));
-    }
+    const fresh = await listMembersByGroupIds(groupIds);
+    setState((prev) =>
+      prev.status === "ok"
+        ? { status: "ok", data: { ...prev.data, members: fresh } }
+        : prev,
+    );
   }
 
-  async function assign(studentId: string, groupId: string) {
+  /** Refresca grupos y asignaciones (tras crear/renombrar/eliminar grupo). */
+  async function reloadGroupsAndMembers() {
+    const fresh = await listGroupsBySession(SESSION_ID);
+    const freshMembers = await listMembersByGroupIds(fresh.map((g) => g.id));
+    setState((prev) =>
+      prev.status === "ok"
+        ? {
+            status: "ok",
+            data: { ...prev.data, groups: fresh, members: freshMembers },
+          }
+        : prev,
+    );
+  }
+
+  async function withMutation(fn: () => Promise<void>) {
     setMutating(true);
     setMutError(null);
     try {
+      await fn();
+    } catch (err) {
+      setMutError(errorMessage(err));
+    } finally {
+      setMutating(false);
+    }
+  }
+
+  function assign(studentId: string, groupId: string) {
+    return withMutation(async () => {
       await assignStudentToGroup(studentId, groupId, groupIds);
       await reloadMembers();
-    } catch (err) {
-      setMutError(errorMessage(err));
-    } finally {
-      setMutating(false);
-    }
+    });
   }
 
-  async function unassign(studentId: string) {
-    setMutating(true);
-    setMutError(null);
-    try {
+  function unassign(studentId: string) {
+    return withMutation(async () => {
       await unassignStudent(studentId, groupIds);
       await reloadMembers();
-    } catch (err) {
-      setMutError(errorMessage(err));
-    } finally {
-      setMutating(false);
-    }
+    });
+  }
+
+  function handleCreateGroup() {
+    const name = window.prompt("Nombre del grupo nuevo:");
+    if (!name?.trim()) return;
+    return withMutation(async () => {
+      await createGroup(SESSION_ID, name);
+      await reloadGroupsAndMembers();
+    });
+  }
+
+  function handleRenameGroup(groupId: string, current: string) {
+    const name = window.prompt("Nuevo nombre:", current);
+    if (!name?.trim() || name.trim() === current) return;
+    return withMutation(async () => {
+      await renameGroup(groupId, name);
+      await reloadGroupsAndMembers();
+    });
+  }
+
+  function handleDeleteGroup(groupId: string, name: string) {
+    const ok = window.confirm(
+      `¿Eliminar el grupo "${name}"? Sus alumnos volverán a la lista de sin asignar.`,
+    );
+    if (!ok) return;
+    return withMutation(async () => {
+      await deleteGroup(groupId);
+      await reloadGroupsAndMembers();
+    });
   }
 
   const assignedIds = new Set(
@@ -157,7 +202,7 @@ export default function HomePage() {
                   </span>
                   <GroupSelect
                     groups={groups}
-                    disabled={mutating}
+                    disabled={mutating || groups.length === 0}
                     onPick={(groupId) => assign(s.id, groupId)}
                   />
                 </li>
@@ -166,57 +211,104 @@ export default function HomePage() {
           )}
         </aside>
 
-        <section className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {groupsWithMembers.map(({ group, members: gms }) => (
-            <article
-              key={group.id}
-              className="rounded-xl border border-slate-200 bg-white p-4"
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-900">
+              {groups.length} grupos
+            </h2>
+            <button
+              type="button"
+              onClick={handleCreateGroup}
+              disabled={mutating}
+              className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700 disabled:opacity-50"
             >
-              <h3 className="text-sm font-semibold text-slate-900">
-                {group.name}{" "}
-                <span className="font-normal text-slate-500">({gms.length})</span>
-              </h3>
-              {gms.length === 0 ? (
-                <p className="mt-2 text-xs text-slate-500">Sin miembros.</p>
-              ) : (
-                <ul className="mt-2 flex flex-col gap-1">
-                  {gms.map((s) => (
-                    <li
-                      key={s.id}
-                      className="flex items-center justify-between gap-2 text-sm"
-                    >
-                      <span className="truncate text-slate-800">
-                        {s.full_name}
-                        {s.performance_score !== null && (
-                          <span className="ml-2 text-xs text-slate-500">
-                            {s.performance_score.toFixed(1)}
-                          </span>
-                        )}
+              + Crear grupo
+            </button>
+          </div>
+
+          {groups.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+              No hay grupos. Pulsa "Crear grupo" para empezar.
+            </div>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {groupsWithMembers.map(({ group, members: gms }) => (
+                <article
+                  key={group.id}
+                  className="rounded-xl border border-slate-200 bg-white p-4"
+                >
+                  <header className="flex items-start justify-between gap-2">
+                    <h3 className="text-sm font-semibold text-slate-900">
+                      {group.name}{" "}
+                      <span className="font-normal text-slate-500">
+                        ({gms.length})
                       </span>
-                      <div className="flex shrink-0 items-center gap-1">
-                        <GroupSelect
-                          groups={groups}
-                          excludeId={group.id}
-                          disabled={mutating}
-                          label="Mover…"
-                          onPick={(groupId) => assign(s.id, groupId)}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => unassign(s.id)}
-                          disabled={mutating}
-                          title="Devolver a sin asignar"
-                          className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+                    </h3>
+                    <div className="flex shrink-0 gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleRenameGroup(group.id, group.name)}
+                        disabled={mutating}
+                        title="Renombrar"
+                        className="rounded border border-slate-200 px-1.5 py-0.5 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+                      >
+                        ✏︎
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteGroup(group.id, group.name)}
+                        disabled={mutating}
+                        title="Eliminar grupo"
+                        className="rounded border border-rose-200 px-1.5 py-0.5 text-xs text-rose-600 hover:bg-rose-50 disabled:opacity-40"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </header>
+
+                  {gms.length === 0 ? (
+                    <p className="mt-2 text-xs text-slate-500">Sin miembros.</p>
+                  ) : (
+                    <ul className="mt-2 flex flex-col gap-1">
+                      {gms.map((s) => (
+                        <li
+                          key={s.id}
+                          className="flex items-center justify-between gap-2 text-sm"
                         >
-                          ←
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </article>
-          ))}
+                          <span className="truncate text-slate-800">
+                            {s.full_name}
+                            {s.performance_score !== null && (
+                              <span className="ml-2 text-xs text-slate-500">
+                                {s.performance_score.toFixed(1)}
+                              </span>
+                            )}
+                          </span>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <GroupSelect
+                              groups={groups}
+                              excludeId={group.id}
+                              disabled={mutating}
+                              label="Mover…"
+                              onPick={(groupId) => assign(s.id, groupId)}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => unassign(s.id)}
+                              disabled={mutating}
+                              title="Devolver a sin asignar"
+                              className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+                            >
+                              ←
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
         </section>
       </div>
     </main>
