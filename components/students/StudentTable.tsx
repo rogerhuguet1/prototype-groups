@@ -18,6 +18,7 @@ import { StudentRowDraggable } from "./StudentRowDraggable";
 import { UNITS, FLAT_COLUMNS } from "@/lib/data/units";
 import { usePodsStore } from "@/store/pods-store";
 import { sortByLastName, displayName } from "@/lib/utils/sort-students";
+import { Plus } from "lucide-react";
 import { PodBadge } from "@/components/pods/PodBadge";
 import { PodDroppableTbody } from "@/components/pods/PodDroppableTbody";
 import { PodAddStudentButton } from "@/components/pods/PodAddStudentButton";
@@ -40,6 +41,7 @@ export function StudentTable({ students }: Props) {
     })),
   );
   const moveStudent = usePodsStore((s) => s.moveStudent);
+  const addEmptyPod = usePodsStore((s) => s.addEmptyPod);
 
   const studentToPod = useMemo(() => {
     const map = new Map<string, Pod>();
@@ -77,6 +79,7 @@ export function StudentTable({ students }: Props) {
               studentMap={studentMap}
               studentToPod={studentToPod}
               onMove={moveStudent}
+              onAddEmptyPod={addEmptyPod}
             />
           ) : (
             <tbody>
@@ -154,6 +157,7 @@ type DndBodiesProps = {
   studentMap: Map<string, StudentRowType>;
   studentToPod: Map<string, Pod>;
   onMove: ReturnType<typeof usePodsStore.getState>["moveStudent"];
+  onAddEmptyPod: () => void;
 };
 
 function DndStudentBodies({
@@ -162,6 +166,7 @@ function DndStudentBodies({
   studentMap,
   studentToPod,
   onMove,
+  onAddEmptyPod,
 }: DndBodiesProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -260,6 +265,20 @@ function DndStudentBodies({
             })}
           </PodDroppableTbody>
         ))}
+        <tbody>
+          <tr>
+            <td colSpan={TOTAL_COLUMNS} className="p-0 sticky left-0 z-10">
+              <button
+                type="button"
+                onClick={onAddEmptyPod}
+                className="w-full flex items-center justify-center gap-2 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 bg-white hover:bg-slate-50 border-y border-dashed border-slate-300 hover:border-slate-400 transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+              >
+                <Plus className="size-4" aria-hidden />
+                Crear nuevo POD
+              </button>
+            </td>
+          </tr>
+        </tbody>
         {sortedUnassigned.length > 0 && (
           <tbody>
             <tr>

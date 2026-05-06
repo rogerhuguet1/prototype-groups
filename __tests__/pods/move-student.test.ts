@@ -9,12 +9,15 @@ function makeStudents(n: number): Student[] {
   }));
 }
 
+const noShuffle = () => 0.999;
+
 describe("moveStudent", () => {
   it("mueve un alumno de POD A a POD B con espacio", () => {
     const pods = createPods({
       students: makeStudents(6),
       presentCount: 6,
       robotCount: 2,
+      random: noShuffle,
     });
     const result = moveStudent(pods, "s-001", "pod-b");
     expect(result.ok).toBe(true);
@@ -33,6 +36,7 @@ describe("moveStudent", () => {
       presentCount: 8,
       robotCount: 2,
       maxPerPod: 4,
+      random: noShuffle,
     });
     const result = moveStudent(pods, "s-001", "pod-b");
     expect(result.ok).toBe(false);
@@ -45,6 +49,7 @@ describe("moveStudent", () => {
       students: makeStudents(6),
       presentCount: 6,
       robotCount: 2,
+      random: noShuffle,
     });
     const result = moveStudent(pods, "s-001", "pod-a");
     expect(result.ok).toBe(true);
@@ -57,6 +62,7 @@ describe("moveStudent", () => {
       students: makeStudents(6),
       presentCount: 6,
       robotCount: 2,
+      random: noShuffle,
     });
     const result = moveStudent(pods, "no-existe", "pod-b");
     expect(result.ok).toBe(false);
@@ -69,6 +75,7 @@ describe("moveStudent", () => {
       students: makeStudents(6),
       presentCount: 6,
       robotCount: 2,
+      random: noShuffle,
     });
     const result = moveStudent(pods, "s-001", "pod-zz");
     expect(result.ok).toBe(false);
@@ -81,6 +88,7 @@ describe("moveStudent", () => {
       students: makeStudents(6),
       presentCount: 6,
       robotCount: 2,
+      random: noShuffle,
     });
     const snapshot = JSON.stringify(pods);
     const result = moveStudent(pods, "s-001", "pod-b");
@@ -96,6 +104,7 @@ describe("addStudentToPod", () => {
       students: all,
       presentCount: 6,
       robotCount: 2,
+      random: noShuffle,
     });
     const unassigned = all[7]!;
     const result = addStudentToPod(pods, unassigned, "pod-a");
@@ -112,6 +121,7 @@ describe("addStudentToPod", () => {
       presentCount: 8,
       robotCount: 2,
       maxPerPod: 4,
+      random: noShuffle,
     });
     const unassigned = all[8]!;
     const result = addStudentToPod(pods, unassigned, "pod-a");
@@ -125,6 +135,7 @@ describe("addStudentToPod", () => {
       students: makeStudents(6),
       presentCount: 6,
       robotCount: 2,
+      random: noShuffle,
     });
     const studentInA = pods[0]!.students[0]!;
     const result = addStudentToPod(pods, studentInA, "pod-b");

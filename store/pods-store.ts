@@ -1,7 +1,13 @@
 "use client";
 
 import { create } from "zustand";
-import { createPods, type Pod, type Student } from "@/lib/pods/create-pods";
+import {
+  createEmptyPod,
+  createPods,
+  DEFAULT_MAX_PER_POD,
+  type Pod,
+  type Student,
+} from "@/lib/pods/create-pods";
 import {
   addStudentToPod as addStudentLogic,
   moveStudent as moveStudentLogic,
@@ -27,6 +33,7 @@ type Actions = {
   setSortMode: (mode: SortMode) => void;
   moveStudent: (studentId: string, toPodId: string) => MoveStudentResult;
   addStudentToPod: (student: Student, toPodId: string) => MoveStudentResult;
+  addEmptyPod: () => void;
 };
 
 const INITIAL: State = {
@@ -53,5 +60,16 @@ export const usePodsStore = create<State & Actions>((set, get) => ({
     const result = addStudentLogic(get().pods, student, toPodId);
     if (result.ok) set({ pods: result.pods });
     return result;
+  },
+  addEmptyPod: () => {
+    const state = get();
+    const maxCapacity =
+      state.pods[0]?.maxCapacity ?? DEFAULT_MAX_PER_POD;
+    const newPod = createEmptyPod(state.pods.length, maxCapacity);
+    set({
+      pods: [...state.pods, newPod],
+      viewWithPods: true,
+      sortMode: "grouped",
+    });
   },
 }));

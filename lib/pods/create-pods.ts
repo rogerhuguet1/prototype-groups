@@ -20,6 +20,7 @@ export type CreatePodsInput = {
   robotCount: number;
   maxPerPod?: number;
   minPerPod?: number;
+  random?: () => number;
 };
 
 export const DEFAULT_MAX_PER_POD = 4;
@@ -37,12 +38,23 @@ export function letterForPodIndex(index: number): string {
   return s;
 }
 
+export function shuffleInPlace<T>(arr: T[], random: () => number): T[] {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    const tmp = arr[i] as T;
+    arr[i] = arr[j] as T;
+    arr[j] = tmp;
+  }
+  return arr;
+}
+
 export function createPods(input: CreatePodsInput): Pod[] {
   const {
     students,
     presentCount,
     robotCount,
     maxPerPod = DEFAULT_MAX_PER_POD,
+    random = Math.random,
   } = input;
 
   if (!Number.isInteger(presentCount) || presentCount < 0) {
@@ -58,7 +70,7 @@ export function createPods(input: CreatePodsInput): Pod[] {
     throw new Error("Hay más robots que alumnos");
   }
 
-  const present = students.slice(0, presentCount);
+  const present = shuffleInPlace(students.slice(0, presentCount), random);
   const base = Math.floor(presentCount / robotCount);
   const extra = presentCount % robotCount;
 
@@ -79,4 +91,19 @@ export function createPods(input: CreatePodsInput): Pod[] {
     });
   }
   return pods;
+}
+
+export function createEmptyPod(
+  index: number,
+  maxCapacity = DEFAULT_MAX_PER_POD,
+): Pod {
+  const letter = letterForPodIndex(index);
+  return {
+    id: `pod-${letter.toLowerCase()}`,
+    label: `POD ${letter}`,
+    letter,
+    color: colorForPodIndex(index),
+    students: [],
+    maxCapacity,
+  };
 }

@@ -88,11 +88,44 @@ describe("createPods — casos del SUPERPROMPT §5", () => {
 });
 
 describe("createPods — comportamiento adicional", () => {
-  it("toma los primeros presentCount alumnos en orden de entrada", () => {
+  it("toma los primeros presentCount alumnos como pool de presentes", () => {
     const students = makeStudents(10);
     const pods = createPods({ students, presentCount: 6, robotCount: 2 });
-    const ids = pods.flatMap((p) => p.students.map((s) => s.id));
-    expect(ids).toEqual(["s-001", "s-002", "s-003", "s-004", "s-005", "s-006"]);
+    const ids = pods.flatMap((p) => p.students.map((s) => s.id)).sort();
+    expect(ids).toEqual([
+      "s-001",
+      "s-002",
+      "s-003",
+      "s-004",
+      "s-005",
+      "s-006",
+    ]);
+  });
+
+  it("reparto entre PODs es aleatorio (no respeta orden de entrada)", () => {
+    const students = makeStudents(24);
+    const seen = new Set<string>();
+    for (let i = 0; i < 30; i++) {
+      const pods = createPods({ students, presentCount: 24, robotCount: 6 });
+      const fingerprint = pods
+        .map((p) => p.students.map((s) => s.id).join(","))
+        .join("|");
+      seen.add(fingerprint);
+    }
+    expect(seen.size).toBeGreaterThan(1);
+  });
+
+  it("acepta un random() inyectable para reparto reproducible", () => {
+    const students = makeStudents(8);
+    const sequence = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7];
+    let i = 0;
+    const random = () => sequence[i++ % sequence.length] ?? 0;
+    const a = createPods({ students, presentCount: 8, robotCount: 2, random });
+    i = 0;
+    const b = createPods({ students, presentCount: 8, robotCount: 2, random });
+    expect(a.map((p) => p.students.map((s) => s.id))).toEqual(
+      b.map((p) => p.students.map((s) => s.id)),
+    );
   });
 
   it("asigna letras incrementales A, B, C…", () => {
