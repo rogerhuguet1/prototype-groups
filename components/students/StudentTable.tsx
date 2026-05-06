@@ -254,24 +254,27 @@ function DndStudentBodies({
           },
         }}
       >
-        {pods.map((pod) => (
-          <PodDroppableTbody key={pod.id} pod={pod}>
-            <PodSectionHeaderRow pod={pod} unassigned={unassignedForMenu} />
-            {pod.students.map((podStudent, i) => {
-              const fullStudent = studentMap.get(podStudent.id);
-              if (!fullStudent) return null;
-              return (
-                <StudentRowDraggable
-                  key={podStudent.id}
-                  student={fullStudent}
-                  index={i}
-                  columns={FLAT_COLUMNS}
-                  pod={pod}
-                />
-              );
-            })}
-          </PodDroppableTbody>
-        ))}
+        {pods.map((pod) => {
+          const sortedMembers = sortByLastName(pod.students);
+          return (
+            <PodDroppableTbody key={pod.id} pod={pod}>
+              <PodSectionHeaderRow pod={pod} unassigned={unassignedForMenu} />
+              {sortedMembers.map((podStudent, i) => {
+                const fullStudent = studentMap.get(podStudent.id);
+                if (!fullStudent) return null;
+                return (
+                  <StudentRowDraggable
+                    key={podStudent.id}
+                    student={fullStudent}
+                    index={i}
+                    columns={FLAT_COLUMNS}
+                    pod={pod}
+                  />
+                );
+              })}
+            </PodDroppableTbody>
+          );
+        })}
         <tbody>
           <tr>
             <td colSpan={TOTAL_COLUMNS} className="p-0 sticky left-0 z-10">
