@@ -62,12 +62,18 @@ export function createPods(input: CreatePodsInput): Pod[] {
     throw new Error("Hay más robots que alumnos");
   }
 
-  const present = shuffleInPlace(students.slice(0, presentCount), random);
+  const capacity = robotCount * maxPerPod;
+  const effectivePresent = Math.min(presentCount, capacity);
+
+  const present = shuffleInPlace(
+    students.slice(0, presentCount),
+    random,
+  ).slice(0, effectivePresent);
   const emojis = shuffleInPlace([...POD_EMOJIS], random).slice(0, robotCount);
   const colors = pickUniqueColors(robotCount, [], random);
 
-  const base = Math.floor(presentCount / robotCount);
-  const extra = presentCount % robotCount;
+  const base = Math.floor(effectivePresent / robotCount);
+  const extra = effectivePresent % robotCount;
 
   const pods: Pod[] = [];
   let cursor = 0;
