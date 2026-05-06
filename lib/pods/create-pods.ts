@@ -150,17 +150,56 @@ function pickUniqueColors(
   excluded: PodColor[],
   random: () => number,
 ): PodColor[] {
-  const excludedHex = new Set(excluded.map((c) => c.hex));
-  const available = POD_COLORS.filter((c) => !excludedHex.has(c.hex));
-  const pool = shuffleInPlace([...available], random);
-  if (pool.length >= count) return pool.slice(0, count);
+  if (count <= 0) return [];
 
-  const overflow = shuffleInPlace([...POD_COLORS], random);
-  const result = [...pool];
-  let i = 0;
+  const excludedHex = new Set(excluded.map((c) => c.hex));
+  const remaining = POD_COLORS.filter((c) => !excludedHex.has(c.hex));
+  const alreadyPicked: PodColor[] = [...excluded];
+  const result: PodColor[] = [];
+
+  while (result.length < count && remaining.length > 0) {
+    let nextIdx: number;
+    if (alreadyPicked.length === 0) {
+      nextIdx = Math.floor(random() * remaining.length);
+    } else {
+      let bestIdx = 0;
+      let bestDist = -1;
+      for (let i = 0; i < remaining.length; i++) {
+        const c = remaining[i] as PodColor;
+        let minDist = Infinity;
+        for (const p of alreadyPicked) {
+          const d = colorDistance(c, p);
+          if (d < minDist) minDist = d;
+        }
+        if (minDist > bestDist) {
+          bestDist = minDist;
+          bestIdx = i;
+        }
+      }
+      nextIdx = bestIdx;
+    }
+    const next = remaining[nextIdx] as PodColor;
+    result.push(next);
+    alreadyPicked.push(next);
+    remaining.splice(nextIdx, 1);
+  }
+
   while (result.length < count) {
-    result.push(overflow[i % overflow.length] as PodColor);
-    i++;
+    result.push(POD_COLORS[result.length % POD_COLORS.length] as PodColor);
   }
   return result;
+}
+
+function colorDistance(a: PodColor, b: PodColor): number {
+  const ar = parseInt(a.hex.slice(1, 3), 16);
+  const ag = parseInt(a.hex.slice(3, 5), 16);
+  const ab = parseInt(a.hex.slice(5, 7), 16);
+  const br = parseInt(b.hex.slice(1, 3), 16);
+  const bg = parseInt(b.hex.slice(3, 5), 16);
+  const bb = parseInt(b.hex.slice(5, 7), 16);
+  return Math.sqrt(
+    (ar - br) * (ar - br) +
+      (ag - bg) * (ag - bg) +
+      (ab - bb) * (ab - bb),
+  );
 }
