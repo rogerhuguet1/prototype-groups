@@ -22,6 +22,7 @@ export function AppShell() {
 
   const studentsQuery = useStudents(classId);
   const classes = classesQuery.data ?? [];
+  const students = studentsQuery.data ?? [];
 
   return (
     <div className="flex min-h-screen">
@@ -35,6 +36,7 @@ export function AppShell() {
           classes={classes}
           activeClassId={classId}
           onSelectClass={setClassId}
+          students={students}
         />
         <ScoreLegend updatedAt="6/05/2026 12:00" />
         <section className="flex-1 p-6 overflow-auto">
@@ -48,7 +50,7 @@ export function AppShell() {
               {(studentsQuery.error as Error).message}
             </div>
           ) : (
-            <StudentTable students={studentsQuery.data ?? []} />
+            <StudentTable students={students} />
           )}
         </section>
       </main>

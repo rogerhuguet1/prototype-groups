@@ -1,17 +1,25 @@
 "use client";
 
-import { Download, Users } from "lucide-react";
+import { Download } from "lucide-react";
 import { ClassSelector } from "./ClassSelector";
+import { PodGroupingButton } from "@/components/pods/PodGroupingButton";
 import { COURSE_LABEL, PROGRAM_LABEL } from "@/lib/data/units";
 import type { ClassRow } from "@/types/database";
+import type { Student } from "@/lib/pods/create-pods";
 
 type Props = {
   classes: ClassRow[];
   activeClassId: string | null;
   onSelectClass: (id: string) => void;
+  students: Student[];
 };
 
-export function TopBar({ classes, activeClassId, onSelectClass }: Props) {
+export function TopBar({
+  classes,
+  activeClassId,
+  onSelectClass,
+  students,
+}: Props) {
   return (
     <header className="bg-white border-b border-slate-200">
       <div className="flex items-start justify-between gap-6 px-8 pt-6 pb-4">
@@ -39,15 +47,7 @@ export function TopBar({ classes, activeClassId, onSelectClass }: Props) {
               onSelectClass={onSelectClass}
             />
           )}
-          <button
-            type="button"
-            disabled
-            title="Disponible próximamente"
-            className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-400 cursor-not-allowed text-sm font-semibold uppercase tracking-wide px-4 py-2 rounded-md border border-slate-200"
-          >
-            <Users className="size-4" aria-hidden />
-            Agrupar
-          </button>
+          <PodGroupingButton students={students} />
           <button
             type="button"
             className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold uppercase tracking-wide px-4 py-2 rounded-md"
