@@ -27,6 +27,7 @@ import {
   listScoresByEvalIds,
   upsertIndividualOverride,
 } from "@/lib/data/individual-scores";
+import { archiveSession } from "@/lib/data/snapshot";
 import type {
   Evaluation,
   EvaluationStatus,
@@ -367,6 +368,17 @@ export default function HomePage() {
     });
   }
 
+  function handleSaveSession() {
+    const today = new Date().toISOString().slice(0, 10);
+    const defaultName = `${session?.name ?? "Sesión"} · ${today}`;
+    const name = window.prompt("Nombre del snapshot:", defaultName);
+    if (!name?.trim()) return;
+    return withMutation(async () => {
+      await archiveSession(SESSION_ID, name);
+      window.alert(`Sesión guardada como "${name.trim()}".`);
+    });
+  }
+
   const assignedIds = new Set(
     members.map((m) => m.student_id).filter((id): id is string => id !== null),
   );
@@ -384,16 +396,28 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-slate-50 p-6">
       <header className="mx-auto mb-6 max-w-6xl">
-        <p className="text-xs uppercase tracking-wide text-slate-500">
-          VisualGroups
-        </p>
-        <h1 className="text-2xl font-semibold text-slate-900">
-          {session?.name ?? "Grupos"}
-        </h1>
-        <p className="text-sm text-slate-600">
-          {students.length} alumnos · {groups.length} grupos · {members.length}{" "}
-          asignaciones · máx {maxGroupSize}/grupo
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-500">
+              VisualGroups
+            </p>
+            <h1 className="text-2xl font-semibold text-slate-900">
+              {session?.name ?? "Grupos"}
+            </h1>
+            <p className="text-sm text-slate-600">
+              {students.length} alumnos · {groups.length} grupos ·{" "}
+              {members.length} asignaciones · máx {maxGroupSize}/grupo
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleSaveSession}
+            disabled={mutating}
+            className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+          >
+            Guardar sesión
+          </button>
+        </div>
         {mutError && (
           <p className="mt-2 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">
             {mutError}
