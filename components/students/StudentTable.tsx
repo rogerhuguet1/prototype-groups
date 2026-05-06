@@ -20,6 +20,7 @@ import { usePodsStore } from "@/store/pods-store";
 import { sortByLastName, displayName } from "@/lib/utils/sort-students";
 import { PodBadge } from "@/components/pods/PodBadge";
 import { PodDroppableTbody } from "@/components/pods/PodDroppableTbody";
+import { PodAddStudentButton } from "@/components/pods/PodAddStudentButton";
 import { MOVE_ERROR_MESSAGES } from "@/lib/pods/move-student";
 import type { StudentRow as StudentRowType } from "@/types/database";
 import type { Pod } from "@/lib/pods/create-pods";
@@ -182,6 +183,10 @@ function DndStudentBodies({
 
   const unassigned = students.filter((s) => !studentToPod.has(s.id));
   const sortedUnassigned = sortByLastName(unassigned);
+  const unassignedForMenu = unassigned.map((s) => ({
+    id: s.id,
+    full_name: s.full_name,
+  }));
 
   function handleDragStart(e: DragStartEvent) {
     const data = e.active.data.current;
@@ -249,7 +254,7 @@ function DndStudentBodies({
       >
         {pods.map((pod) => (
           <PodDroppableTbody key={pod.id} pod={pod}>
-            <PodSectionHeaderRow pod={pod} />
+            <PodSectionHeaderRow pod={pod} unassigned={unassignedForMenu} />
             {pod.students.map((podStudent, i) => {
               const fullStudent = studentMap.get(podStudent.id);
               if (!fullStudent) return null;
@@ -309,7 +314,13 @@ function DndStudentBodies({
   );
 }
 
-function PodSectionHeaderRow({ pod }: { pod: Pod }) {
+function PodSectionHeaderRow({
+  pod,
+  unassigned,
+}: {
+  pod: Pod;
+  unassigned: { id: string; full_name: string }[];
+}) {
   return (
     <tr>
       <td
@@ -325,6 +336,9 @@ function PodSectionHeaderRow({ pod }: { pod: Pod }) {
           <span className="text-xs font-semibold text-slate-700">
             {pod.students.length} de {pod.maxCapacity} alumnos
           </span>
+          <div className="ml-auto">
+            <PodAddStudentButton pod={pod} unassigned={unassigned} />
+          </div>
         </div>
       </td>
     </tr>
