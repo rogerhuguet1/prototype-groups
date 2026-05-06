@@ -64,3 +64,23 @@ export async function unassignStudent(
     .in("group_id", sessionGroupIds);
   if (error) throw error;
 }
+
+/**
+ * Inserta varias asignaciones en una sola query.
+ *
+ * El caller garantiza que ningún alumno de `pairs` esté ya asignado en
+ * algún grupo de la sesión (si lo está, el UNIQUE(group_id, student_id)
+ * disparará error solo si cae en el mismo grupo destino).
+ */
+export async function bulkAssignStudents(
+  pairs: ReadonlyArray<{ studentId: string; groupId: string }>,
+): Promise<void> {
+  if (pairs.length === 0) return;
+  const supabase = getSupabaseClient();
+  const rows = pairs.map((p) => ({
+    student_id: p.studentId,
+    group_id: p.groupId,
+  }));
+  const { error } = await supabase.from("group_members").insert(rows);
+  if (error) throw error;
+}

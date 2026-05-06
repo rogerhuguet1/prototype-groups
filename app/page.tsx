@@ -11,15 +11,23 @@ import {
 } from "@/lib/data/groups";
 import {
   assignStudentToGroup,
+  bulkAssignStudents,
   listMembersByGroupIds,
   unassignStudent,
 } from "@/lib/data/group-members";
-import type { Group, GroupMember, Student } from "@/lib/types";
+import { getSessionById } from "@/lib/data/sessions";
+import type {
+  Group,
+  GroupMember,
+  GroupSession,
+  Student,
+} from "@/lib/types";
 
 interface Data {
   students: Student[];
   groups: Group[];
   members: GroupMember[];
+  session: GroupSession | null;
 }
 
 type State =
@@ -27,8 +35,63 @@ type State =
   | { status: "ok"; data: Data }
   | { status: "error"; message: string };
 
+const FALLBACK_MAX_GROUP_SIZE = 6;
+
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+/**
+ * Reparte alumnos sin asignar entre los grupos.
+ *
+ * Round-robin: en cada paso, el siguiente alumno (orden alfabético) cae
+ * en el grupo con menos miembros que todavía no esté lleno. Si todos los
+ * grupos están llenos, los alumnos restantes cuentan como `leftover`.
+ */
+function planDistribution(args: {
+  unassignedStudents: readonly Student[];
+  groups: readonly Group[];
+  currentMembers: readonly GroupMember[];
+  maxGroupSize: number;
+}): {
+  assignments: Array<{ studentId: string; groupId: string }>;
+  leftover: number;
+} {
+  const counts = new Map<string, number>();
+  for (const g of args.groups) counts.set(g.id, 0);
+  for (const m of args.currentMembers) {
+    if (m.group_id && counts.has(m.group_id)) {
+      counts.set(m.group_id, (counts.get(m.group_id) ?? 0) + 1);
+    }
+  }
+
+  const sorted = [...args.unassignedStudents].sort((a, b) =>
+    a.full_name.localeCompare(b.full_name),
+  );
+
+  const assignments: Array<{ studentId: string; groupId: string }> = [];
+  let leftover = 0;
+
+  for (const student of sorted) {
+    let bestId: string | null = null;
+    let bestCount = Number.POSITIVE_INFINITY;
+    for (const g of args.groups) {
+      const c = counts.get(g.id) ?? 0;
+      if (c >= args.maxGroupSize) continue;
+      if (c < bestCount) {
+        bestCount = c;
+        bestId = g.id;
+      }
+    }
+    if (bestId === null) {
+      leftover++;
+      continue;
+    }
+    assignments.push({ studentId: student.id, groupId: bestId });
+    counts.set(bestId, (counts.get(bestId) ?? 0) + 1);
+  }
+
+  return { assignments, leftover };
 }
 
 export default function HomePage() {
@@ -38,12 +101,16 @@ export default function HomePage() {
 
   const loadAll = useCallback(async () => {
     try {
-      const [students, groups] = await Promise.all([
+      const [students, groups, session] = await Promise.all([
         listStudentsByClass(CLASS_ID),
         listGroupsBySession(SESSION_ID),
+        getSessionById(SESSION_ID),
       ]);
       const members = await listMembersByGroupIds(groups.map((g) => g.id));
-      setState({ status: "ok", data: { students, groups, members } });
+      setState({
+        status: "ok",
+        data: { students, groups, members, session },
+      });
     } catch (err) {
       setState({ status: "error", message: errorMessage(err) });
     }
@@ -64,10 +131,10 @@ export default function HomePage() {
     );
   }
 
-  const { students, groups, members } = state.data;
+  const { students, groups, members, session } = state.data;
   const groupIds = groups.map((g) => g.id);
+  const maxGroupSize = session?.max_group_size ?? FALLBACK_MAX_GROUP_SIZE;
 
-  /** Refresca solo asignaciones (mutaciones que no tocan grupos). */
   async function reloadMembers() {
     const fresh = await listMembersByGroupIds(groupIds);
     setState((prev) =>
@@ -77,7 +144,6 @@ export default function HomePage() {
     );
   }
 
-  /** Refresca grupos y asignaciones (tras crear/renombrar/eliminar grupo). */
   async function reloadGroupsAndMembers() {
     const fresh = await listGroupsBySession(SESSION_ID);
     const freshMembers = await listMembersByGroupIds(fresh.map((g) => g.id));
@@ -146,6 +212,40 @@ export default function HomePage() {
     });
   }
 
+  function handleDistribute() {
+    if (groups.length === 0) {
+      window.alert("Necesitas al menos un grupo para distribuir.");
+      return;
+    }
+    if (unassigned.length === 0) {
+      window.alert("Todos los alumnos están asignados.");
+      return;
+    }
+    const plan = planDistribution({
+      unassignedStudents: unassigned,
+      groups,
+      currentMembers: members,
+      maxGroupSize,
+    });
+    if (plan.assignments.length === 0) {
+      window.alert(
+        `Los grupos están llenos (capacidad máx. ${maxGroupSize}).` +
+          ` ${plan.leftover} alumnos no caben.`,
+      );
+      return;
+    }
+    return withMutation(async () => {
+      await bulkAssignStudents(plan.assignments);
+      await reloadMembers();
+      if (plan.leftover > 0) {
+        window.alert(
+          `${plan.assignments.length} asignados.` +
+            ` ${plan.leftover} alumnos no han cabido (capacidad máx. ${maxGroupSize}).`,
+        );
+      }
+    });
+  }
+
   const assignedIds = new Set(
     members.map((m) => m.student_id).filter((id): id is string => id !== null),
   );
@@ -166,10 +266,12 @@ export default function HomePage() {
         <p className="text-xs uppercase tracking-wide text-slate-500">
           VisualGroups
         </p>
-        <h1 className="text-2xl font-semibold text-slate-900">Grupos</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">
+          {session?.name ?? "Grupos"}
+        </h1>
         <p className="text-sm text-slate-600">
           {students.length} alumnos · {groups.length} grupos · {members.length}{" "}
-          asignaciones
+          asignaciones · máx {maxGroupSize}/grupo
         </p>
         {mutError && (
           <p className="mt-2 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">
@@ -216,14 +318,24 @@ export default function HomePage() {
             <h2 className="text-sm font-semibold text-slate-900">
               {groups.length} grupos
             </h2>
-            <button
-              type="button"
-              onClick={handleCreateGroup}
-              disabled={mutating}
-              className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700 disabled:opacity-50"
-            >
-              + Crear grupo
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDistribute}
+                disabled={mutating || groups.length === 0}
+                className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Distribuir
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateGroup}
+                disabled={mutating}
+                className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700 disabled:opacity-50"
+              >
+                + Crear grupo
+              </button>
+            </div>
           </div>
 
           {groups.length === 0 ? (
@@ -241,7 +353,7 @@ export default function HomePage() {
                     <h3 className="text-sm font-semibold text-slate-900">
                       {group.name}{" "}
                       <span className="font-normal text-slate-500">
-                        ({gms.length})
+                        ({gms.length}/{maxGroupSize})
                       </span>
                     </h3>
                     <div className="flex shrink-0 gap-1">

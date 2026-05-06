@@ -27,3 +27,12 @@ export interface GroupMember {
   is_locked: boolean | null;
   is_absent: boolean | null;
 }
+
+export interface GroupSession {
+  id: string;
+  name: string;
+  class_id: string | null;
+  status: string | null;
+  max_group_size: number | null;
+  min_group_size: number | null;
+}
