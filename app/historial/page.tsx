@@ -116,6 +116,10 @@ export default function HistoryPage() {
           </Link>
           <span className="mx-1">·</span>
           <span className="font-medium text-slate-700">Historial</span>
+          <span className="mx-1">·</span>
+          <Link href="/configuracion" className="hover:underline">
+            Configuración
+          </Link>
         </nav>
       </header>
 

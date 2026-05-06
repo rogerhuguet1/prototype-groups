@@ -411,6 +411,10 @@ export default function HomePage() {
               <Link href="/historial" className="hover:underline">
                 Historial
               </Link>
+              <span className="mx-1">·</span>
+              <Link href="/configuracion" className="hover:underline">
+                Configuración
+              </Link>
             </nav>
             <p className="mt-1 text-sm text-slate-600">
               {students.length} alumnos · {groups.length} grupos ·{" "}

@@ -31,3 +31,35 @@ export async function listArchivedSessions(
   if (error) throw error;
   return (data ?? []) as GroupSession[];
 }
+
+export interface SessionConfigPatch {
+  name?: string;
+  min_group_size?: number;
+  max_group_size?: number;
+}
+
+/** Actualiza solo los campos provistos. Trim del nombre incluido. */
+export async function updateSessionConfig(
+  sessionId: string,
+  patch: SessionConfigPatch,
+): Promise<void> {
+  const updates: Record<string, string | number> = {};
+  if (patch.name !== undefined) {
+    const trimmed = patch.name.trim();
+    if (!trimmed) throw new Error("El nombre no puede estar vacío.");
+    updates.name = trimmed;
+  }
+  if (patch.min_group_size !== undefined) {
+    updates.min_group_size = patch.min_group_size;
+  }
+  if (patch.max_group_size !== undefined) {
+    updates.max_group_size = patch.max_group_size;
+  }
+  if (Object.keys(updates).length === 0) return;
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from("group_sessions")
+    .update(updates)
+    .eq("id", sessionId);
+  if (error) throw error;
+}
