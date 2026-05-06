@@ -2,6 +2,16 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
 import { CLASS_ID, SESSION_ID } from "@/lib/constants";
 import { listStudentsByClass } from "@/lib/data/students";
 import {
@@ -38,6 +48,14 @@ import type {
   IndividualScore,
   Student,
 } from "@/lib/types";
+import { Button } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { PromptDialog } from "@/components/ui/PromptDialog";
+import { useToast } from "@/components/ui/Toast";
+import { Sidebar } from "@/components/features/Sidebar";
+import { GroupCard } from "@/components/features/GroupCard";
+import { DetailPanel } from "@/components/features/DetailPanel";
+import { StudentChip } from "@/components/features/StudentChip";
 
 interface Data {
   students: Student[];
@@ -55,48 +73,14 @@ type State =
 
 const FALLBACK_MAX_GROUP_SIZE = 6;
 
-const ALLOWED_TRANSITIONS: Record<EvaluationStatus, EvaluationStatus[]> = {
-  pending: ["draft"],
-  draft: ["pending", "published"],
-  published: ["draft", "locked"],
-  locked: [],
-};
-
-const STATUS_LABEL: Record<EvaluationStatus, string> = {
-  pending: "Pendiente",
-  draft: "Borrador",
-  published: "Publicada",
-  locked: "Bloqueada",
-};
-
-const STATUS_TONE: Record<EvaluationStatus, string> = {
-  pending: "bg-slate-100 text-slate-700 border-slate-200",
-  draft: "bg-amber-50 text-amber-800 border-amber-200",
-  published: "bg-emerald-50 text-emerald-800 border-emerald-200",
-  locked: "bg-sky-50 text-sky-800 border-sky-200",
-};
-
-const TRANSITION_LABEL: Record<EvaluationStatus, string> = {
-  pending: "Marcar pendiente",
-  draft: "Pasar a borrador",
-  published: "Publicar",
-  locked: "Bloquear",
-};
-
-function asStatus(value: string | null | undefined): EvaluationStatus {
-  if (
-    value === "pending" ||
-    value === "draft" ||
-    value === "published" ||
-    value === "locked"
-  ) {
-    return value;
-  }
-  return "pending";
-}
-
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+interface DialogState {
+  kind: "create" | "rename" | "delete" | "save";
+  groupId?: string;
+  current?: string;
 }
 
 function planDistribution(args: {
@@ -146,9 +130,20 @@ function planDistribution(args: {
 }
 
 export default function HomePage() {
+  const toast = useToast();
   const [state, setState] = useState<State>({ status: "loading" });
   const [mutating, setMutating] = useState(false);
-  const [mutError, setMutError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<DialogState | null>(null);
+  const [activeDragStudentId, setActiveDragStudentId] = useState<string | null>(
+    null,
+  );
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor),
+  );
 
   const loadAll = useCallback(async () => {
     try {
@@ -175,14 +170,28 @@ export default function HomePage() {
     void loadAll();
   }, [loadAll]);
 
-  if (state.status === "loading") return <Centered>Cargando datos…</Centered>;
+  if (state.status === "loading") {
+    return <SkeletonPage />;
+  }
   if (state.status === "error") {
     return (
-      <Centered>
-        <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">
-          Error: {state.message}
-        </p>
-      </Centered>
+      <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
+        <div className="max-w-md rounded-xl border border-rose-200 bg-rose-50 px-6 py-4 text-sm text-rose-800">
+          <p className="font-semibold">No se pudieron cargar los datos</p>
+          <p className="mt-1">{state.message}</p>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              setState({ status: "loading" });
+              void loadAll();
+            }}
+            className="mt-3"
+          >
+            Reintentar
+          </Button>
+        </div>
+      </main>
     );
   }
 
@@ -205,6 +214,20 @@ export default function HomePage() {
     }
     inner.set(s.student_id, s.score_override);
   }
+
+  const assignedIds = new Set(
+    members.map((m) => m.student_id).filter((id): id is string => id !== null),
+  );
+  const unassigned = students.filter((s) => !assignedIds.has(s.id));
+
+  const studentsById = new Map(students.map((s) => [s.id, s]));
+  const groupsWithMembers = groups.map((group) => ({
+    group,
+    members: members
+      .filter((m) => m.group_id === group.id)
+      .map((m) => (m.student_id ? studentsById.get(m.student_id) : undefined))
+      .filter((s): s is Student => s !== undefined),
+  }));
 
   async function reloadMembers() {
     const fresh = await listMembersByGroupIds(groupIds);
@@ -248,11 +271,10 @@ export default function HomePage() {
 
   async function withMutation(fn: () => Promise<void>) {
     setMutating(true);
-    setMutError(null);
     try {
       await fn();
     } catch (err) {
-      setMutError(errorMessage(err));
+      toast.push("error", errorMessage(err));
     } finally {
       setMutating(false);
     }
@@ -272,42 +294,13 @@ export default function HomePage() {
     });
   }
 
-  function handleCreateGroup() {
-    const name = window.prompt("Nombre del grupo nuevo:");
-    if (!name?.trim()) return;
-    return withMutation(async () => {
-      await createGroup(SESSION_ID, name);
-      await reloadGroupsAndMembers();
-    });
-  }
-
-  function handleRenameGroup(groupId: string, current: string) {
-    const name = window.prompt("Nuevo nombre:", current);
-    if (!name?.trim() || name.trim() === current) return;
-    return withMutation(async () => {
-      await renameGroup(groupId, name);
-      await reloadGroupsAndMembers();
-    });
-  }
-
-  function handleDeleteGroup(groupId: string, name: string) {
-    const ok = window.confirm(
-      `¿Eliminar el grupo "${name}"? Sus alumnos volverán a la lista de sin asignar.`,
-    );
-    if (!ok) return;
-    return withMutation(async () => {
-      await deleteGroup(groupId);
-      await reloadGroupsAndMembers();
-    });
-  }
-
   function handleDistribute() {
     if (groups.length === 0) {
-      window.alert("Necesitas al menos un grupo para distribuir.");
+      toast.push("warning", "Necesitas al menos un grupo para distribuir.");
       return;
     }
     if (unassigned.length === 0) {
-      window.alert("Todos los alumnos están asignados.");
+      toast.push("info", "Todos los alumnos están asignados.");
       return;
     }
     const plan = planDistribution({
@@ -317,21 +310,21 @@ export default function HomePage() {
       maxGroupSize,
     });
     if (plan.assignments.length === 0) {
-      window.alert(
-        `Los grupos están llenos (capacidad máx. ${maxGroupSize}).` +
-          ` ${plan.leftover} alumnos no caben.`,
+      toast.push(
+        "warning",
+        `Los grupos están llenos. ${plan.leftover} alumnos no caben.`,
       );
       return;
     }
     return withMutation(async () => {
       await bulkAssignStudents(plan.assignments);
       await reloadMembers();
-      if (plan.leftover > 0) {
-        window.alert(
-          `${plan.assignments.length} asignados.` +
-            ` ${plan.leftover} alumnos no han cabido (capacidad máx. ${maxGroupSize}).`,
-        );
-      }
+      toast.push(
+        "success",
+        plan.leftover > 0
+          ? `${plan.assignments.length} asignados. ${plan.leftover} no caben.`
+          : `${plan.assignments.length} alumnos asignados.`,
+      );
     });
   }
 
@@ -366,38 +359,125 @@ export default function HomePage() {
     return withMutation(async () => {
       await setEvaluationStatus(evaluationId, next);
       await reloadEvaluations();
+      toast.push("info", `Estado: ${next}.`);
     });
   }
 
-  function handleSaveSession() {
-    const today = new Date().toISOString().slice(0, 10);
-    const defaultName = `${session?.name ?? "Sesión"} · ${today}`;
-    const name = window.prompt("Nombre del snapshot:", defaultName);
-    if (!name?.trim()) return;
+  // ---- Drag & Drop ----
+  function onDragStart(e: DragStartEvent) {
+    const id = String(e.active.id);
+    if (id.startsWith("student:")) {
+      setActiveDragStudentId(id.slice("student:".length));
+    }
+  }
+
+  function onDragEnd(e: DragEndEvent) {
+    setActiveDragStudentId(null);
+    const overId = e.over?.id ? String(e.over.id) : null;
+    const activeId = String(e.active.id);
+    if (!overId || !activeId.startsWith("student:")) return;
+    const studentId = activeId.slice("student:".length);
+
+    if (overId === "unassigned") {
+      void unassign(studentId);
+      return;
+    }
+    if (overId.startsWith("panel:")) {
+      const groupId = overId.slice("panel:".length);
+      const targetMembers = members.filter((m) => m.group_id === groupId);
+      if (targetMembers.some((m) => m.student_id === studentId)) {
+        return; // ya está en este grupo, no-op
+      }
+      if (targetMembers.length >= maxGroupSize) {
+        const target = groups.find((g) => g.id === groupId);
+        toast.push(
+          "error",
+          `El grupo "${target?.name ?? "?"}" está lleno (${maxGroupSize}).`,
+        );
+        return;
+      }
+      void assign(studentId, groupId);
+    }
+  }
+
+  // ---- Diálogos ----
+  function openCreate() {
+    setDialog({ kind: "create" });
+  }
+  function openRename(groupId: string, current: string) {
+    setDialog({ kind: "rename", groupId, current });
+  }
+  function openDelete(groupId: string) {
+    setDialog({ kind: "delete", groupId });
+  }
+  function openSave() {
+    setDialog({ kind: "save" });
+  }
+  function closeDialog() {
+    setDialog(null);
+  }
+
+  function submitDialog(value: string) {
+    if (!dialog) return;
+    const kind = dialog.kind;
+    closeDialog();
+    if (kind === "create") {
+      return withMutation(async () => {
+        await createGroup(SESSION_ID, value);
+        await reloadGroupsAndMembers();
+        toast.push("success", `Grupo "${value}" creado.`);
+      });
+    }
+    if (kind === "rename" && dialog.groupId) {
+      const id = dialog.groupId;
+      return withMutation(async () => {
+        await renameGroup(id, value);
+        await reloadGroupsAndMembers();
+        toast.push("success", `Renombrado a "${value}".`);
+      });
+    }
+    if (kind === "save") {
+      return withMutation(async () => {
+        await archiveSession(SESSION_ID, value);
+        toast.push("success", `Sesión guardada como "${value}".`);
+      });
+    }
+  }
+
+  function confirmDelete() {
+    const groupId = dialog?.kind === "delete" ? dialog.groupId : undefined;
+    if (!groupId) return;
+    closeDialog();
     return withMutation(async () => {
-      await archiveSession(SESSION_ID, name);
-      window.alert(`Sesión guardada como "${name.trim()}".`);
+      await deleteGroup(groupId);
+      if (selectedGroupId === groupId) setSelectedGroupId(null);
+      await reloadGroupsAndMembers();
+      toast.push("success", "Grupo eliminado.");
     });
   }
 
-  const assignedIds = new Set(
-    members.map((m) => m.student_id).filter((id): id is string => id !== null),
-  );
-  const unassigned = students.filter((s) => !assignedIds.has(s.id));
+  const selected = selectedGroupId
+    ? (groupsWithMembers.find((g) => g.group.id === selectedGroupId) ?? null)
+    : null;
+  const selectedEval = selected
+    ? evaluationByGroupId.get(selected.group.id)
+    : undefined;
+  const selectedOverrides = selectedEval
+    ? overridesByEvalId.get(selectedEval.id)
+    : undefined;
 
-  const studentsById = new Map(students.map((s) => [s.id, s]));
-  const groupsWithMembers = groups.map((group) => ({
-    group,
-    members: members
-      .filter((m) => m.group_id === group.id)
-      .map((m) => (m.student_id ? studentsById.get(m.student_id) : undefined))
-      .filter((s): s is Student => s !== undefined),
-  }));
+  const today = new Date().toISOString().slice(0, 10);
+  const saveDefault = `${session?.name ?? "Sesión"} · ${today}`;
 
   return (
-    <main className="min-h-screen bg-slate-50 p-6">
-      <header className="mx-auto mb-6 max-w-6xl">
-        <div className="flex items-start justify-between gap-3">
+    <DndContext
+      sensors={sensors}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragCancel={() => setActiveDragStudentId(null)}
+    >
+      <main className="min-h-screen bg-slate-50 p-4 sm:p-6">
+        <header className="mx-auto mb-4 flex max-w-7xl flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs uppercase tracking-wide text-slate-500">
               VisualGroups
@@ -421,383 +501,176 @@ export default function HomePage() {
               {members.length} asignaciones · máx {maxGroupSize}/grupo
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleSaveSession}
-            disabled={mutating}
-            className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-          >
-            Guardar sesión
-          </button>
-        </div>
-        {mutError && (
-          <p className="mt-2 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">
-            {mutError}
-          </p>
-        )}
-      </header>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleDistribute}
+              disabled={mutating || groups.length === 0}
+            >
+              Distribuir
+            </Button>
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={openCreate}
+              disabled={mutating}
+            >
+              + Crear grupo
+            </Button>
+            <Button
+              size="sm"
+              variant="success"
+              onClick={openSave}
+              disabled={mutating}
+            >
+              Guardar sesión
+            </Button>
+          </div>
+        </header>
 
-      <div className="mx-auto grid max-w-6xl gap-4 md:grid-cols-[280px_1fr]">
-        <aside className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold text-slate-900">
-            Sin asignar ({unassigned.length})
-          </h2>
-          {unassigned.length === 0 ? (
-            <p className="text-sm text-slate-500">Todos asignados.</p>
-          ) : (
-            <ul className="flex flex-col gap-1">
-              {unassigned.map((s) => (
-                <li
-                  key={s.id}
-                  className="flex items-center justify-between gap-2 rounded border border-slate-200 px-2 py-1 text-sm"
-                >
-                  <span className="truncate text-slate-800">
-                    {s.full_name}
-                    {s.performance_score !== null && (
-                      <span className="ml-2 text-xs text-slate-500">
-                        {s.performance_score.toFixed(1)}
-                      </span>
-                    )}
-                  </span>
-                  <GroupSelect
-                    groups={groups}
-                    disabled={mutating || groups.length === 0}
-                    onPick={(groupId) => assign(s.id, groupId)}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-        </aside>
-
-        <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-900">
-              {groups.length} grupos
-            </h2>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleDistribute}
-                disabled={mutating || groups.length === 0}
-                className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-              >
-                Distribuir
-              </button>
-              <button
-                type="button"
-                onClick={handleCreateGroup}
-                disabled={mutating}
-                className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700 disabled:opacity-50"
-              >
-                + Crear grupo
-              </button>
-            </div>
+        <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-[260px_1fr] xl:grid-cols-[260px_1fr_340px]">
+          {/* Sidebar */}
+          <div className="md:sticky md:top-4 md:h-[calc(100vh-7rem)]">
+            <Sidebar
+              students={unassigned}
+              search={search}
+              onSearchChange={setSearch}
+            />
           </div>
 
-          {groups.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
-              No hay grupos. Pulsa "Crear grupo" para empezar.
-            </div>
-          ) : (
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {groupsWithMembers.map(({ group, members: gms }) => {
-                const evaluation = evaluationByGroupId.get(group.id);
-                const status = asStatus(evaluation?.status);
-                const locked = status === "locked";
-                const overrides =
-                  evaluation && overridesByEvalId.get(evaluation.id);
+          {/* Canvas */}
+          <section>
+            {groups.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
+                No hay grupos. Pulsa "+ Crear grupo" para empezar.
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-2">
+                {groupsWithMembers.map(({ group, members: gms }) => {
+                  const evaluation = evaluationByGroupId.get(group.id);
+                  const overrides =
+                    evaluation && overridesByEvalId.get(evaluation.id);
+                  return (
+                    <GroupCard
+                      key={group.id}
+                      group={group}
+                      members={gms}
+                      evaluation={evaluation}
+                      overrides={overrides}
+                      maxGroupSize={maxGroupSize}
+                      selected={selectedGroupId === group.id}
+                      onSelect={() =>
+                        setSelectedGroupId((cur) =>
+                          cur === group.id ? null : group.id,
+                        )
+                      }
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </section>
 
-                return (
-                  <article
-                    key={group.id}
-                    className="flex flex-col rounded-xl border border-slate-200 bg-white p-4"
-                  >
-                    <header className="flex items-start justify-between gap-2">
-                      <h3 className="text-sm font-semibold text-slate-900">
-                        {group.name}{" "}
-                        <span className="font-normal text-slate-500">
-                          ({gms.length}/{maxGroupSize})
-                        </span>
-                      </h3>
-                      <div className="flex shrink-0 gap-1">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleRenameGroup(group.id, group.name)
-                          }
-                          disabled={mutating || locked}
-                          title="Renombrar"
-                          className="rounded border border-slate-200 px-1.5 py-0.5 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-40"
-                        >
-                          ✏︎
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleDeleteGroup(group.id, group.name)
-                          }
-                          disabled={mutating || locked}
-                          title="Eliminar grupo"
-                          className="rounded border border-rose-200 px-1.5 py-0.5 text-xs text-rose-600 hover:bg-rose-50 disabled:opacity-40"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </header>
+          {/* Detail panel */}
+          <div className="xl:sticky xl:top-4 xl:h-[calc(100vh-7rem)]">
+            {selected ? (
+              <DetailPanel
+                group={selected.group}
+                members={selected.members}
+                evaluation={selectedEval}
+                overrides={selectedOverrides}
+                maxGroupSize={maxGroupSize}
+                mutating={mutating}
+                onRename={() => openRename(selected.group.id, selected.group.name)}
+                onDelete={() => openDelete(selected.group.id)}
+                onSetGroupScore={(v) => handleSetGroupScore(selected.group.id, v)}
+                onSetOverride={(studentId, v) =>
+                  handleSetOverride(selected.group.id, studentId, v)
+                }
+                onChangeStatus={(next) =>
+                  selectedEval && handleSetStatus(selectedEval.id, next)
+                }
+                onUnassign={(studentId) => unassign(studentId)}
+              />
+            ) : (
+              <aside className="flex h-full min-h-[200px] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+                Selecciona un grupo para ver su detalle.
+              </aside>
+            )}
+          </div>
+        </div>
+      </main>
 
-                    {/* Bloque evaluación */}
-                    <div className="mt-2 rounded-md border border-slate-100 bg-slate-50 p-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <span
-                          className={
-                            "rounded-full border px-2 py-0.5 text-[11px] font-medium " +
-                            STATUS_TONE[status]
-                          }
-                        >
-                          {STATUS_LABEL[status]}
-                        </span>
-                        <div className="flex items-center gap-1.5 text-xs text-slate-700">
-                          <label htmlFor={`gs-${group.id}`}>Nota grupal</label>
-                          <ScoreInput
-                            id={`gs-${group.id}`}
-                            value={evaluation?.group_score ?? null}
-                            disabled={mutating || locked}
-                            onCommit={(v) => handleSetGroupScore(group.id, v)}
-                            ariaLabel={`Nota grupal de ${group.name}`}
-                          />
-                        </div>
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {ALLOWED_TRANSITIONS[status].map((next) => (
-                          <button
-                            key={next}
-                            type="button"
-                            disabled={mutating || !evaluation}
-                            onClick={() =>
-                              evaluation && handleSetStatus(evaluation.id, next)
-                            }
-                            title={
-                              !evaluation
-                                ? "Asigna una nota grupal primero para crear la evaluación"
-                                : undefined
-                            }
-                            className={
-                              "rounded border px-2 py-0.5 text-[11px] font-medium disabled:opacity-40 " +
-                              (next === "published"
-                                ? "border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                                : next === "locked"
-                                  ? "border-sky-300 text-sky-700 hover:bg-sky-50"
-                                  : "border-slate-300 text-slate-700 hover:bg-slate-100")
-                            }
-                          >
-                            {TRANSITION_LABEL[next]}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+      <DragOverlay dropAnimation={null}>
+        {activeDragStudentId
+          ? (() => {
+              const s = studentsById.get(activeDragStudentId);
+              return s ? <StudentChip student={s} mode="static" /> : null;
+            })()
+          : null}
+      </DragOverlay>
 
-                    {/* Miembros */}
-                    {gms.length === 0 ? (
-                      <p className="mt-2 text-xs text-slate-500">
-                        Sin miembros.
-                      </p>
-                    ) : (
-                      <ul className="mt-2 flex flex-col gap-1">
-                        {gms.map((s) => {
-                          const override = overrides?.get(s.id);
-                          const effective =
-                            override ?? evaluation?.group_score ?? null;
-                          return (
-                            <li
-                              key={s.id}
-                              className="flex items-center justify-between gap-2 text-sm"
-                            >
-                              <span className="min-w-0 flex-1 truncate text-slate-800">
-                                {s.full_name}
-                                {effective !== null && (
-                                  <span className="ml-2 text-xs text-slate-500">
-                                    {effective.toFixed(1)}
-                                    {override !== undefined && (
-                                      <span
-                                        title="Nota individual ajustada"
-                                        className="ml-1 inline-block rounded bg-amber-100 px-1 text-[10px] text-amber-800"
-                                      >
-                                        ajustada
-                                      </span>
-                                    )}
-                                  </span>
-                                )}
-                              </span>
-                              <div className="flex shrink-0 items-center gap-1">
-                                <ScoreInput
-                                  value={override ?? null}
-                                  disabled={mutating || locked}
-                                  onCommit={(v) =>
-                                    handleSetOverride(group.id, s.id, v)
-                                  }
-                                  ariaLabel={`Nota individual de ${s.full_name}`}
-                                />
-                                {override !== undefined && (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleSetOverride(group.id, s.id, null)
-                                    }
-                                    disabled={mutating || locked}
-                                    title="Restaurar nota grupal"
-                                    className="rounded border border-slate-200 px-1.5 py-0.5 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-40"
-                                  >
-                                    ↺
-                                  </button>
-                                )}
-                                <GroupSelect
-                                  groups={groups}
-                                  excludeId={group.id}
-                                  disabled={mutating || locked}
-                                  label="Mover…"
-                                  onPick={(groupId) => assign(s.id, groupId)}
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => unassign(s.id)}
-                                  disabled={mutating || locked}
-                                  title="Devolver a sin asignar"
-                                  className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-40"
-                                >
-                                  ←
-                                </button>
-                              </div>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    )}
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
+      {/* Diálogos */}
+      <PromptDialog
+        open={dialog?.kind === "create"}
+        title="Crear grupo"
+        label="Nombre del grupo"
+        defaultValue=""
+        confirmLabel="Crear"
+        onSubmit={submitDialog}
+        onCancel={closeDialog}
+      />
+      <PromptDialog
+        open={dialog?.kind === "rename"}
+        title="Renombrar grupo"
+        label="Nuevo nombre"
+        defaultValue={dialog?.kind === "rename" ? (dialog.current ?? "") : ""}
+        confirmLabel="Guardar"
+        onSubmit={submitDialog}
+        onCancel={closeDialog}
+      />
+      <PromptDialog
+        open={dialog?.kind === "save"}
+        title="Guardar sesión"
+        label="Nombre del snapshot"
+        defaultValue={saveDefault}
+        confirmLabel="Guardar"
+        onSubmit={submitDialog}
+        onCancel={closeDialog}
+      />
+      <ConfirmDialog
+        open={dialog?.kind === "delete"}
+        title="Eliminar grupo"
+        body="¿Seguro? Sus miembros volverán a la lista de sin asignar y se borrará la evaluación asociada."
+        destructive
+        confirmLabel="Eliminar"
+        onConfirm={confirmDelete}
+        onCancel={closeDialog}
+      />
+    </DndContext>
+  );
+}
+
+function SkeletonPage() {
+  return (
+    <main className="min-h-screen bg-slate-50 p-6">
+      <div className="mx-auto mb-4 max-w-7xl">
+        <div className="h-3 w-24 rounded bg-slate-200" />
+        <div className="mt-2 h-7 w-64 rounded bg-slate-200" />
+        <div className="mt-2 h-3 w-48 rounded bg-slate-200" />
       </div>
-    </main>
-  );
-}
-
-interface GroupSelectProps {
-  groups: Group[];
-  excludeId?: string;
-  disabled?: boolean;
-  label?: string;
-  onPick: (groupId: string) => void;
-}
-
-function GroupSelect({
-  groups,
-  excludeId,
-  disabled,
-  label = "Asignar…",
-  onPick,
-}: GroupSelectProps) {
-  return (
-    <select
-      value=""
-      disabled={disabled}
-      onChange={(e) => {
-        const value = e.target.value;
-        if (value) onPick(value);
-        e.target.value = "";
-      }}
-      className="rounded border border-slate-200 bg-white px-1 py-1 text-xs text-slate-700 disabled:opacity-40"
-    >
-      <option value="">{label}</option>
-      {groups
-        .filter((g) => g.id !== excludeId)
-        .map((g) => (
-          <option key={g.id} value={g.id}>
-            {g.name}
-          </option>
-        ))}
-    </select>
-  );
-}
-
-interface ScoreInputProps {
-  value: number | null;
-  onCommit: (v: number | null) => void;
-  disabled?: boolean;
-  ariaLabel: string;
-  id?: string;
-}
-
-function ScoreInput({
-  value,
-  onCommit,
-  disabled,
-  ariaLabel,
-  id,
-}: ScoreInputProps) {
-  const [draft, setDraft] = useState(value === null ? "" : String(value));
-  const [invalid, setInvalid] = useState(false);
-
-  useEffect(() => {
-    setDraft(value === null ? "" : String(value));
-    setInvalid(false);
-  }, [value]);
-
-  function commit() {
-    const trimmed = draft.trim().replace(",", ".");
-    if (trimmed === "") {
-      setInvalid(false);
-      if (value !== null) onCommit(null);
-      return;
-    }
-    const n = Number(trimmed);
-    if (Number.isNaN(n) || n < 0 || n > 10) {
-      setInvalid(true);
-      return;
-    }
-    setInvalid(false);
-    const rounded = Math.round(n * 100) / 100;
-    if (rounded !== value) onCommit(rounded);
-  }
-
-  return (
-    <input
-      id={id}
-      type="text"
-      inputMode="decimal"
-      value={draft}
-      disabled={disabled}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") {
-          e.currentTarget.blur();
-        } else if (e.key === "Escape") {
-          setDraft(value === null ? "" : String(value));
-          setInvalid(false);
-          e.currentTarget.blur();
-        }
-      }}
-      aria-label={ariaLabel}
-      aria-invalid={invalid}
-      placeholder="—"
-      className={
-        "w-14 rounded border px-1.5 py-0.5 text-xs tabular-nums focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:opacity-40 " +
-        (invalid
-          ? "border-rose-400 bg-rose-50"
-          : "border-slate-200 bg-white")
-      }
-    />
-  );
-}
-
-function Centered({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
-      <div className="rounded-xl border border-slate-200 bg-white px-6 py-4 text-sm text-slate-700">
-        {children}
+      <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-[260px_1fr] xl:grid-cols-[260px_1fr_340px]">
+        <div className="h-96 animate-pulse rounded-xl bg-slate-200" />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-40 animate-pulse rounded-xl bg-slate-200"
+            />
+          ))}
+        </div>
+        <div className="hidden h-96 animate-pulse rounded-xl bg-slate-200 xl:block" />
       </div>
     </main>
   );
