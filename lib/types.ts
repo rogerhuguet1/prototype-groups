@@ -36,3 +36,22 @@ export interface GroupSession {
   max_group_size: number | null;
   min_group_size: number | null;
 }
+
+export type EvaluationStatus = "pending" | "draft" | "published" | "locked";
+
+export interface Evaluation {
+  id: string;
+  group_id: string | null;
+  session_id: string | null;
+  group_score: number | null;
+  /** Schema lo declara `text`; en código tratar como EvaluationStatus. */
+  status: string | null;
+  published_at: string | null;
+}
+
+export interface IndividualScore {
+  id: string;
+  evaluation_id: string | null;
+  student_id: string | null;
+  score_override: number | null;
+}
