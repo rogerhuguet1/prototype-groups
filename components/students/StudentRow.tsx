@@ -62,12 +62,13 @@ export function StudentRow({
         <div className="flex items-center gap-2">
           {dragHandle}
           {showBadge ? (
-            pod ? (
-              withChangeDropdown ? (
-                <PodBadgeWithDropdown studentId={student.id} pod={pod} />
-              ) : (
-                <PodBadge pod={pod} />
-              )
+            withChangeDropdown ? (
+              <PodBadgeWithDropdown
+                student={{ id: student.id, full_name: student.full_name }}
+                pod={pod ?? null}
+              />
+            ) : pod ? (
+              <PodBadge pod={pod} />
             ) : (
               <span className="inline-flex items-center text-[9px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 whitespace-nowrap">
                 Sin grupo

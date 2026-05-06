@@ -1,24 +1,32 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { displayName, sortByLastName } from "@/lib/utils/sort-students";
+import { computePopoverPosition, type Position } from "@/lib/utils/popover-position";
 import type { Student } from "@/lib/pods/create-pods";
 
 type Props = {
   students: Student[];
-  position: { top: number; left: number };
+  triggerRect: DOMRect;
   onSelect: (student: Student) => void;
   onClose: () => void;
 };
 
 export function PodAddStudentMenu({
   students,
-  position,
+  triggerRect,
   onSelect,
   onClose,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<Position | null>(null);
+
+  useLayoutEffect(() => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    setPosition(computePopoverPosition(triggerRect, rect.width, rect.height));
+  }, [triggerRect]);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -52,8 +60,9 @@ export function PodAddStudentMenu({
       aria-label="Añadir alumno al grupo"
       style={{
         position: "fixed",
-        top: position.top,
-        left: position.left,
+        top: position?.top ?? -9999,
+        left: position?.left ?? -9999,
+        visibility: position ? "visible" : "hidden",
         zIndex: 60,
       }}
       className="w-72 rounded-md border border-slate-200 bg-white shadow-lg max-h-72 overflow-y-auto"

@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { computePopoverPosition, type Position } from "@/lib/utils/popover-position";
 import type { Pod } from "@/lib/pods/create-pods";
 
 type Props = {
   pods: Pod[];
   currentPodId: string | null;
-  position: { top: number; left: number };
+  triggerRect: DOMRect;
   onSelect: (podId: string | null) => void;
   onClose: () => void;
 };
@@ -17,11 +18,18 @@ type Props = {
 export function PodChangeDropdown({
   pods,
   currentPodId,
-  position,
+  triggerRect,
   onSelect,
   onClose,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<Position | null>(null);
+
+  useLayoutEffect(() => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    setPosition(computePopoverPosition(triggerRect, rect.width, rect.height));
+  }, [triggerRect]);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -53,14 +61,15 @@ export function PodChangeDropdown({
       aria-label="Cambiar de grupo"
       style={{
         position: "fixed",
-        top: position.top,
-        left: position.left,
+        top: position?.top ?? -9999,
+        left: position?.left ?? -9999,
+        visibility: position ? "visible" : "hidden",
         zIndex: 60,
       }}
       className="w-60 rounded-md border border-slate-200 bg-white shadow-lg max-h-72 overflow-y-auto"
     >
       <div className="px-3 py-2 border-b border-slate-200 text-[10px] uppercase tracking-wide font-semibold text-slate-500">
-        Mover a otro grupo
+        {currentPodId === null ? "Asignar a un grupo" : "Mover a otro grupo"}
       </div>
       <ul className="py-1">
         {pods.map((pod) => {

@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { POD_EMOJIS } from "@/lib/pods/pod-emojis";
 import { cn } from "@/lib/utils/cn";
+import { computePopoverPosition, type Position } from "@/lib/utils/popover-position";
 import type { Pod } from "@/lib/pods/create-pods";
 
 type Props = {
   pod: Pod;
   emojisInUse: ReadonlySet<string>;
-  position: { top: number; left: number };
+  triggerRect: DOMRect;
   onSelect: (emoji: string, label: string) => void;
   onClose: () => void;
 };
@@ -17,11 +18,18 @@ type Props = {
 export function PodEmojiPicker({
   pod,
   emojisInUse,
-  position,
+  triggerRect,
   onSelect,
   onClose,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<Position | null>(null);
+
+  useLayoutEffect(() => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    setPosition(computePopoverPosition(triggerRect, rect.width, rect.height));
+  }, [triggerRect]);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -53,8 +61,9 @@ export function PodEmojiPicker({
       aria-label="Cambiar emoji del grupo"
       style={{
         position: "fixed",
-        top: position.top,
-        left: position.left,
+        top: position?.top ?? -9999,
+        left: position?.left ?? -9999,
+        visibility: position ? "visible" : "hidden",
         zIndex: 60,
       }}
       className="rounded-md border border-slate-200 bg-white shadow-lg p-2 w-[232px]"

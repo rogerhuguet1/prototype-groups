@@ -298,6 +298,7 @@ function DndStudentBodies({
                 index={i}
                 columns={FLAT_COLUMNS}
                 showBadge
+                withChangeDropdown
               />
             ))}
           </tbody>

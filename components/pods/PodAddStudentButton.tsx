@@ -12,10 +12,8 @@ type Props = {
   unassigned: Student[];
 };
 
-type Position = { top: number; left: number };
-
 export function PodAddStudentButton({ pod, unassigned }: Props) {
-  const [position, setPosition] = useState<Position | null>(null);
+  const [triggerRect, setTriggerRect] = useState<DOMRect | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const addStudentToPod = usePodsStore((s) => s.addStudentToPod);
 
@@ -31,19 +29,18 @@ export function PodAddStudentButton({ pod, unassigned }: Props) {
 
   function toggleOpen() {
     if (disabled) return;
-    if (position) {
-      setPosition(null);
+    if (triggerRect) {
+      setTriggerRect(null);
       return;
     }
     const el = buttonRef.current;
     if (!el) return;
-    const rect = el.getBoundingClientRect();
-    setPosition({ top: rect.bottom + 4, left: rect.left });
+    setTriggerRect(el.getBoundingClientRect());
   }
 
   function handleSelect(student: Student) {
     addStudentToPod({ id: student.id, full_name: student.full_name }, pod.id);
-    setPosition(null);
+    setTriggerRect(null);
   }
 
   return (
@@ -55,7 +52,7 @@ export function PodAddStudentButton({ pod, unassigned }: Props) {
         disabled={disabled}
         title={tooltip}
         aria-haspopup="menu"
-        aria-expanded={Boolean(position)}
+        aria-expanded={Boolean(triggerRect)}
         className={cn(
           "size-7 inline-flex items-center justify-center rounded-md border text-sm font-bold transition-colors",
           disabled
@@ -66,12 +63,12 @@ export function PodAddStudentButton({ pod, unassigned }: Props) {
         <Plus className="size-4" aria-hidden />
         <span className="sr-only">{tooltip}</span>
       </button>
-      {position && (
+      {triggerRect && (
         <PodAddStudentMenu
           students={unassigned}
-          position={position}
+          triggerRect={triggerRect}
           onSelect={handleSelect}
-          onClose={() => setPosition(null)}
+          onClose={() => setTriggerRect(null)}
         />
       )}
     </>

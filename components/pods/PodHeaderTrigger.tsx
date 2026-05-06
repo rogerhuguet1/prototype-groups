@@ -11,10 +11,8 @@ type Props = {
   pod: Pod;
 };
 
-type Position = { top: number; left: number };
-
 export function PodHeaderTrigger({ pod }: Props) {
-  const [position, setPosition] = useState<Position | null>(null);
+  const [triggerRect, setTriggerRect] = useState<DOMRect | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   const { allPods, changeEmoji } = usePodsStore(
@@ -30,19 +28,18 @@ export function PodHeaderTrigger({ pod }: Props) {
   );
 
   function toggle() {
-    if (position) {
-      setPosition(null);
+    if (triggerRect) {
+      setTriggerRect(null);
       return;
     }
     const el = buttonRef.current;
     if (!el) return;
-    const rect = el.getBoundingClientRect();
-    setPosition({ top: rect.bottom + 4, left: rect.left });
+    setTriggerRect(el.getBoundingClientRect());
   }
 
   function handleSelect(emoji: string, label: string) {
     changeEmoji(pod.id, emoji, label);
-    setPosition(null);
+    setTriggerRect(null);
   }
 
   return (
@@ -52,19 +49,19 @@ export function PodHeaderTrigger({ pod }: Props) {
         type="button"
         onClick={toggle}
         aria-haspopup="menu"
-        aria-expanded={Boolean(position)}
+        aria-expanded={Boolean(triggerRect)}
         aria-label={`Cambiar emoji del grupo (actualmente ${pod.emojiLabel})`}
         className="rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
         <PodBadge pod={pod} size="md" prefix="Grupo" withChevron />
       </button>
-      {position && (
+      {triggerRect && (
         <PodEmojiPicker
           pod={pod}
           emojisInUse={emojisInUse}
-          position={position}
+          triggerRect={triggerRect}
           onSelect={handleSelect}
-          onClose={() => setPosition(null)}
+          onClose={() => setTriggerRect(null)}
         />
       )}
     </>
