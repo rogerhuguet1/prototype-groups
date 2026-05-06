@@ -1,57 +1,34 @@
 # VisualGroups
 
-Gestión visual de grupos para Moodle Workplace 4.5 — by **ROBOTIX**.
+Herramienta visual para que el profesorado cree y evalúe grupos de
+alumnos, embebida en **Moodle Workplace 4.5** — by **ROBOTIX**.
 
-Iteración local sobre **Next.js 15 + Supabase**, construida por fases pequeñas y
-verificables (ver `CLAUDE.md` y `SKILLS.md` para arquitectura y convenciones).
+> **Estado actual: en reestructuración.** El enfoque del producto va a
+> cambiar. La raíz del repo está vacía a propósito; el código de las
+> iteraciones anteriores se conserva en `legacy/`.
 
-> El prototipo anterior (mocks en cliente, sin Supabase) está congelado en
-> `legacy/` solo como referencia. La nueva implementación vive en la raíz.
+## Documentos del proyecto
 
-## Stack
-
-- Next.js 15 (App Router)
-- React 19
-- TypeScript en modo `strict` (con `noUncheckedIndexedAccess`)
-- Tailwind v4 (`@theme` en CSS, sin `tailwind.config.*`)
-- `@supabase/supabase-js`
-
-## Arrancar en local
-
-```bash
-npm install
-cp .env.example .env.local       # rellena con tus claves de Supabase
-npm run dev
-# http://localhost:3000
-```
-
-## Variables de entorno
-
-Plantilla en `.env.example`. Copia a `.env.local` (gitignored):
-
-```
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
-```
-
-`.env.local` **nunca** se sube al repo. La `service_role` jamás aquí.
-
-## Scripts
-
-| Comando | Hace |
+| Archivo | Para qué |
 |---|---|
-| `npm run dev` | Servidor de desarrollo en `:3000` |
-| `npm run build` | Build de producción |
-| `npm run start` | Sirve el build |
-| `npm run typecheck` | `tsc --noEmit` |
+| `CLAUDE.md` | Visión, arquitectura, modelo de datos, plan por fases del producto. |
+| `SKILLS.md` | Rol del agente, principios técnicos, identidad visual, antipatrones. |
+| `PROTOTIPO_FUNCIONAL.md` | Especificación funcional del prototipo (12 funciones). |
+| `legacy/README.md` | Índice de prototipos anteriores. |
 
-## Estado del proyecto
+## Iteraciones anteriores
 
-Construyendo por fases. Estado actual: **Fase 2 cerrada — scaffold limpio**.
-Próxima fase: cliente Supabase + verificación de conexión.
+Conservadas en `legacy/`, congeladas:
 
-## Documentación
+- `legacy/canvas-prototype/` — primer prototipo, mocks en cliente,
+  canvas circular con DnD.
+- `legacy/simpler-prototype/` — segundo prototipo, conectado a Supabase
+  real, cumple las 12 funciones del prototipo funcional.
 
-- `CLAUDE.md` — qué construir (arquitectura, modelo, fases del producto).
-- `SKILLS.md` — cómo trabajar (rol, convenciones, identidad visual).
-- `PROTOTIPO_FUNCIONAL.md` — referencia funcional del prototipo.
+Cada uno es autocontenido (`npm install` + `npm run dev` desde su
+carpeta). Ver `legacy/README.md` para más detalle.
+
+## Próximos pasos
+
+Pendiente: definir el nuevo enfoque y empezar la siguiente iteración en
+la raíz desde cero.

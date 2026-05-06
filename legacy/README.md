@@ -1,25 +1,35 @@
 # legacy/
 
-Prototipo Fase 0 de **VisualGroups** congelado el 2026-05-06.
+Prototipos previos de **VisualGroups**, congelados como referencia.
+**No se mantienen ni se actualizan.** Sirven para no perder el trabajo
+hecho mientras la nueva versión cambia de enfoque y reestructura.
 
-Stack: Next.js 15 + React 19 + TypeScript + Tailwind v4 + Zustand + @dnd-kit.
-Datos en cliente (mocks), sin Supabase ni Moodle conectados. Canvas circular
-con drag & drop, alternativa accesible por menú, evaluación local con
-transiciones, historial y configuración mockeados.
+## Índice
 
-Conservado solo como **referencia visual y técnica**. La nueva implementación
-contra Supabase vive en la raíz del repo.
+### `canvas-prototype/`
+Primer prototipo (mayo 2026). Stack: Next.js 15 + React 19 + Tailwind v4
++ Zustand + @dnd-kit. **Sin Supabase ni Moodle**, datos mock en cliente.
+Canvas circular con drag & drop, alternativa accesible por menú,
+evaluación local con transiciones, historial y configuración mockeados.
 
-## Cómo arrancarlo (opcional)
+### `simpler-prototype/`
+Segundo prototipo (mayo 2026). Stack: Next.js 15 + React 19 + Tailwind v4
++ @dnd-kit + `@supabase/supabase-js`. **Conectado a Supabase real**.
+Layout 3 zonas (sidebar / canvas / detail), DnD, modales y toasts
+propios. Cumple las 12 funciones de `PROTOTIPO_FUNCIONAL.md`:
+listar alumnos, crear/renombrar/eliminar grupo, asignar/mover/desasignar,
+distribuir automáticamente, evaluación con override individual y estado,
+guardar sesión (snapshot archivado), historial, configuración.
+
+## Cómo arrancar uno
+
+Cada subcarpeta es autocontenida (su propio `package.json`):
 
 ```bash
-cd legacy
+cd legacy/<subcarpeta>
 npm install
 npm run dev
-# http://localhost:3000
 ```
 
-## No actualizar
-
-Esta carpeta no recibe cambios. Si algo del prototipo viejo es útil, se
-extrae al código nuevo (raíz) en una iteración explícita.
+`simpler-prototype/` necesita `.env.local` con
+`NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
