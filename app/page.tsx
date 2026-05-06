@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { CLASS_ID, SESSION_ID } from "@/lib/constants";
 import { listStudentsByClass } from "@/lib/data/students";
 import { listGroupsBySession } from "@/lib/data/groups";
-import { listMembersByGroupIds } from "@/lib/data/group-members";
+import {
+  assignStudentToGroup,
+  listMembersByGroupIds,
+  unassignStudent,
+} from "@/lib/data/group-members";
 import type { Group, GroupMember, Student } from "@/lib/types";
 
 interface Data {
@@ -18,32 +22,33 @@ type State =
   | { status: "ok"; data: Data }
   | { status: "error"; message: string };
 
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 export default function HomePage() {
   const [state, setState] = useState<State>({ status: "loading" });
+  const [mutating, setMutating] = useState(false);
+  const [mutError, setMutError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const [students, groups] = await Promise.all([
-          listStudentsByClass(CLASS_ID),
-          listGroupsBySession(SESSION_ID),
-        ]);
-        const members = await listMembersByGroupIds(groups.map((g) => g.id));
-        if (!cancelled) setState({ status: "ok", data: { students, groups, members } });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        if (!cancelled) setState({ status: "error", message });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const loadAll = useCallback(async () => {
+    try {
+      const [students, groups] = await Promise.all([
+        listStudentsByClass(CLASS_ID),
+        listGroupsBySession(SESSION_ID),
+      ]);
+      const members = await listMembersByGroupIds(groups.map((g) => g.id));
+      setState({ status: "ok", data: { students, groups, members } });
+    } catch (err) {
+      setState({ status: "error", message: errorMessage(err) });
+    }
   }, []);
 
-  if (state.status === "loading") {
-    return <Centered>Cargando datos…</Centered>;
-  }
+  useEffect(() => {
+    void loadAll();
+  }, [loadAll]);
+
+  if (state.status === "loading") return <Centered>Cargando datos…</Centered>;
   if (state.status === "error") {
     return (
       <Centered>
@@ -55,18 +60,59 @@ export default function HomePage() {
   }
 
   const { students, groups, members } = state.data;
+  const groupIds = groups.map((g) => g.id);
+
+  async function reloadMembers() {
+    try {
+      const fresh = await listMembersByGroupIds(groupIds);
+      setState((prev) =>
+        prev.status === "ok"
+          ? { status: "ok", data: { ...prev.data, members: fresh } }
+          : prev,
+      );
+    } catch (err) {
+      setMutError(errorMessage(err));
+    }
+  }
+
+  async function assign(studentId: string, groupId: string) {
+    setMutating(true);
+    setMutError(null);
+    try {
+      await assignStudentToGroup(studentId, groupId, groupIds);
+      await reloadMembers();
+    } catch (err) {
+      setMutError(errorMessage(err));
+    } finally {
+      setMutating(false);
+    }
+  }
+
+  async function unassign(studentId: string) {
+    setMutating(true);
+    setMutError(null);
+    try {
+      await unassignStudent(studentId, groupIds);
+      await reloadMembers();
+    } catch (err) {
+      setMutError(errorMessage(err));
+    } finally {
+      setMutating(false);
+    }
+  }
+
   const assignedIds = new Set(
     members.map((m) => m.student_id).filter((id): id is string => id !== null),
   );
   const unassigned = students.filter((s) => !assignedIds.has(s.id));
 
   const studentsById = new Map(students.map((s) => [s.id, s]));
-  const groupsWithMembers = groups.map((g) => ({
-    group: g,
+  const groupsWithMembers = groups.map((group) => ({
+    group,
     members: members
-      .filter((m) => m.group_id === g.id)
-      .map((m) => (m.student_id ? studentsById.get(m.student_id) : null))
-      .filter((s): s is Student => s !== undefined && s !== null),
+      .filter((m) => m.group_id === group.id)
+      .map((m) => (m.student_id ? studentsById.get(m.student_id) : undefined))
+      .filter((s): s is Student => s !== undefined),
   }));
 
   return (
@@ -80,6 +126,11 @@ export default function HomePage() {
           {students.length} alumnos · {groups.length} grupos · {members.length}{" "}
           asignaciones
         </p>
+        {mutError && (
+          <p className="mt-2 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            {mutError}
+          </p>
+        )}
       </header>
 
       <div className="mx-auto grid max-w-6xl gap-4 md:grid-cols-[280px_1fr]">
@@ -94,14 +145,21 @@ export default function HomePage() {
               {unassigned.map((s) => (
                 <li
                   key={s.id}
-                  className="rounded border border-slate-200 px-2 py-1 text-sm text-slate-800"
+                  className="flex items-center justify-between gap-2 rounded border border-slate-200 px-2 py-1 text-sm"
                 >
-                  {s.full_name}
-                  {s.performance_score !== null && (
-                    <span className="ml-2 text-xs text-slate-500">
-                      {s.performance_score.toFixed(1)}
-                    </span>
-                  )}
+                  <span className="truncate text-slate-800">
+                    {s.full_name}
+                    {s.performance_score !== null && (
+                      <span className="ml-2 text-xs text-slate-500">
+                        {s.performance_score.toFixed(1)}
+                      </span>
+                    )}
+                  </span>
+                  <GroupSelect
+                    groups={groups}
+                    disabled={mutating}
+                    onPick={(groupId) => assign(s.id, groupId)}
+                  />
                 </li>
               ))}
             </ul>
@@ -109,29 +167,50 @@ export default function HomePage() {
         </aside>
 
         <section className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {groupsWithMembers.map(({ group, members }) => (
+          {groupsWithMembers.map(({ group, members: gms }) => (
             <article
               key={group.id}
               className="rounded-xl border border-slate-200 bg-white p-4"
             >
               <h3 className="text-sm font-semibold text-slate-900">
                 {group.name}{" "}
-                <span className="font-normal text-slate-500">
-                  ({members.length})
-                </span>
+                <span className="font-normal text-slate-500">({gms.length})</span>
               </h3>
-              {members.length === 0 ? (
+              {gms.length === 0 ? (
                 <p className="mt-2 text-xs text-slate-500">Sin miembros.</p>
               ) : (
                 <ul className="mt-2 flex flex-col gap-1">
-                  {members.map((s) => (
-                    <li key={s.id} className="text-sm text-slate-800">
-                      {s.full_name}
-                      {s.performance_score !== null && (
-                        <span className="ml-2 text-xs text-slate-500">
-                          {s.performance_score.toFixed(1)}
-                        </span>
-                      )}
+                  {gms.map((s) => (
+                    <li
+                      key={s.id}
+                      className="flex items-center justify-between gap-2 text-sm"
+                    >
+                      <span className="truncate text-slate-800">
+                        {s.full_name}
+                        {s.performance_score !== null && (
+                          <span className="ml-2 text-xs text-slate-500">
+                            {s.performance_score.toFixed(1)}
+                          </span>
+                        )}
+                      </span>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <GroupSelect
+                          groups={groups}
+                          excludeId={group.id}
+                          disabled={mutating}
+                          label="Mover…"
+                          onPick={(groupId) => assign(s.id, groupId)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => unassign(s.id)}
+                          disabled={mutating}
+                          title="Devolver a sin asignar"
+                          className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+                        >
+                          ←
+                        </button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -141,6 +220,44 @@ export default function HomePage() {
         </section>
       </div>
     </main>
+  );
+}
+
+interface GroupSelectProps {
+  groups: Group[];
+  excludeId?: string;
+  disabled?: boolean;
+  label?: string;
+  onPick: (groupId: string) => void;
+}
+
+function GroupSelect({
+  groups,
+  excludeId,
+  disabled,
+  label = "Asignar…",
+  onPick,
+}: GroupSelectProps) {
+  return (
+    <select
+      value=""
+      disabled={disabled}
+      onChange={(e) => {
+        const value = e.target.value;
+        if (value) onPick(value);
+        e.target.value = "";
+      }}
+      className="rounded border border-slate-200 bg-white px-1 py-1 text-xs text-slate-700 disabled:opacity-40"
+    >
+      <option value="">{label}</option>
+      {groups
+        .filter((g) => g.id !== excludeId)
+        .map((g) => (
+          <option key={g.id} value={g.id}>
+            {g.name}
+          </option>
+        ))}
+    </select>
   );
 }
 
