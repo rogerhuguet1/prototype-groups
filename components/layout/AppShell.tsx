@@ -7,6 +7,7 @@ import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { ScoreLegend } from "@/components/students/ScoreLegend";
 import { StudentTable } from "@/components/students/StudentTable";
+import { PodControls } from "@/components/pods/PodControls";
 
 export function AppShell() {
   const classesQuery = useClasses();
@@ -39,6 +40,7 @@ export function AppShell() {
           students={students}
         />
         <ScoreLegend updatedAt="6/05/2026 12:00" />
+        <PodControls />
         <section className="flex-1 p-6 overflow-auto">
           {classesQuery.isLoading ? (
             <div className="text-slate-500 text-sm">Cargando cursos…</div>

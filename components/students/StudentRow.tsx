@@ -8,27 +8,53 @@ import {
   progressCellFor,
   type ProgressCell,
 } from "@/lib/utils/progress-cells";
+import { PodBadge } from "@/components/pods/PodBadge";
 import type { FlatColumn } from "@/lib/data/units";
 import type { StudentRow as StudentRowType } from "@/types/database";
+import type { Pod } from "@/lib/pods/create-pods";
 
 type Props = {
   student: StudentRowType;
   index: number;
   columns: readonly FlatColumn[];
+  pod?: Pod | undefined;
+  showBadge?: boolean;
+  podColorBorder?: boolean;
 };
 
-export function StudentRow({ student, index, columns }: Props) {
+export function StudentRow({
+  student,
+  index,
+  columns,
+  pod,
+  showBadge = false,
+  podColorBorder = false,
+}: Props) {
   const stripe = index % 2 === 1 ? "bg-slate-50/60" : "bg-white";
   const name = displayName(student.full_name);
   return (
     <tr className={cn("group", stripe)}>
       <td
         className={cn(
-          "px-4 py-1.5 sticky left-0 z-10 border-b border-slate-100 min-w-[280px]",
+          "px-4 py-1.5 sticky left-0 z-10 border-b border-slate-100 min-w-[320px]",
           stripe,
         )}
+        style={
+          podColorBorder && pod
+            ? { boxShadow: `inset 4px 0 0 0 ${pod.color.hex}` }
+            : undefined
+        }
       >
         <div className="flex items-center gap-2">
+          {showBadge ? (
+            pod ? (
+              <PodBadge pod={pod} />
+            ) : (
+              <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 whitespace-nowrap">
+                Sin POD
+              </span>
+            )
+          ) : null}
           <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-800 text-[11px] font-semibold">
             {student.initials ??
               student.full_name
