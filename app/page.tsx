@@ -475,6 +475,24 @@ export default function HomePage() {
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onDragCancel={() => setActiveDragStudentId(null)}
+      accessibility={{
+        screenReaderInstructions: {
+          draggable:
+            "Para mover un alumno: pulsa Espacio para cogerlo. Usa las flechas para moverlo. Suéltalo con Espacio. Cancela con Escape.",
+        },
+        announcements: {
+          onDragStart: () => "Alumno seleccionado para mover.",
+          onDragOver: ({ over }) =>
+            over
+              ? over.id === "unassigned"
+                ? "Sobre la zona Sin asignar."
+                : "Sobre un grupo válido."
+              : "Fuera de cualquier zona soltable.",
+          onDragEnd: ({ over }) =>
+            over ? "Alumno colocado." : "Movimiento cancelado.",
+          onDragCancel: () => "Movimiento cancelado.",
+        },
+      }}
     >
       <main className="min-h-screen bg-slate-50 p-4 sm:p-6">
         <header className="mx-auto mb-4 flex max-w-7xl flex-wrap items-start justify-between gap-3">
@@ -572,8 +590,22 @@ export default function HomePage() {
             )}
           </section>
 
-          {/* Detail panel */}
-          <div className="xl:sticky xl:top-4 xl:h-[calc(100vh-7rem)]">
+          {/*
+            Detail panel.
+            - En xl: tercera columna sticky con altura limitada.
+            - En md/lg: ocupa el ancho de las dos columnas (col-span-2)
+              cuando hay seleccionado; cuando no, oculto para no robar
+              espacio.
+            - En móvil: una columna (sin span), oculto si no hay
+              seleccionado.
+          */}
+          <div
+            className={[
+              "md:col-span-2 xl:col-span-1",
+              "xl:sticky xl:top-4 xl:h-[calc(100vh-7rem)]",
+              selected ? "block" : "hidden xl:block",
+            ].join(" ")}
+          >
             {selected ? (
               <DetailPanel
                 group={selected.group}
@@ -594,7 +626,7 @@ export default function HomePage() {
                 onUnassign={(studentId) => unassign(studentId)}
               />
             ) : (
-              <aside className="flex h-full min-h-[200px] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+              <aside className="hidden h-full min-h-[200px] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500 xl:flex">
                 Selecciona un grupo para ver su detalle.
               </aside>
             )}
