@@ -11,6 +11,10 @@ export const podGroupingSchema = z
       .int("Debe ser un número entero")
       .positive("Debe ser mayor que 0"),
   })
+  .refine((v) => v.robotCount <= 15, {
+    message: "Máximo 15 grupos permitidos",
+    path: ["robotCount"],
+  })
   .refine((v) => v.robotCount <= v.presentCount, {
     message: "No puede haber más robots que alumnos",
     path: ["robotCount"],

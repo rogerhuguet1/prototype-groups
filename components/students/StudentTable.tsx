@@ -274,7 +274,7 @@ function DndStudentBodies({
                 className="w-full flex items-center justify-center gap-2 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 bg-white hover:bg-slate-50 border-y border-dashed border-slate-300 hover:border-slate-400 transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
               >
                 <Plus className="size-4" aria-hidden />
-                Crear nuevo POD
+                Crear nuevo grupo
               </button>
             </td>
           </tr>

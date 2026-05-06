@@ -24,10 +24,10 @@ export function PodAddStudentButton({ pod, unassigned }: Props) {
   const disabled = isFull || noUnassigned;
 
   const tooltip = isFull
-    ? "POD lleno"
+    ? "Grupo lleno"
     : noUnassigned
       ? "No hay alumnos disponibles"
-      : "Añadir alumno al POD";
+      : "Añadir alumno al grupo";
 
   function toggleOpen() {
     if (disabled) return;

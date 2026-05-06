@@ -22,7 +22,7 @@ export function PodControls() {
           {viewWithPods && <PodSortControl />}
         </div>
         <p className="text-xs text-slate-600">
-          {podCount} POD{podCount === 1 ? "" : "s"} · {totalAssigned} alumnos
+          {podCount} grupo{podCount === 1 ? "" : "s"} · {totalAssigned} alumnos
           asignados
         </p>
       </div>

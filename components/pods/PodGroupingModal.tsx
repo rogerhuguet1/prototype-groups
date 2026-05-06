@@ -75,8 +75,8 @@ export function PodGroupingModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="Agrupar por PODs"
-      description={`Hay ${totalStudents} alumnos en la clase. Cada POD será de 3 a 4 alumnos.`}
+      title="Agrupar"
+      description={`Hay ${totalStudents} alumnos en la clase. Cada grupo será de 3 a 4 alumnos.`}
     >
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <Input
@@ -96,10 +96,12 @@ export function PodGroupingModal({
           type="number"
           inputMode="numeric"
           min={1}
+          max={15}
           step={1}
           value={robotCount}
           onChange={(e) => setRobotCount(e.target.value)}
           error={errors.robotCount}
+          hint="Máximo 15 grupos por sesión"
         />
         <div className="flex justify-end gap-2 pt-2">
           <Button
@@ -110,7 +112,7 @@ export function PodGroupingModal({
             Cancelar
           </Button>
           <Button type="submit" variant="primary">
-            Crear PODs
+            Crear Grupos
           </Button>
         </div>
       </form>

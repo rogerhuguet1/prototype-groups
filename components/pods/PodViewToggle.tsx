@@ -9,7 +9,7 @@ export function PodViewToggle() {
 
   return (
     <Checkbox
-      label="Vista con POD"
+      label="Vista con Grupos"
       checked={viewWithPods}
       onChange={(e) => setViewWithPods(e.target.checked)}
     />

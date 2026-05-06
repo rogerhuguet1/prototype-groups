@@ -49,7 +49,7 @@ export function PodAddStudentMenu({
     <div
       ref={ref}
       role="menu"
-      aria-label="Añadir alumno al POD"
+      aria-label="Añadir alumno al grupo"
       style={{
         position: "fixed",
         top: position.top,

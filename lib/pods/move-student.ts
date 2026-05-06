@@ -11,10 +11,10 @@ export type MoveError =
   | "source-pod-not-found";
 
 export const MOVE_ERROR_MESSAGES: Record<MoveError, string> = {
-  "student-not-found": "El alumno no está en ningún POD",
-  "destination-pod-not-found": "El POD destino no existe",
-  "destination-pod-full": "El POD destino está lleno",
-  "source-pod-not-found": "POD de origen no encontrado",
+  "student-not-found": "El alumno no está en ningún grupo",
+  "destination-pod-not-found": "El grupo destino no existe",
+  "destination-pod-full": "El grupo destino está lleno",
+  "source-pod-not-found": "Grupo de origen no encontrado",
 };
 
 function findPodByStudent(pods: Pod[], studentId: string): Pod | undefined {

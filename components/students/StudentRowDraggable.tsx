@@ -35,7 +35,7 @@ export function StudentRowDraggable({ student, index, columns, pod }: Props) {
       isDragging={isDragging}
       dragHandle={
         <DragHandle
-          label={`Arrastrar a otro POD: ${student.full_name}`}
+          label={`Arrastrar a otro grupo: ${student.full_name}`}
           {...attributes}
           {...listeners}
         />
