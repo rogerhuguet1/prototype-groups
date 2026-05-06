@@ -32,7 +32,7 @@ export function AppShell() {
         activeClassId={classId}
         onSelectClass={setClassId}
       />
-      <main className="flex-1 flex flex-col min-w-0 bg-slate-50">
+      <main className="flex-1 flex flex-col min-w-0 bg-white">
         <TopBar
           classes={classes}
           activeClassId={classId}
@@ -41,13 +41,17 @@ export function AppShell() {
         />
         <ScoreLegend updatedAt="6/05/2026 12:00" />
         <PodControls />
-        <section className="flex-1 p-6 overflow-auto">
+        <section className="flex-1 overflow-auto">
           {classesQuery.isLoading ? (
-            <div className="text-slate-500 text-sm">Cargando cursos…</div>
+            <div className="px-6 py-4 text-slate-500 text-sm">
+              Cargando cursos…
+            </div>
           ) : studentsQuery.isLoading ? (
-            <div className="text-slate-500 text-sm">Cargando alumnos…</div>
+            <div className="px-6 py-4 text-slate-500 text-sm">
+              Cargando alumnos…
+            </div>
           ) : studentsQuery.error ? (
-            <div className="rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+            <div className="m-6 rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
               Error al cargar alumnos:{" "}
               {(studentsQuery.error as Error).message}
             </div>

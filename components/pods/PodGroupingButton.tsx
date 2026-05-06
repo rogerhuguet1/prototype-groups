@@ -33,12 +33,12 @@ export function PodGroupingButton({ students }: Props) {
           </Button>
         )}
         <Button
-          variant="primary"
+          variant="secondary"
           onClick={() => setOpen(true)}
           disabled={students.length === 0}
-          className="uppercase tracking-wide"
+          className="text-[11px] font-bold uppercase tracking-wider px-3 py-2"
         >
-          <Users className="size-4" aria-hidden />
+          <Users className="size-3.5" aria-hidden />
           Agrupar
         </Button>
       </div>

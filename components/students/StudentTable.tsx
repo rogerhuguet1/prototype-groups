@@ -66,7 +66,7 @@ export function StudentTable({ students }: Props) {
   const sortedAlpha = sortByLastName(students);
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+    <div className="bg-white border-y border-slate-200">
       <div className="overflow-x-auto">
         <table className="w-full text-xs border-separate border-spacing-0">
           <TableHeader />
@@ -94,16 +94,6 @@ export function StudentTable({ students }: Props) {
           )}
         </table>
       </div>
-      <div className="px-4 py-2 border-t border-slate-200 bg-slate-50 text-xs text-slate-500 flex items-center justify-between">
-        <span>
-          {students.length} alumno{students.length === 1 ? "" : "s"}
-        </span>
-        {viewWithPods && pods.length > 0 && (
-          <span>
-            {pods.length} POD{pods.length === 1 ? "" : "s"}
-          </span>
-        )}
-      </div>
     </div>
   );
 }
@@ -115,7 +105,7 @@ function TableHeader() {
         <th
           rowSpan={2}
           scope="col"
-          className="text-left font-semibold text-slate-600 px-4 py-2 sticky left-0 z-20 bg-slate-50 border-b-2 border-slate-200 align-bottom min-w-[320px]"
+          className="text-left font-bold text-[11px] text-slate-700 px-3 py-2 sticky left-0 z-20 bg-[#e8eef1] border-b border-slate-300 align-middle min-w-[240px]"
         >
           Alumno
         </th>
@@ -124,12 +114,12 @@ function TableHeader() {
             key={unit.number}
             colSpan={unit.activities.length}
             scope="colgroup"
-            className="text-center font-semibold text-slate-700 px-3 py-2 bg-slate-50 border-l border-slate-200 border-b border-slate-200"
+            className="text-center font-semibold text-slate-700 px-2 py-2 bg-[#e8eef1] border-l border-slate-300 border-b border-slate-300"
           >
-            <div className="text-[10px] uppercase tracking-wide text-slate-400">
-              {unit.code} · Unidad {unit.number}
+            <div className="text-[10px] leading-tight font-semibold text-slate-700">
+              {unit.code} - Unidad {unit.number}:
             </div>
-            <div className="text-[11px] text-slate-700 leading-snug max-w-[240px] mx-auto truncate">
+            <div className="text-[10px] leading-tight text-slate-700">
               {unit.title}
             </div>
           </th>
@@ -142,12 +132,12 @@ function TableHeader() {
             <th
               key={c.activity.key}
               scope="col"
-              className={`text-center font-medium text-slate-500 px-1 py-2 bg-slate-50 border-b-2 border-slate-200 ${
-                isUnitStart ? "border-l border-slate-200" : ""
+              className={`align-bottom text-left font-normal text-slate-600 px-0 py-1 bg-[#f0f4f6] border-b border-slate-300 ${
+                isUnitStart ? "border-l border-slate-300" : ""
               }`}
-              style={{ minWidth: 56 }}
+              style={{ minWidth: 36, height: 92 }}
             >
-              <div className="rotate-[-30deg] origin-bottom-left whitespace-nowrap text-[10px] text-slate-500 ml-2 mb-1">
+              <div className="origin-bottom-left rotate-[-55deg] translate-x-[18px] -translate-y-1 whitespace-nowrap text-[10px] text-slate-600">
                 {c.activity.label}
               </div>
             </th>

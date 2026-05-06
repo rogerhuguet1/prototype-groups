@@ -47,7 +47,7 @@ export function StudentRow({
     >
       <td
         className={cn(
-          "px-3 py-1.5 sticky left-0 z-10 border-b border-slate-100 min-w-[320px]",
+          "px-3 py-1 sticky left-0 z-10 border-b border-slate-200 min-w-[240px]",
           stripe,
         )}
         style={
@@ -62,30 +62,18 @@ export function StudentRow({
             pod ? (
               <PodBadge pod={pod} />
             ) : (
-              <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 whitespace-nowrap">
+              <span className="inline-flex items-center text-[9px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 whitespace-nowrap">
                 Sin POD
               </span>
             )
           ) : null}
-          <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-800 text-[11px] font-semibold">
-            {student.initials ??
-              student.full_name
-                .split(/\s+/)
-                .map((p) => p[0])
-                .filter(Boolean)
-                .slice(0, 2)
-                .join("")
-                .toUpperCase()}
-          </span>
-          <span className="text-[12px] font-semibold tracking-tight text-slate-800 truncate">
-            <a
-              href="#"
-              className="text-blue-700 hover:underline"
-              onClick={(e) => e.preventDefault()}
-            >
-              {name}
-            </a>
-          </span>
+          <a
+            href="#"
+            onClick={(e) => e.preventDefault()}
+            className="text-[12px] font-semibold text-blue-700 hover:text-blue-900 hover:underline tracking-tight truncate"
+          >
+            {name}
+          </a>
         </div>
       </td>
       {columns.map((c, i) => {
@@ -95,7 +83,7 @@ export function StudentRow({
           <td
             key={c.activity.key}
             className={cn(
-              "px-1.5 py-1.5 text-center border-b border-slate-100",
+              "px-1 py-1 text-center border-b border-slate-200",
               isUnitStart && "border-l border-slate-200",
             )}
           >
@@ -110,26 +98,29 @@ export function StudentRow({
 function ProgressCellView({ cell }: { cell: ProgressCell }) {
   if (cell.kind === "empty") {
     return (
-      <span className="inline-block size-6 rounded bg-slate-100" aria-hidden />
+      <span
+        className="inline-block size-5 rounded bg-slate-200/60"
+        aria-hidden
+      />
     );
   }
   if (cell.kind === "completed") {
     return (
       <span
-        className="inline-flex size-6 items-center justify-center rounded bg-emerald-500 text-white"
+        className="inline-flex size-5 items-center justify-center rounded bg-green-600 text-white"
         aria-label="Completada sin calificación"
       >
-        <Check className="size-4" aria-hidden />
+        <Check className="size-3.5" strokeWidth={3} aria-hidden />
       </span>
     );
   }
   if (cell.kind === "failed") {
     return (
       <span
-        className="inline-flex size-6 items-center justify-center rounded bg-rose-500 text-white"
+        className="inline-flex size-5 items-center justify-center rounded bg-red-500 text-white"
         aria-label="No superada"
       >
-        <X className="size-4" aria-hidden />
+        <X className="size-3.5" strokeWidth={3} aria-hidden />
       </span>
     );
   }
@@ -137,12 +128,12 @@ function ProgressCellView({ cell }: { cell: ProgressCell }) {
   return (
     <span
       className={cn(
-        "inline-flex size-6 items-center justify-center rounded text-[11px] font-bold",
+        "inline-flex size-5 items-center justify-center rounded text-[10px] font-bold leading-none",
         styles.bg,
         styles.text,
       )}
     >
-      {cell.value.toString().replace(".", ",")}
+      {Math.round(cell.value)}
     </span>
   );
 }

@@ -49,29 +49,29 @@ export const BAND_STYLES: Record<
   { bg: string; text: string; border: string }
 > = {
   insuficiente: {
-    bg: "bg-rose-500",
+    bg: "bg-red-500",
     text: "text-white",
-    border: "border-rose-600",
+    border: "border-red-600",
   },
   suficiente: {
-    bg: "bg-amber-400",
-    text: "text-amber-950",
-    border: "border-amber-500",
+    bg: "bg-orange-500",
+    text: "text-white",
+    border: "border-orange-600",
   },
   bien: {
-    bg: "bg-yellow-300",
+    bg: "bg-yellow-400",
     text: "text-yellow-950",
-    border: "border-yellow-400",
+    border: "border-yellow-500",
   },
   notable: {
-    bg: "bg-lime-400",
+    bg: "bg-lime-500",
     text: "text-lime-950",
-    border: "border-lime-500",
+    border: "border-lime-600",
   },
   excelente: {
-    bg: "bg-emerald-500",
+    bg: "bg-green-600",
     text: "text-white",
-    border: "border-emerald-600",
+    border: "border-green-700",
   },
 };
 

@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  ChevronDown,
-  ChevronRight,
-  Users,
-  BookOpen,
-  CalendarDays,
-  FileBarChart2,
-  LifeBuoy,
-} from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils/cn";
 import type { ClassRow } from "@/types/database";
@@ -20,60 +12,41 @@ type Props = {
 };
 
 const SUBITEMS = [
-  { key: "alumnado", label: "Mi alumnado", icon: Users, active: true },
-  { key: "cursos", label: "Mis cursos", icon: BookOpen, active: false },
-  {
-    key: "sesiones",
-    label: "Mis sesiones docentes",
-    icon: CalendarDays,
-    active: false,
-  },
-  { key: "reporte", label: "Mi reporte", icon: FileBarChart2, active: false },
-  { key: "soporte", label: "Mi soporte", icon: LifeBuoy, active: false },
+  { key: "alumnado", label: "Mi alumnado" },
+  { key: "cursos", label: "Mis cursos" },
+  { key: "sesiones", label: "Mis sesiones docentes" },
+  { key: "reporte", label: "Mi reporte" },
+  { key: "soporte", label: "Mi soporte" },
 ] as const;
 
-const FAKE_COURSES = ["1º ESO", "2º ESO", "3º ESO", "4º ESO"] as const;
+const COURSES = ["1º ESO", "2º ESO", "3º ESO"] as const;
 
-export function Sidebar({ classes, activeClassId, onSelectClass }: Props) {
-  const [expandedFake, setExpandedFake] = useState<string | null>(null);
+export function Sidebar(_props: Props) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({
+    "1º ESO": true,
+    "2º ESO": true,
+    "3º ESO": true,
+  });
 
   return (
-    <aside className="w-64 shrink-0 bg-slate-800 text-slate-100 flex flex-col">
-      <div className="px-5 py-5 border-b border-slate-700">
-        <p className="text-base font-bold tracking-wider text-white">
-          ROBOTIX
-        </p>
-        <p className="text-[10px] uppercase tracking-widest text-slate-400 mt-0.5">
-          C360 · Panel docente
-        </p>
+    <aside className="w-56 shrink-0 bg-[#1f2937] text-slate-100 flex flex-col">
+      <div className="px-4 py-4 border-b border-white/10">
+        <p className="text-sm font-bold tracking-wider text-white">ROBOTIX</p>
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-3">
-        {classes.map((c) => (
+      <nav className="flex-1 overflow-y-auto py-2">
+        {COURSES.map((label) => (
           <CourseSection
-            key={c.id}
-            label={c.name}
-            expanded={true}
-            active={c.id === activeClassId}
-            onToggle={() => onSelectClass(c.id)}
-          />
-        ))}
-
-        {FAKE_COURSES.map((label) => (
-          <FakeCourseSection
             key={label}
             label={label}
-            expanded={expandedFake === label}
+            expanded={expanded[label] ?? false}
+            activeSub={label === "1º ESO" ? "alumnado" : null}
             onToggle={() =>
-              setExpandedFake((prev) => (prev === label ? null : label))
+              setExpanded((prev) => ({ ...prev, [label]: !prev[label] }))
             }
           />
         ))}
       </nav>
-
-      <div className="border-t border-slate-700 px-5 py-3 text-[11px] text-slate-400">
-        Prototipo · v0.1
-      </div>
     </aside>
   );
 }
@@ -81,69 +54,20 @@ export function Sidebar({ classes, activeClassId, onSelectClass }: Props) {
 function CourseSection({
   label,
   expanded,
-  active,
+  activeSub,
   onToggle,
 }: {
   label: string;
   expanded: boolean;
-  active: boolean;
+  activeSub: string | null;
   onToggle: () => void;
 }) {
   return (
-    <div className="mb-1">
+    <div>
       <button
         type="button"
         onClick={onToggle}
-        className={cn(
-          "w-full flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider",
-          active ? "text-white" : "text-slate-300 hover:text-white",
-        )}
-      >
-        {expanded ? (
-          <ChevronDown className="size-3" aria-hidden />
-        ) : (
-          <ChevronRight className="size-3" aria-hidden />
-        )}
-        <span className="truncate">{label}</span>
-      </button>
-      {expanded && (
-        <ul className="mt-0.5">
-          {SUBITEMS.map(({ key, label, icon: Icon, active: isActive }) => (
-            <li key={key}>
-              <span
-                className={cn(
-                  "flex items-center gap-2 mx-2 px-3 py-1.5 rounded-md text-sm",
-                  isActive
-                    ? "bg-sky-100 text-slate-900 font-medium"
-                    : "text-slate-300 hover:bg-slate-700 cursor-default",
-                )}
-              >
-                <Icon className="size-4 shrink-0" aria-hidden />
-                <span className="truncate">{label}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function FakeCourseSection({
-  label,
-  expanded,
-  onToggle,
-}: {
-  label: string;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <div className="mb-1">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 hover:text-slate-200"
+        className="w-full flex items-center gap-1 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white/90 hover:text-white"
       >
         {expanded ? (
           <ChevronDown className="size-3" aria-hidden />
@@ -153,15 +77,26 @@ function FakeCourseSection({
         <span>{label}</span>
       </button>
       {expanded && (
-        <ul className="mt-0.5">
-          {SUBITEMS.map(({ key, label, icon: Icon }) => (
-            <li key={key}>
-              <span className="flex items-center gap-2 mx-2 px-3 py-1.5 rounded-md text-sm text-slate-400 cursor-default">
-                <Icon className="size-4 shrink-0" aria-hidden />
-                <span className="truncate">{label}</span>
-              </span>
-            </li>
-          ))}
+        <ul>
+          {SUBITEMS.map(({ key, label: subLabel }) => {
+            const isActive = activeSub === key;
+            return (
+              <li key={key}>
+                <a
+                  href="#"
+                  onClick={(e) => e.preventDefault()}
+                  className={cn(
+                    "flex items-center px-6 py-1.5 text-[12px]",
+                    isActive
+                      ? "bg-cyan-300/90 text-slate-900 font-semibold"
+                      : "text-slate-300 hover:text-white hover:bg-white/5",
+                  )}
+                >
+                  {subLabel}
+                </a>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
