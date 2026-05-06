@@ -12,6 +12,7 @@ import { PodBadge } from "@/components/pods/PodBadge";
 import type { FlatColumn } from "@/lib/data/units";
 import type { StudentRow as StudentRowType } from "@/types/database";
 import type { Pod } from "@/lib/pods/create-pods";
+import type { Ref, ReactNode } from "react";
 
 type Props = {
   student: StudentRowType;
@@ -20,6 +21,9 @@ type Props = {
   pod?: Pod | undefined;
   showBadge?: boolean;
   podColorBorder?: boolean;
+  rowRef?: Ref<HTMLTableRowElement>;
+  dragHandle?: ReactNode;
+  isDragging?: boolean;
 };
 
 export function StudentRow({
@@ -29,14 +33,21 @@ export function StudentRow({
   pod,
   showBadge = false,
   podColorBorder = false,
+  rowRef,
+  dragHandle,
+  isDragging = false,
 }: Props) {
   const stripe = index % 2 === 1 ? "bg-slate-50/60" : "bg-white";
   const name = displayName(student.full_name);
+
   return (
-    <tr className={cn("group", stripe)}>
+    <tr
+      ref={rowRef}
+      className={cn("group", stripe, isDragging && "opacity-30")}
+    >
       <td
         className={cn(
-          "px-4 py-1.5 sticky left-0 z-10 border-b border-slate-100 min-w-[320px]",
+          "px-3 py-1.5 sticky left-0 z-10 border-b border-slate-100 min-w-[320px]",
           stripe,
         )}
         style={
@@ -46,6 +57,7 @@ export function StudentRow({
         }
       >
         <div className="flex items-center gap-2">
+          {dragHandle}
           {showBadge ? (
             pod ? (
               <PodBadge pod={pod} />

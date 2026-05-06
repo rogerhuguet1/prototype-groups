@@ -2,6 +2,11 @@
 
 import { create } from "zustand";
 import { createPods, type Pod, type Student } from "@/lib/pods/create-pods";
+import {
+  addStudentToPod as addStudentLogic,
+  moveStudent as moveStudentLogic,
+  type MoveStudentResult,
+} from "@/lib/pods/move-student";
 
 export type SortMode = "alphabetical" | "grouped";
 
@@ -20,6 +25,8 @@ type Actions = {
   resetPods: () => void;
   setViewWithPods: (on: boolean) => void;
   setSortMode: (mode: SortMode) => void;
+  moveStudent: (studentId: string, toPodId: string) => MoveStudentResult;
+  addStudentToPod: (student: Student, toPodId: string) => MoveStudentResult;
 };
 
 const INITIAL: State = {
@@ -28,7 +35,7 @@ const INITIAL: State = {
   sortMode: "alphabetical",
 };
 
-export const usePodsStore = create<State & Actions>((set) => ({
+export const usePodsStore = create<State & Actions>((set, get) => ({
   ...INITIAL,
   createPodsFromInput: ({ students, presentCount, robotCount }) => {
     const pods = createPods({ students, presentCount, robotCount });
@@ -37,4 +44,14 @@ export const usePodsStore = create<State & Actions>((set) => ({
   resetPods: () => set({ ...INITIAL }),
   setViewWithPods: (on) => set({ viewWithPods: on }),
   setSortMode: (mode) => set({ sortMode: mode }),
+  moveStudent: (studentId, toPodId) => {
+    const result = moveStudentLogic(get().pods, studentId, toPodId);
+    if (result.ok) set({ pods: result.pods });
+    return result;
+  },
+  addStudentToPod: (student, toPodId) => {
+    const result = addStudentLogic(get().pods, student, toPodId);
+    if (result.ok) set({ pods: result.pods });
+    return result;
+  },
 }));
