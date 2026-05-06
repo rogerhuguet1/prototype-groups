@@ -41,7 +41,7 @@ export function StudentTable({ students }: Props) {
       sortMode: s.sortMode,
     })),
   );
-  const moveStudent = usePodsStore((s) => s.moveStudent);
+  const assignStudentToPod = usePodsStore((s) => s.addStudentToPod);
   const addEmptyPod = usePodsStore((s) => s.addEmptyPod);
 
   const studentToPod = useMemo(() => {
@@ -79,7 +79,7 @@ export function StudentTable({ students }: Props) {
               students={students}
               studentMap={studentMap}
               studentToPod={studentToPod}
-              onMove={moveStudent}
+              onAssign={assignStudentToPod}
               onAddEmptyPod={addEmptyPod}
             />
           ) : (
@@ -158,7 +158,7 @@ type DndBodiesProps = {
   students: StudentRowType[];
   studentMap: Map<string, StudentRowType>;
   studentToPod: Map<string, Pod>;
-  onMove: ReturnType<typeof usePodsStore.getState>["moveStudent"];
+  onAssign: ReturnType<typeof usePodsStore.getState>["addStudentToPod"];
   onAddEmptyPod: () => void;
 };
 
@@ -167,7 +167,7 @@ function DndStudentBodies({
   students,
   studentMap,
   studentToPod,
-  onMove,
+  onAssign,
   onAddEmptyPod,
 }: DndBodiesProps) {
   const sensors = useSensors(
@@ -200,7 +200,12 @@ function DndStudentBodies({
     if (fromData?.["type"] !== "student" || toData?.["type"] !== "pod") return;
     const studentId = fromData["studentId"] as string;
     const toPodId = toData["podId"] as string;
-    const result = onMove(studentId, toPodId);
+    const fullStudent = studentMap.get(studentId);
+    if (!fullStudent) return;
+    const result = onAssign(
+      { id: studentId, full_name: fullStudent.full_name },
+      toPodId,
+    );
     if (!result.ok) {
       setFeedback(MOVE_ERROR_MESSAGES[result.reason]);
       window.setTimeout(() => setFeedback(null), 2500);
@@ -288,24 +293,23 @@ function DndStudentBodies({
                 colSpan={TOTAL_COLUMNS}
                 className="px-4 py-2 sticky left-0 z-10 text-xs font-semibold text-slate-700 bg-slate-100 border-t-2 border-slate-300"
               >
-                Sin asignar ({sortedUnassigned.length})
+                Sin asignar ({sortedUnassigned.length}) — arrastra al grupo
               </td>
             </tr>
             {sortedUnassigned.map((s, i) => (
-              <StudentRow
+              <StudentRowDraggable
                 key={s.id}
                 student={s}
                 index={i}
                 columns={FLAT_COLUMNS}
-                showBadge
-                withChangeDropdown
+                pod={null}
               />
             ))}
           </tbody>
         )}
         <DragOverlay>
-          {activeStudent && activePod ? (
-            <DragGhost student={activeStudent} pod={activePod} />
+          {activeStudent ? (
+            <DragGhost student={activeStudent} pod={activePod ?? null} />
           ) : null}
         </DragOverlay>
       </DndContext>
@@ -362,21 +366,17 @@ function DragGhost({
   pod,
 }: {
   student: StudentRowType;
-  pod: Pod;
+  pod: Pod | null;
 }) {
   return (
     <div className="rounded-md border border-slate-300 bg-white shadow-lg px-3 py-2 flex items-center gap-2">
-      <PodBadge pod={pod} />
-      <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-800 text-[11px] font-semibold">
-        {student.initials ??
-          student.full_name
-            .split(/\s+/)
-            .map((p) => p[0])
-            .filter(Boolean)
-            .slice(0, 2)
-            .join("")
-            .toUpperCase()}
-      </span>
+      {pod ? (
+        <PodBadge pod={pod} />
+      ) : (
+        <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 whitespace-nowrap leading-none">
+          Sin grupo
+        </span>
+      )}
       <span className="text-[12px] font-semibold text-slate-800">
         {displayName(student.full_name)}
       </span>

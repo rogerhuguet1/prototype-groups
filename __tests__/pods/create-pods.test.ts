@@ -164,14 +164,14 @@ describe("createPods — comportamiento adicional", () => {
     );
   });
 
-  it("colores asignados son unicos dentro de la misma llamada hasta 12", () => {
+  it("colores asignados son unicos dentro de la misma llamada hasta 15", () => {
     const pods = createPods({
-      students: makeStudents(12),
-      presentCount: 12,
-      robotCount: 12,
+      students: makeStudents(15),
+      presentCount: 15,
+      robotCount: 15,
     });
     const colors = pods.map((p) => p.color.hex);
-    expect(new Set(colors).size).toBe(12);
+    expect(new Set(colors).size).toBe(15);
   });
 
   it("ids son pod-1, pod-2... incrementales", () => {

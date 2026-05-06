@@ -11,7 +11,7 @@ type Props = {
   student: StudentRowType;
   index: number;
   columns: readonly FlatColumn[];
-  pod: Pod;
+  pod: Pod | null;
 };
 
 export function StudentRowDraggable({ student, index, columns, pod }: Props) {
@@ -20,7 +20,7 @@ export function StudentRowDraggable({ student, index, columns, pod }: Props) {
     data: {
       type: "student",
       studentId: student.id,
-      fromPodId: pod.id,
+      fromPodId: pod?.id ?? null,
     },
   });
 
@@ -29,13 +29,17 @@ export function StudentRowDraggable({ student, index, columns, pod }: Props) {
       student={student}
       index={index}
       columns={columns}
-      pod={pod}
-      podColorBorder
+      pod={pod ?? undefined}
+      podColorBorder={Boolean(pod)}
       rowRef={setNodeRef}
       isDragging={isDragging}
       dragHandle={
         <DragHandle
-          label={`Arrastrar a otro grupo: ${student.full_name}`}
+          label={
+            pod
+              ? `Arrastrar a otro grupo: ${student.full_name}`
+              : `Arrastrar a un grupo: ${student.full_name}`
+          }
           {...attributes}
           {...listeners}
         />
