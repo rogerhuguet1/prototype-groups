@@ -928,119 +928,282 @@ Para considerar el MVP terminado, **todo** lo siguiente debe ser verdadero:
 
 ---
 
-## 18. Estado del prototipo Fase 0 (apéndice operativo)
+## 18. Estado del repo, iteraciones archivadas y aprendizajes (mayo 2026)
 
-> Anexo añadido durante la sesión de mayo 2026. Recoge el estado real del repo,
-> decisiones tomadas durante el prototipo y siguientes pasos concretos. Útil
-> para futuras sesiones que retomen el trabajo.
+> Apéndice operativo. Recoge el estado real del repo y todo lo valioso de las
+> dos iteraciones que se construyeron antes de la reestructuración. Útil para
+> futuras sesiones que retomen el trabajo sin tener que repetir las decisiones.
+>
+> **Reglas de uso:**
+> 1. Cuando algo de aquí cambie (estado, schema, decisión técnica), actualizar
+>    esta sección en el mismo PR.
+> 2. Esta sección **no sustituye** a §1-17 (la visión y arquitectura del
+>    producto final con Moodle). Cuando el producto final exista y la nueva
+>    iteración avance, lo de §1-17 vuelve a ser canónico.
+> 3. **Discrepancia importante con §6:** las iteraciones archivadas y el
+>    Supabase actual usan un schema **distinto** al de §6 (sin prefijo `vg_`,
+>    sin `moodle_userid`, sin RLS estricta, sin LTI). Ver §18.3.
 
-### 18.1 Lo que existe en el repo (Fase 0 cerrada)
+### 18.1 Estado actual del repo
 
-Todo en `app/`, `components/`, `lib/`. Stack: **Next.js 15.5+, React 19, TS strict
-(`noUncheckedIndexedAccess`), Tailwind v4 (`@theme` en CSS, sin
-`tailwind.config.*`), Zustand 5, Zod, @dnd-kit**.
+**Raíz vacía de código** a la espera de definir nueva dirección. Solo hay
+documentos:
 
-- **Layout 3 zonas responsive** (`app/grupos/GroupsView.tsx`): xl tres columnas;
-  md/lg sidebar+canvas con detalle como drawer derecho; <sm tabs internas.
-- **Canvas circular** (`components/canvas/PanelCard.tsx`): cada panel es un
-  círculo grande con miembros distribuidos radialmente. Borde según media
-  (semáforo). Anillo exterior según estado de evaluación. Centro = media
-  efectiva. Empty state = `+` grande.
-- **DnD** completo con `@dnd-kit` (Pointer + Keyboard sensors) +
-  `AssignMenu` accesible (alternativa por menú con teclado).
-- **Store Zustand** (`lib/store/use-grouping-store.ts`): única fuente de verdad
-  del prototipo. Acciones para CRUD paneles, assign/move/unassign, evaluación
-  con transiciones, override individual, save sesión simulado, toasts.
-- **Mocks**: 28 alumnos, 2 paneles iniciales vacíos, 4 sesiones de historial
-  (`lib/data/mock-*.ts`). Sin datos personales reales.
-- **i18n**: claves centralizadas en `lib/i18n/strings.ts` con la convención de
-  `next-intl` (`groups.canvas.empty_state`). Solo es-ES en Fase 0; migración
-  a ca/es/en es swap del módulo.
-- **Tokens** (`app/globals.css`):
-  - Marca `--color-rbx-*` (paleta provisional Robotix).
-  - Semáforo de notas `--color-score-{high,medium,low,empty}-{bg,border,text}`,
-    expuesto via `SCORE_BAND_CLASSES` en `lib/domain/grading.ts` para uso
-    consistente en avatar, dot, sidebar y detalle.
-
-### 18.2 Decisiones técnicas no obvias (tomar nota)
-
-- **Zustand v5 + selectors que devuelven arrays nuevos** rompen
-  `useSyncExternalStore` con `getServerSnapshot should be cached` e infinite
-  loop. Solución aplicada: `useShallow` envolviendo `selectUnassignedStudents`
-  y `selectStudentsInPanel` en sidebar, `PanelCard` y `DetailPanel`. Si se
-  añaden nuevos selectors que devuelven arrays/objetos derivados, envolverlos
-  igual.
-- **`<body suppressHydrationWarning>`** en `app/layout.tsx` para silenciar
-  los atributos que inyectan extensiones (Bitdefender, Grammarly) antes de
-  hidratar. Solo afecta al body; mismatches reales en hijos siguen avisando.
-- **`tsconfig.json`** sin `baseUrl` (deprecado en TS 7) — los `paths` se
-  resuelven relativos al `tsconfig.json` desde TS 4.1. No restaurar `baseUrl`.
-- **Variables de entorno**: `NEXT_PUBLIC_SUPABASE_URL` y
-  `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (no `VITE_*`, no `ANON_KEY` clásico).
-  La publishable key (`sb_publishable_*`) es la que va al cliente; el
-  `service_role` jamás aquí.
-- **`next@^15.5.0`** mínimo. Versiones `<15.1` no aceptan React 19 estable.
-- **No instaladas todavía** (Fase 1+): `@supabase/ssr`, `@tanstack/react-query`,
-  `next-intl`. Hay stubs y huecos preparados para encajarlas sin reescribir UI.
-
-### 18.3 Errores conocidos / detalles cosméticos
-
-- En el `DragOverlay`, el "ghost" sigue siendo el `StudentChip` lateral
-  (rectangular). Si arrastras un dot circular desde dentro de un panel,
-  estéticamente inconsistente pero funcional. Pendiente: hacer overlay
-  contextual.
-- Bitdefender Browser Extension genera ruido en consola dev (`bis_skin_checked`
-  en cada `<div>`). No es nuestro código y no aparece en producción ni dentro
-  de iframe LTI. Recomendado: dev en perfil sin extensiones o Firefox.
-
-### 18.4 Cómo correr el prototipo
-
-```bash
-cd <repo>
-npm install
-npm run dev          # http://localhost:3000  (redirige a /grupos)
-npm run typecheck    # tsc --noEmit
-npm run build && npm run start
+```
+CLAUDE.md   SKILLS.md   PROTOTIPO_FUNCIONAL.md   CLAUDE_SCHEMA.md
+README.md   .env.example   .env.local   .gitignore   .git/   legacy/
 ```
 
-### 18.5 Siguiente paso bloqueante: conectar Supabase (decisión pendiente)
+`.env.local` (gitignored) contiene:
 
-El `.env.local` ya contiene URL + publishable key de un proyecto Supabase real,
-pero **el código sigue 100% en mocks**. Tres caminos posibles, ordenados de
-menor a mayor coste, descritos para que la próxima sesión pueda elegir sin
-reabrir el debate:
+```
+NEXT_PUBLIC_SUPABASE_URL=https://andprbqacpspbxmqqxuj.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable__-RDC0rLI9Rg2iARjbOnXA_t2uICKYK
+```
 
-- **Opción A — Modo demo plano**: tabla única `vg_demo_sessions(id uuid, payload
-  jsonb, created_at)`, RLS abierta a anon. Botones "Guardar / Cargar" vuelcan
-  el store completo como JSON. Útil solo para enseñar persistencia. Va contra
-  SKILLS §15 (auth.users como identidad), aceptable solo como demo.
-- **Opción C — Cliente preparado**: instalar `@supabase/ssr`, reemplazar el
-  stub `lib/supabase/client.ts` por cliente real, leer env vars. UI sigue con
-  mocks. ~10 min. Solo cableado.
-- **Opción B — Salto a Fase 1 parcial (recomendado cuando se decida avanzar)**:
-  migraciones SQL completas (`vg_sessions`, `vg_panels`, `vg_panel_members`,
-  `vg_evaluations`, `vg_individual_scores`, enums, vistas, triggers de §6.4),
-  RLS por verbo y rol, Edge Function `dev_login` que firma un JWT mock con
-  `moodle_userid: 1, moodle_role: teacher` para desarrollo sin LTI, y
-  reemplazo del store por mutations de Tanstack Query con optimistic updates.
-  El LTI real entra en una iteración posterior.
+(También las VITE_ legacy, no estorban.) **NUNCA** poner `service_role` aquí.
 
-**Hasta que se decida**: NO conectar escrituras a Supabase. NO instalar
-`@supabase/ssr` "por si acaso". NO crear migraciones especulativas.
+### 18.2 Iteraciones archivadas en `legacy/`
 
-### 18.6 Roadmap de implementación contra §14
+Dos prototipos congelados, autocontenidos, no se mantienen.
 
-Estado actual mapeado a las fases de §14:
+#### `legacy/canvas-prototype/` (1ª iteración)
 
-- **Fase 1 (MVP)**: layout, sidebar, canvas, paneles, DnD, distribución
-  aleatoria local, evaluación local, audit log → ✅ implementado contra mocks.
-  Pendientes reales: plugin Moodle PHP, LTI launch + bridge, RLS, sync de
-  caches Moodle, i18n real, Privacy API.
-- **Fase 2 (evaluación + push gradebook)**: estados de evaluación con
-  validaciones bloqueantes ya en UI; falta `publish_evaluation` y
-  `push_to_gradebook` con LTI AGS, rúbricas, plantillas, export CSV, Moodle
-  Events.
-- **Fase 3 y 4**: nada empezado, según roadmap original.
+Mocks 100% en cliente. Sin Supabase, sin Moodle.
+Stack: Next 15 + React 19 + Tailwind v4 + **Zustand 5** + **Zod** +
+`@dnd-kit/core+sortable+utilities`.
 
-*Apéndice 18 cerrado mayo 2026. Cuando algo de esto cambie, actualizar aquí.*
+Lo que tenía:
+- Layout 3 zonas responsive (sidebar / canvas / detail).
+- **Canvas circular**: cada grupo como círculo grande con miembros
+  distribuidos radialmente (`memberPosition(i, n)` con trigonometría),
+  borde según media (semáforo), anillo exterior según estado de evaluación.
+- DnD con sensores Pointer + Keyboard, alternativa accesible por menú
+  (`AssignMenu`).
+- Store Zustand como única fuente de verdad. 28 alumnos mock, 2 paneles
+  iniciales, 4 sesiones de historial.
+- i18n centralizado en `lib/i18n/strings.ts` con convención `next-intl`
+  (`groups.canvas.empty_state`).
+- Tokens en `globals.css` con `@theme`: marca `--color-rbx-*` (paleta
+  provisional Robotix) + semáforo `--color-score-{high,medium,low,empty}-…`,
+  consumidos vía `SCORE_BAND_CLASSES` en `lib/domain/grading.ts`.
+
+Por qué se descartó: demasiado UI elaborada antes de validar el flujo con
+datos reales.
+
+#### `legacy/simpler-prototype/` (2ª iteración, **la valiosa**)
+
+**Conectada a Supabase real**. Cumple las 12 funciones de
+`PROTOTIPO_FUNCIONAL.md`. Stack reducido respecto al §3 canónico:
+Next 15 + React 19 + Tailwind v4 + `@supabase/supabase-js` + `@dnd-kit/core`.
+**No** Zustand (estado local con `useState`), **no** Tanstack Query (queries
+manuales), **no** `next-intl` (strings inline en es-ES), **no** `@supabase/ssr`
+(cliente browser puro con publishable key), **no** Zod (validación a mano en
+inputs).
+
+Estructura:
+```
+app/
+  page.tsx              ← vista principal (3 zonas + DnD)
+  layout.tsx            ← envuelve con ToastProvider
+  configuracion/        ← editar nombre, min/max
+  historial/            ← tabla de sesiones archivadas
+  dev/                  ← /dev: ping de conexión
+components/
+  ui/                   ← Button, Modal, ConfirmDialog, PromptDialog, Toast
+  features/             ← Sidebar, GroupCard, DetailPanel, StudentChip
+lib/
+  constants.ts          ← CLASS_ID, SESSION_ID seed
+  types.ts              ← Student, Group, GroupMember, Evaluation, …
+  supabase/client.ts    ← factory singleton getSupabaseClient()
+  data/                 ← una función por tabla
+```
+
+Decisión deliberada del bloque B (Bloque 4 del plan reestructurado de mayo):
+**módulos planos** en `lib/data/` (una función exportada por archivo) en
+lugar de patrón Repository con interfaces. Si la siguiente iteración
+necesita swap a Moodle, refactorizar entonces.
+
+### 18.3 Schema Supabase real en uso (≠ §6 de este documento)
+
+El §6 de CLAUDE.md describe un schema "ideal" con prefijo `vg_*`,
+`moodle_userid bigint`, RLS estricta y triggers. **No se aplicó** porque el
+usuario tenía ya un Supabase con tablas distintas. **El schema real está en
+`CLAUDE_SCHEMA.md` (raíz del repo)**, generado desde el SQL Editor del
+proyecto Supabase activo.
+
+Resumen de las tablas que usa `simpler-prototype` (sin prefijo, IDs uuid):
+
+| Tabla | Función |
+|---|---|
+| `classes` | Clases (id, name, subject, teacher_id) |
+| `students` | Alumnos (full_name, performance_score, class_id) — 30 alumnos seed |
+| `group_sessions` | Sesiones (name, status: active/archived/locked, max/min_group_size, class_id) |
+| `groups` | Grupos del canvas (name, color, position_x/y, session_id) |
+| `group_members` | Pertenencia (UNIQUE(group_id, student_id)) |
+| `evaluations` | Una por grupo (group_score 0–10, status pending/draft/published/locked) |
+| `individual_scores` | Override por alumno (UNIQUE(evaluation_id, student_id)) |
+| `rubrics`, `rubric_items`, `rubric_scores` | Rúbricas — **no se usan en el MVP** |
+| `peer_reviews`, `attendance` | **No se usan en el MVP** |
+| `audit_log` | Auditoría — opcional |
+
+**IDs seed fijos** que la app usa como contexto único:
+
+```
+CLASS_ID   = 'aaaaaaaa-0000-0000-0000-000000000001'   (30 alumnos)
+SESSION_ID = 'bbbbbbbb-0000-0000-0000-000000000001'   (sesión activa)
+```
+
+**RLS**: permisiva (anon + authenticated tienen acceso total). **Endurecer
+antes de producción** con políticas basadas en `auth.uid()` y `class_id`.
+
+### 18.4 Decisiones técnicas valiosas (heredables)
+
+#### Stack y configuración
+
+- **Next 15.5+ obligatorio**. Versiones `<15.1` no aceptan React 19 estable.
+- **TypeScript strict + `noUncheckedIndexedAccess`**. Sin `baseUrl` en
+  `tsconfig.json` (deprecado en TS 7); `paths` se resuelven relativos al
+  `tsconfig.json` desde TS 4.1.
+- **Tailwind v4** con `@theme` en `globals.css` y `@tailwindcss/postcss`. Sin
+  `tailwind.config.*`.
+- **Variables de entorno**: solo `NEXT_PUBLIC_*` (Next ignora `VITE_*`). La
+  `publishable key` (`sb_publishable_*`) sustituye a la `anon` clásica y es
+  segura para cliente.
+- **`<body suppressHydrationWarning>`** en `app/layout.tsx`: silencia los
+  atributos que inyectan extensiones (Bitdefender `bis_skin_checked`,
+  Grammarly, etc.) en dev. Mismatches reales en hijos siguen avisando.
+
+#### Zustand v5 (canvas-prototype)
+
+- Selectors que devuelven arrays nuevos rompen `useSyncExternalStore`
+  (`getServerSnapshot should be cached`) e infinite loop. Solución:
+  `useShallow` de `zustand/react/shallow` en cualquier selector que retorne
+  array u objeto derivado.
+
+#### Acceso a datos Supabase (simpler-prototype)
+
+- **Cliente singleton lazy** en `lib/supabase/client.ts` con `createClient`
+  de `@supabase/supabase-js`. Cachea la primera instancia, lanza error claro
+  si faltan env vars.
+- **Una función por tabla en `lib/data/`** (módulos planos, no clases).
+- **`maybeSingle()` vs `single()`**: usar `maybeSingle()` cuando puede
+  devolver 0 filas sin ser error (ej. ¿existe ya evaluation para este
+  grupo?). `single()` reservado para INSERT…SELECT donde sí esperas 1.
+- **Upsert manual** cuando no hay UNIQUE en la columna pivote: SELECT →
+  UPDATE si existe, INSERT si no (caso `setGroupScore`, `ensureEvaluation`).
+- **`upsert(..., { onConflict: "col1,col2" })`** cuando sí hay UNIQUE
+  compuesto (caso `upsertIndividualOverride` con
+  `UNIQUE(evaluation_id, student_id)`).
+- **Cascada manual de DELETE**: el schema no garantiza ON DELETE CASCADE.
+  Para borrar un grupo: `individual_scores` (vía evaluations del grupo) →
+  `evaluations` → `group_members` → `groups`. Si una está vacía, no falla.
+- **Bulk insert con `.insert(rows)`** y un solo viaje a la red para
+  operaciones masivas (caso `bulkAssignStudents`, distribución).
+- **INSERT…RETURNING preserva orden de inserción** en Postgres → para
+  construir mapas `oldId → newId` (caso `archiveSession`).
+- **Snapshot atómico imposible client-side**. La operación `archiveSession`
+  hace 6 INSERTs/SELECTs en cascada; si falla a mitad queda parcial.
+  Aceptable para prototipo, **migrar a Edge Function** para producción.
+- **"Asignar" y "Mover" comparten lógica**: borra cualquier `group_members`
+  previo del alumno en cualquier grupo de la sesión + INSERT en destino.
+  Mantiene la invariante "1 alumno = 1 grupo por sesión" sin UNIQUE en BD.
+
+#### Estado y UI (simpler-prototype)
+
+- **Estado de página con `useState({status, data})`** en lugar de Zustand.
+  Suficiente para prototipo sin auth ni multi-pantalla.
+- **`useEffect + cancelled flag`** para fetches cancelables al desmontar.
+- **`withMutation(fn)`** centraliza `setMutating` y `try/catch` con toast
+  de error. Patrón replicable en cada handler.
+- **Reload selectivo tras mutación** (`reloadMembers` solo, vs
+  `reloadGroupsAndMembers`, vs `reloadEvaluations`) para no recargar
+  innecesario.
+- **Modales propios** (`Modal`, `ConfirmDialog`, `PromptDialog`) sustituyen
+  `window.prompt/confirm/alert` con focus trap, ESC para cerrar y restauración
+  de foco al unmount.
+- **Toasts con React context puro** (`ToastProvider` + hook `useToast`),
+  sin librería externa. `aria-live="polite"`, `role="status"`/`"alert"`,
+  auto-dismiss 3.5s.
+- **`ScoreInput` reusable**: input numérico controlado con commit en blur o
+  Enter, soporta coma o punto, marca `aria-invalid` y borde rojo si fuera
+  de 0–10. ESC restaura. Vacío = `null`.
+- **Estado de evaluación** con matriz de transiciones permitidas:
+  `pending → draft`, `draft ↔ pending`, `draft → published`,
+  `published ↔ draft`, `published → locked`. `locked` terminal.
+- **`crypto.randomUUID()`** para IDs cliente (toasts, etc.) en lugar de
+  `nanoid` o equivalente — sin dependencia extra.
+
+#### DnD con `@dnd-kit/core`
+
+- **Solo `@dnd-kit/core`** instalado (no `sortable` ni `utilities`).
+  Suficiente para arrastrar entre zonas.
+- **Sensores `PointerSensor` + `KeyboardSensor`** activados.
+- **Convención de IDs**: `student:<uuid>` para draggable,
+  `panel:<groupId>` para droppable de grupo, `unassigned` para sidebar.
+- **`activationConstraint: { distance: 4 }`** en PointerSensor para evitar
+  drag accidental en clicks.
+- **`onClick` en el `<ul>` interno con `e.stopPropagation()`** para evitar
+  que un clic en un alumno dispare la selección del grupo padre.
+- **Validación de capacidad en `onDragEnd`** antes de aplicar: si el grupo
+  destino está lleno, toast de error y abortar.
+- **Accesibilidad**: `screenReaderInstructions` y `announcements` en español
+  configurados en `DndContext.accessibility`.
+- **`DragOverlay` con `dropAnimation={null}`** + clon estático del chip.
+
+### 18.5 Limitaciones conocidas heredadas (no resueltas)
+
+- RLS permisiva en Supabase. **Bloqueante para producción.**
+- `archiveSession` no transaccional. Mover a Edge Function para
+  garantizar all-or-nothing.
+- Sin tests automatizados. Ni unitarios ni E2E.
+- Sin integración Moodle. Sin LTI. Sin push a gradebook.
+- Sin i18n real (solo es-ES inline).
+- Estado de error global confía en toasts; no hay retry automático en
+  background.
+- En el `DragOverlay`, el "ghost" siempre es el chip rectangular —
+  estéticamente inconsistente si arrastras desde el detail panel pero
+  funcional.
+- Bitdefender Browser Extension genera ruido en consola dev
+  (`bis_skin_checked` en cada `<div>`). No es nuestro código.
+
+### 18.6 Cómo arrancar cualquier prototipo
+
+```bash
+cd legacy/canvas-prototype     # o legacy/simpler-prototype
+npm install
+# simpler-prototype necesita ../../.env.local con las claves Supabase
+npm run dev                    # http://localhost:3000
+npm run typecheck              # tsc --noEmit
+```
+
+### 18.7 Mapeo §1-14 ↔ realidad implementada
+
+| §X canónico | Estado real |
+|---|---|
+| §3 stack (Tanstack Query, Zustand, next-intl, @supabase/ssr) | Solo se usaron parcialmente (Zustand en canvas; ninguno en simpler) |
+| §6 schema `vg_*` con `moodle_userid` | **NO aplicado**; schema real en `CLAUDE_SCHEMA.md` |
+| §7 RLS estricta con helpers JWT | **NO aplicada**; RLS permisiva en BD |
+| §8 plugin Moodle PHP | **No empezado** |
+| §9 Edge Functions | **No empezadas** |
+| §10 tabs (Grupos / Evaluación / Historial / Configuración) | Implementadas como rutas Next: `/`, `/historial`, `/configuracion` |
+| §11 DnD `@dnd-kit` | ✅ implementado en ambos prototipos |
+| §12 design tokens (semáforo) | ✅ en canvas-prototype; el simpler usa Tailwind plano |
+| §13 estados loading/empty/error | ✅ en simpler-prototype con skeletons + retry |
+| §14 fases 1–4 | Fase 1 cubierta funcionalmente contra Supabase; resto pendiente |
+
+### 18.8 Próxima iteración
+
+**En blanco a propósito.** Cuando se decida la nueva dirección:
+
+1. Documentar el cambio de enfoque (¿pivota a otra cosa? ¿más Moodle? ¿menos
+   features?) en una sub-sección §18.9.
+2. Decidir si el schema de `CLAUDE_SCHEMA.md` sigue válido o hay que
+   migrar al de §6.
+3. Decidir si reciclar componentes de `legacy/simpler-prototype/` o empezar
+   limpio.
+4. Crear un `package.json` nuevo en raíz solo cuando haya código que correr.
+
+*Apéndice 18 v2 — actualizado tras reorganización de iteraciones a `legacy/`
+y antes del nuevo cambio de enfoque (mayo 2026).*
 
