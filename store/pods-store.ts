@@ -14,6 +14,10 @@ import {
   removeStudentFromPod as removeStudentLogic,
   type MoveStudentResult,
 } from "@/lib/pods/move-student";
+import {
+  changePodEmoji as changeEmojiLogic,
+  type ChangeEmojiResult,
+} from "@/lib/pods/edit-pod";
 
 export type SortMode = "alphabetical" | "grouped";
 
@@ -36,6 +40,11 @@ type Actions = {
   addStudentToPod: (student: Student, toPodId: string) => MoveStudentResult;
   removeStudentFromPod: (studentId: string) => MoveStudentResult;
   addEmptyPod: () => void;
+  changeEmoji: (
+    podId: string,
+    emoji: string,
+    emojiLabel: string,
+  ) => ChangeEmojiResult;
 };
 
 const INITIAL: State = {
@@ -65,6 +74,11 @@ export const usePodsStore = create<State & Actions>((set, get) => ({
   },
   removeStudentFromPod: (studentId) => {
     const result = removeStudentLogic(get().pods, studentId);
+    if (result.ok) set({ pods: result.pods });
+    return result;
+  },
+  changeEmoji: (podId, emoji, emojiLabel) => {
+    const result = changeEmojiLogic(get().pods, podId, emoji, emojiLabel);
     if (result.ok) set({ pods: result.pods });
     return result;
   },
