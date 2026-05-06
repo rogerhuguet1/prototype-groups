@@ -11,6 +11,7 @@ import {
 import {
   addStudentToPod as addStudentLogic,
   moveStudent as moveStudentLogic,
+  removeStudentFromPod as removeStudentLogic,
   type MoveStudentResult,
 } from "@/lib/pods/move-student";
 
@@ -33,6 +34,7 @@ type Actions = {
   setSortMode: (mode: SortMode) => void;
   moveStudent: (studentId: string, toPodId: string) => MoveStudentResult;
   addStudentToPod: (student: Student, toPodId: string) => MoveStudentResult;
+  removeStudentFromPod: (studentId: string) => MoveStudentResult;
   addEmptyPod: () => void;
 };
 
@@ -58,6 +60,11 @@ export const usePodsStore = create<State & Actions>((set, get) => ({
   },
   addStudentToPod: (student, toPodId) => {
     const result = addStudentLogic(get().pods, student, toPodId);
+    if (result.ok) set({ pods: result.pods });
+    return result;
+  },
+  removeStudentFromPod: (studentId) => {
+    const result = removeStudentLogic(get().pods, studentId);
     if (result.ok) set({ pods: result.pods });
     return result;
   },

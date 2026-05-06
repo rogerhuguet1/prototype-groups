@@ -74,3 +74,18 @@ export function addStudentToPod(
   );
   return { ok: true, pods: newPods };
 }
+
+export function removeStudentFromPod(
+  pods: Pod[],
+  studentId: string,
+): MoveStudentResult {
+  const fromPod = findPodByStudent(pods, studentId);
+  if (!fromPod) return { ok: false, reason: "student-not-found" };
+
+  const newPods = pods.map((p) =>
+    p.id === fromPod.id
+      ? { ...p, students: p.students.filter((s) => s.id !== studentId) }
+      : p,
+  );
+  return { ok: true, pods: newPods };
+}

@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { createPods, type Student } from "@/lib/pods/create-pods";
-import { addStudentToPod, moveStudent } from "@/lib/pods/move-student";
+import {
+  addStudentToPod,
+  moveStudent,
+  removeStudentFromPod,
+} from "@/lib/pods/move-student";
 
 function makeStudents(n: number): Student[] {
   return Array.from({ length: n }, (_, i) => ({
@@ -93,6 +97,50 @@ describe("moveStudent", () => {
     const snapshot = JSON.stringify(pods);
     const result = moveStudent(pods, "s-001", "pod-2");
     expect(result.ok).toBe(true);
+    expect(JSON.stringify(pods)).toBe(snapshot);
+  });
+});
+
+describe("removeStudentFromPod", () => {
+  it("saca al alumno de su grupo actual", () => {
+    const pods = createPods({
+      students: makeStudents(6),
+      presentCount: 6,
+      robotCount: 2,
+      random: noShuffle,
+    });
+    const result = removeStudentFromPod(pods, "s-001");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const allStudents = result.pods.flatMap((p) =>
+      p.students.map((s) => s.id),
+    );
+    expect(allStudents).not.toContain("s-001");
+    expect(allStudents).toHaveLength(5);
+  });
+
+  it("error si el alumno no esta en ningun grupo", () => {
+    const pods = createPods({
+      students: makeStudents(6),
+      presentCount: 6,
+      robotCount: 2,
+      random: noShuffle,
+    });
+    const result = removeStudentFromPod(pods, "no-existe");
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("student-not-found");
+  });
+
+  it("no muta los pods originales", () => {
+    const pods = createPods({
+      students: makeStudents(6),
+      presentCount: 6,
+      robotCount: 2,
+      random: noShuffle,
+    });
+    const snapshot = JSON.stringify(pods);
+    removeStudentFromPod(pods, "s-001");
     expect(JSON.stringify(pods)).toBe(snapshot);
   });
 });
