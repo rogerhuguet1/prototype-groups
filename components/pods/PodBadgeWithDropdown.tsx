@@ -17,15 +17,21 @@ export function PodBadgeWithDropdown({ student, pod }: Props) {
   const [triggerRect, setTriggerRect] = useState<DOMRect | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  const { allPods, moveStudent, addStudentToPod, removeStudentFromPod } =
-    usePodsStore(
-      useShallow((s) => ({
-        allPods: s.pods,
-        moveStudent: s.moveStudent,
-        addStudentToPod: s.addStudentToPod,
-        removeStudentFromPod: s.removeStudentFromPod,
-      })),
-    );
+  const {
+    allPods,
+    moveStudent,
+    addStudentToPod,
+    removeStudentFromPod,
+    createPodAndAssignStudent,
+  } = usePodsStore(
+    useShallow((s) => ({
+      allPods: s.pods,
+      moveStudent: s.moveStudent,
+      addStudentToPod: s.addStudentToPod,
+      removeStudentFromPod: s.removeStudentFromPod,
+      createPodAndAssignStudent: s.createPodAndAssignStudent,
+    })),
+  );
 
   function toggle() {
     if (triggerRect) {
@@ -45,6 +51,11 @@ export function PodBadgeWithDropdown({ student, pod }: Props) {
     } else if (podId !== pod.id) {
       moveStudent(student.id, podId);
     }
+    setTriggerRect(null);
+  }
+
+  function handleCreateAndAssign(emoji: string, label: string) {
+    createPodAndAssignStudent(student, emoji, label);
     setTriggerRect(null);
   }
 
@@ -78,6 +89,7 @@ export function PodBadgeWithDropdown({ student, pod }: Props) {
           currentPodId={pod?.id ?? null}
           triggerRect={triggerRect}
           onSelect={handleSelect}
+          onCreateAndAssign={handleCreateAndAssign}
           onClose={() => setTriggerRect(null)}
         />
       )}

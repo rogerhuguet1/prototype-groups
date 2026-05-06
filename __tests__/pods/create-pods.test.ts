@@ -252,6 +252,36 @@ describe("createEmptyPod", () => {
     expect(existing.map((p) => p.color.hex)).not.toContain(empty.color.hex);
   });
 
+  it("usa preferredEmoji si esta disponible", () => {
+    const existing = createPods({
+      students: makeStudents(8),
+      presentCount: 8,
+      robotCount: 2,
+    });
+    const usedEmojis = existing.map((p) => p.emoji);
+    const free = POD_EMOJIS.find((e) => !usedEmojis.includes(e.emoji))!;
+    const empty = createEmptyPod({
+      existing,
+      preferredEmoji: { emoji: free.emoji, label: free.label },
+    });
+    expect(empty.emoji).toBe(free.emoji);
+    expect(empty.emojiLabel).toBe(free.label);
+  });
+
+  it("ignora preferredEmoji si ya esta en uso y elige uno disponible", () => {
+    const existing = createPods({
+      students: makeStudents(8),
+      presentCount: 8,
+      robotCount: 2,
+    });
+    const conflictingEmoji = existing[0]!.emoji;
+    const empty = createEmptyPod({
+      existing,
+      preferredEmoji: { emoji: conflictingEmoji, label: "x" },
+    });
+    expect(existing.map((p) => p.emoji)).not.toContain(empty.emoji);
+  });
+
   it("error si existing tiene 15 grupos (limite de emojis)", () => {
     const existing: Parameters<typeof createEmptyPod>[0]["existing"] =
       POD_EMOJIS.map((e, i) => ({

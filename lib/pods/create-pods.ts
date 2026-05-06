@@ -99,30 +99,46 @@ export function createEmptyPod(input: {
   existing: Pod[];
   maxCapacity?: number;
   random?: () => number;
+  preferredEmoji?: { emoji: string; label: string };
 }): Pod {
-  const { existing, maxCapacity = DEFAULT_MAX_PER_POD, random = Math.random } =
-    input;
+  const {
+    existing,
+    maxCapacity = DEFAULT_MAX_PER_POD,
+    random = Math.random,
+    preferredEmoji,
+  } = input;
 
   if (existing.length >= MAX_PODS) {
     throw new Error("Máximo 15 grupos permitidos");
   }
 
   const emojiInUse = new Set(existing.map((p) => p.emoji));
-  const availableEmojis = POD_EMOJIS.filter((e) => !emojiInUse.has(e.emoji));
-  if (availableEmojis.length === 0) {
-    throw new Error("No quedan emojis disponibles");
+
+  let chosenEmoji: PodEmoji;
+  if (preferredEmoji && !emojiInUse.has(preferredEmoji.emoji)) {
+    chosenEmoji = {
+      emoji: preferredEmoji.emoji,
+      label: preferredEmoji.label,
+    };
+  } else {
+    const availableEmojis = POD_EMOJIS.filter(
+      (e) => !emojiInUse.has(e.emoji),
+    );
+    if (availableEmojis.length === 0) {
+      throw new Error("No quedan emojis disponibles");
+    }
+    chosenEmoji = availableEmojis[
+      Math.floor(random() * availableEmojis.length)
+    ] as PodEmoji;
   }
-  const emoji = availableEmojis[
-    Math.floor(random() * availableEmojis.length)
-  ] as PodEmoji;
 
   const colorsInUse = existing.map((p) => p.color);
   const [color] = pickUniqueColors(1, colorsInUse, random);
 
   return {
     id: `pod-${existing.length + 1}`,
-    emoji: emoji.emoji,
-    emojiLabel: emoji.label,
+    emoji: chosenEmoji.emoji,
+    emojiLabel: chosenEmoji.label,
     color: color as PodColor,
     students: [],
     maxCapacity,

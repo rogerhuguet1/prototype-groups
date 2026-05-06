@@ -40,6 +40,11 @@ type Actions = {
   addStudentToPod: (student: Student, toPodId: string) => MoveStudentResult;
   removeStudentFromPod: (studentId: string) => MoveStudentResult;
   addEmptyPod: () => void;
+  createPodAndAssignStudent: (
+    student: Student,
+    emoji: string,
+    emojiLabel: string,
+  ) => void;
   changeEmoji: (
     podId: string,
     emoji: string,
@@ -94,6 +99,28 @@ export const usePodsStore = create<State & Actions>((set, get) => ({
       pods: [...state.pods, newPod],
       viewWithPods: true,
       sortMode: "grouped",
+    });
+  },
+  createPodAndAssignStudent: (student, emoji, emojiLabel) => {
+    const state = get();
+    const maxCapacity =
+      state.pods[0]?.maxCapacity ?? DEFAULT_MAX_PER_POD;
+    const newPod = createEmptyPod({
+      existing: state.pods,
+      maxCapacity,
+      preferredEmoji: { emoji, label: emojiLabel },
+    });
+    const cleanedPods = state.pods.map((p) => ({
+      ...p,
+      students: p.students.filter((s) => s.id !== student.id),
+    }));
+    const podWithStudent = {
+      ...newPod,
+      students: [{ id: student.id, full_name: student.full_name }],
+    };
+    set({
+      pods: [...cleanedPods, podWithStudent],
+      viewWithPods: true,
     });
   },
 }));
