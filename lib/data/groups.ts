@@ -12,6 +12,20 @@ export async function listGroupsBySession(sessionId: string): Promise<Group[]> {
   return (data ?? []) as Group[];
 }
 
+/** Carga grupos de varias sesiones en una sola query. Útil para el historial. */
+export async function listGroupsBySessionIds(
+  sessionIds: readonly string[],
+): Promise<Group[]> {
+  if (sessionIds.length === 0) return [];
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("groups")
+    .select("id, session_id, name, color")
+    .in("session_id", sessionIds);
+  if (error) throw error;
+  return (data ?? []) as Group[];
+}
+
 export async function createGroup(
   sessionId: string,
   name: string,

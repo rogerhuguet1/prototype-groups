@@ -35,6 +35,7 @@ export interface GroupSession {
   status: string | null;
   max_group_size: number | null;
   min_group_size: number | null;
+  created_at: string | null;
 }
 
 export type EvaluationStatus = "pending" | "draft" | "published" | "locked";

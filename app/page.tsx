@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { CLASS_ID, SESSION_ID } from "@/lib/constants";
 import { listStudentsByClass } from "@/lib/data/students";
 import {
@@ -404,7 +405,14 @@ export default function HomePage() {
             <h1 className="text-2xl font-semibold text-slate-900">
               {session?.name ?? "Grupos"}
             </h1>
-            <p className="text-sm text-slate-600">
+            <nav className="mt-1 text-xs text-slate-500">
+              <span className="font-medium text-slate-700">Grupos</span>
+              <span className="mx-1">·</span>
+              <Link href="/historial" className="hover:underline">
+                Historial
+              </Link>
+            </nav>
+            <p className="mt-1 text-sm text-slate-600">
               {students.length} alumnos · {groups.length} grupos ·{" "}
               {members.length} asignaciones · máx {maxGroupSize}/grupo
             </p>
