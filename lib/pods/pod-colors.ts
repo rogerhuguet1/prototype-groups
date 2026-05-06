@@ -5,21 +5,21 @@ export type PodColor = {
 };
 
 export const POD_COLORS: readonly PodColor[] = [
-  { hex: "#dc2626", name: "red", textOn: "white" },
-  { hex: "#ea580c", name: "orange", textOn: "white" },
-  { hex: "#facc15", name: "yellow", textOn: "black" },
-  { hex: "#65a30d", name: "lime", textOn: "white" },
-  { hex: "#15803d", name: "green", textOn: "white" },
-  { hex: "#0f766e", name: "teal", textOn: "white" },
-  { hex: "#0284c7", name: "sky", textOn: "white" },
-  { hex: "#1d4ed8", name: "blue", textOn: "white" },
-  { hex: "#1e3a8a", name: "navy", textOn: "white" },
-  { hex: "#5b21b6", name: "purple", textOn: "white" },
-  { hex: "#c026d3", name: "fuchsia", textOn: "white" },
-  { hex: "#db2777", name: "pink", textOn: "white" },
-  { hex: "#9f1239", name: "rose", textOn: "white" },
-  { hex: "#92400e", name: "brown", textOn: "white" },
-  { hex: "#475569", name: "slate", textOn: "white" },
+  { hex: "#e53e3e", name: "red", textOn: "white" },
+  { hex: "#dd6b20", name: "orange", textOn: "white" },
+  { hex: "#d69e2e", name: "yellow", textOn: "black" },
+  { hex: "#48bb78", name: "lime", textOn: "white" },
+  { hex: "#2f855a", name: "green", textOn: "white" },
+  { hex: "#319795", name: "teal", textOn: "white" },
+  { hex: "#4299e1", name: "sky", textOn: "white" },
+  { hex: "#3182ce", name: "blue", textOn: "white" },
+  { hex: "#2c5282", name: "navy", textOn: "white" },
+  { hex: "#5a67d8", name: "indigo", textOn: "white" },
+  { hex: "#9f7aea", name: "violet", textOn: "white" },
+  { hex: "#805ad5", name: "purple", textOn: "white" },
+  { hex: "#d53f8c", name: "pink", textOn: "white" },
+  { hex: "#a0522d", name: "sienna", textOn: "white" },
+  { hex: "#718096", name: "gray", textOn: "white" },
 ] as const;
 
 export function colorForPodIndex(index: number): PodColor {
