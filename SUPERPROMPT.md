@@ -380,3 +380,324 @@ No avances a Fase 2 hasta tener OK explícito.
 
 *SUPERPROMPT.md v1.0 — Prototipo PODs (C360 / ROBOTIX). Listo para Claude Code.*
 ````
+
+---
+
+## 12. Estado actual de la implementación (mayo 2026)
+
+> Apéndice operativo. Recoge lo que está construido, las decisiones tomadas y los aprendizajes para que cualquier sesión futura tenga contexto sin tener que reconstruirlo. Cuando algo cambie, actualizar aquí en el mismo PR.
+
+### 12.1 Resumen ejecutivo del estado
+
+El prototipo está **funcionalmente completo** según la versión v2 del spec (la que reemplaza "POD" → "Grupo" en UI y añade emojis STEM). Vive en `http://localhost:3000/mi-alumnado`. Server siempre cargable con `npm run dev`.
+
+- **40/40 tests Vitest verde** en 3 archivos (`create-pods`, `move-student`, `edit-pod`).
+- **TypeScript strict** sin errores (`noUncheckedIndexedAccess: true`).
+- Conectado a Supabase real: tabla `students` con 30 alumnos en 1 clase ("2º Bachillerato A").
+- Layout pixel-perfect contra el mock C360 (sidebar oscura, leyenda de bandas, columnas agrupadas por unidad).
+
+### 12.2 Hallazgos sobre los datos reales
+
+- `full_name` viene como `"Nombre Apellido1 Apellido2"` (ej. "Ana García López"), **no** como `"APELLIDO, NOMBRE"`. El parser `lastNameKey` ordena por la parte después del primer espacio. `displayName` reformatea a `"GARCÍA LÓPEZ, ANA"` para visualización.
+- Solo 1 clase en BD → `ClassSelector` no se muestra (correcto según §4.1 v2).
+- `.env.local` usa `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (formato nuevo `sb_publishable_*`), no `ANON_KEY`. El cliente lo lee desde `lib/supabase/client.ts`.
+
+### 12.3 Cambios v1 → v2 (ya aplicados)
+
+| Concepto | v1 | v2 implementado |
+|---|---|---|
+| Identidad de grupo | Letras A, B, C... | Emoji STEM aleatorio único (de 15) |
+| Nombre interno | `pod-a`, `pod-b` | `pod-1`, `pod-2`, ... |
+| UI | "POD A", "POD lleno" | "Grupo 🤖", "Grupo lleno" |
+| Modal | "Agrupar por PODs", "Crear PODs" | "Agrupar", "Crear Grupos" |
+| Toggle | "Vista con POD" | "Vista con Grupos" |
+| Validación | `robotCount <= presentCount` | `+ robotCount <= 15` |
+| Asignación de color | Cíclico por índice | Furthest-point sampling sobre paleta de 15 |
+| Edición de emoji | n/a | `PodEmojiPicker` en cabecera de bloque |
+| Cambio de grupo en alfabético | n/a | `PodChangeDropdown` desde badge clickeable |
+| "Sin grupo" en dropdown | n/a | Opción al final del dropdown |
+| Crear grupo desde dropdown | n/a | Sí: muta a emoji picker, crea + asigna |
+
+### 12.4 Decisiones técnicas y de diseño
+
+**Datos / lógica pura:**
+- `Pod.color` permanece como struct `PodColor` (con `hex`, `name`, `textOn`) en lugar del `string` que pedía el spec; necesario para decidir contraste de texto sin recalcular luminancia en cada render.
+- `Pod.id` formato `pod-N` numérico, secuencial al crear (`pods.length + 1`). No se reciclan ids cuando se eliminan pods (no hay eliminación en MVP).
+- `createPods` toma los **primeros `presentCount` alumnos en orden de entrada**, los **baraja** (Fisher–Yates con `random()` inyectable), y los reparte. Los grupos se ven aleatorios cada vez. La "primera N" es deterministica para que el unassigned set sea predecible.
+- `createPods` capa `effectivePresent = min(presentCount, robotCount * maxPerPod)`. Si el profesor mete 30/3 con max=4, solo se asignan 12; los 18 restantes quedan en "Sin asignar" (no se fuerzan en grupos sobrellenos).
+- Selección de colores por **furthest-point sampling** (`pickUniqueColors` en `create-pods.ts`): la 1ª elección es aleatoria, las siguientes maximizan distancia RGB mínima a las ya elegidas. Garantiza separación visual incluso con N pequeño.
+- Selección de emojis: `shuffle + slice(N)` simple sobre `POD_EMOJIS` (15 elementos). Sin reposición.
+- Dentro de cada grupo, el orden de los alumnos al renderizar es **alfabético por apellido** (computado en `StudentTable` con `sortByLastName(pod.students)`). El array interno del store mantiene el orden de inserción para no perder datos.
+
+**Renderizado / store:**
+- Tres modos visuales (controlados por `viewWithPods` y `sortMode` en el store):
+  1. `viewWithPods=false`: alfabética sin badges (default sin grupos creados).
+  2. `viewWithPods=true && sortMode="alphabetical"`: alfabética con badge clickeable. **Sin DnD.**
+  3. `viewWithPods=true && sortMode="grouped"`: agrupada con cabeceras + DnD. **Sin badge clickeable.**
+- Apagar `viewWithPods` no borra los pods del store; al reactivar vuelven idénticos.
+- Tras crear los grupos, el store fuerza `viewWithPods=true` y `sortMode="grouped"`.
+- DnD usa `@dnd-kit/core` solo (no `sortable`). Cada `<tbody>` por grupo es un `Droppable`; cada fila un `Draggable` cuyo activator es solo el handle `⋮⋮`.
+- Drop válido se valida en `addStudentToPod` (lib pura): error `destination-pod-full` si capacidad excedida. UI muestra banner `role="alert"` 2.5s.
+- Popovers (cambio de grupo, emoji picker, añadir alumno) usan **portal a `document.body`** + posición `fixed` calculada en `useLayoutEffect` con `computePopoverPosition` (`lib/utils/popover-position.ts`): si no cabe abajo flipa arriba; clamp al viewport horizontalmente.
+
+**Estilo:**
+- `text-3xl`/headings/colors → match del mock C360. Sidebar `bg-[#1f2937]` con highlight `bg-cyan-300/90` para el item activo. Header bar fondo `#e8eef1` (gris azulado). Botón Descargar `bg-[#0e7c66]` (turquesa).
+- 5 bandas de score (`Insuficiente`, `Suficiente`, `Bien`, `Notable`, `Excelente`) + dos kinds visuales (`completed` ✓, `failed` ✗, `empty`). Celdas `size-5` (20px) con bg saturado por banda.
+- Activity headers de la tabla con rotación −55° y altura fija 92px.
+
+### 12.5 Estructura de archivos real
+
+```
+robotix_group_prototype/
+├── app/
+│   ├── layout.tsx                             ← root + Providers
+│   ├── globals.css                            ← @import "tailwindcss" + @theme
+│   ├── page.tsx                               ← redirige a /mi-alumnado
+│   ├── providers.tsx                          ← QueryClientProvider
+│   └── mi-alumnado/page.tsx                   ← AppShell
+├── components/
+│   ├── layout/
+│   │   ├── AppShell.tsx                       ← Sidebar + Main
+│   │   ├── Sidebar.tsx                        ← oscura, cursos hardcoded
+│   │   ├── TopBar.tsx                         ← Mi alumnado + Descargar + Agrupar
+│   │   └── ClassSelector.tsx                  ← solo si classes.length > 1
+│   ├── pods/
+│   │   ├── PodGroupingButton.tsx              ← botón Agrupar (variant secondary)
+│   │   ├── PodGroupingModal.tsx               ← modal con 2 inputs Zod
+│   │   ├── PodControls.tsx                    ← strip azul (toggle + sort)
+│   │   ├── PodViewToggle.tsx                  ← checkbox Vista con Grupos
+│   │   ├── PodSortControl.tsx                 ← segmented Alfabético/Por grupos
+│   │   ├── PodBadge.tsx                       ← chip emoji + color (size sm/md, prefix, withChevron)
+│   │   ├── PodBadgeWithDropdown.tsx           ← badge clickeable + PodChangeDropdown
+│   │   ├── PodChangeDropdown.tsx              ← portal: lista + Sin grupo + Crear nuevo (mode list/pick-emoji)
+│   │   ├── PodHeaderTrigger.tsx               ← cabecera "Grupo 🤖 ▾" abre PodEmojiPicker
+│   │   ├── PodEmojiPicker.tsx                 ← portal grid 5x3 con emojis en uso disabled
+│   │   ├── PodAddStudentButton.tsx            ← botón + en cabecera
+│   │   ├── PodAddStudentMenu.tsx              ← portal: lista de no asignados
+│   │   └── PodDroppableTbody.tsx              ← <tbody> droppable + ring verde/rojo
+│   ├── students/
+│   │   ├── StudentTable.tsx                   ← thead doble + tbody por grupo + Sin asignar + Crear nuevo grupo
+│   │   ├── StudentRow.tsx                     ← celda Alumno sticky + 24 celdas progreso
+│   │   ├── StudentRowDraggable.tsx            ← StudentRow con useDraggable + handle
+│   │   ├── DragHandle.tsx                     ← icono GripVertical accesible
+│   │   └── ScoreLegend.tsx                    ← strip de 6 chips + "Última actualización"
+│   └── ui/
+│       ├── Button.tsx                         ← primary/secondary/ghost/danger
+│       ├── Input.tsx                          ← con label, error, hint
+│       ├── Modal.tsx                          ← focus trap, ESC, click outside
+│       ├── Checkbox.tsx
+│       └── SegmentedControl.tsx               ← radiogroup accesible
+├── hooks/
+│   ├── useStudents.ts                         ← Tanstack Query
+│   └── useClasses.ts                          ← Tanstack Query
+├── lib/
+│   ├── pods/
+│   │   ├── create-pods.ts                     ← createPods, createEmptyPod, shuffleInPlace
+│   │   ├── move-student.ts                    ← moveStudent, addStudentToPod, removeStudentFromPod
+│   │   ├── edit-pod.ts                        ← changePodEmoji
+│   │   ├── pod-colors.ts                      ← 15 colores con max contraste
+│   │   ├── pod-emojis.ts                      ← 15 emojis STEM + MAX_PODS=15
+│   │   └── grouping-schema.ts                 ← Zod del modal
+│   ├── data/units.ts                          ← 6 unidades × 4 actividades hardcoded
+│   ├── supabase/client.ts                     ← createBrowserClient
+│   └── utils/
+│       ├── cn.ts                              ← clsx + tailwind-merge
+│       ├── sort-students.ts                   ← lastNameKey + displayName + sortByLastName
+│       ├── progress-cells.ts                  ← progressCellFor + BAND_STYLES
+│       └── popover-position.ts                ← computePopoverPosition (flip-above)
+├── store/
+│   └── pods-store.ts                          ← Zustand v5
+├── types/
+│   └── database.ts                            ← Database, StudentRow, ClassRow
+├── __tests__/pods/
+│   ├── create-pods.test.ts                    ← 22 tests
+│   ├── move-student.test.ts                   ← 13 tests
+│   └── edit-pod.test.ts                       ← 5 tests
+├── SUPERPROMPT.md                             ← este archivo
+├── CLAUDE_SCHEMA.md                           ← schema Supabase
+├── package.json                               ← Next 15.5, React 19, Tailwind 4, etc.
+├── tsconfig.json                              ← strict + noUncheckedIndexedAccess
+├── next.config.ts
+├── postcss.config.mjs
+├── vitest.config.ts                           ← alias @ → ./
+└── legacy/                                    ← prototipos anteriores (no se tocan)
+```
+
+### 12.6 Tipos clave
+
+```ts
+// lib/pods/create-pods.ts
+type Student = { id: string; full_name: string };
+type Pod = {
+  id: string;          // "pod-1", "pod-2", ...
+  emoji: string;       // "🤖"
+  emojiLabel: string;  // "Robot"
+  color: PodColor;     // { hex, name, textOn: "white" | "black" }
+  students: Student[];
+  maxCapacity: number; // default 4
+};
+type CreatePodsInput = {
+  students: Student[];
+  presentCount: number;
+  robotCount: number;
+  maxPerPod?: number;        // default 4
+  minPerPod?: number;        // default 3 (no enforced, informativo)
+  random?: () => number;     // default Math.random — para tests deterministas
+};
+```
+
+### 12.7 Store API (`usePodsStore`)
+
+```ts
+type State = {
+  pods: Pod[];
+  viewWithPods: boolean;
+  sortMode: "alphabetical" | "grouped";
+};
+
+type Actions = {
+  // creación
+  createPodsFromInput: (input: { students, presentCount, robotCount }) => void;
+  resetPods: () => void;
+  addEmptyPod: () => void;                      // nuevo grupo random sin alumnos
+  createPodAndAssignStudent: (student, emoji, label) => void;  // crear + asignar atómico
+  // ui
+  setViewWithPods: (on: boolean) => void;
+  setSortMode: (mode: SortMode) => void;
+  // movimientos
+  moveStudent: (studentId, toPodId) => MoveStudentResult;
+  addStudentToPod: (student, toPodId) => MoveStudentResult;     // dispatch interno: si está en otro pod, mueve; si no, añade
+  removeStudentFromPod: (studentId) => MoveStudentResult;       // saca del pod actual
+  // edición
+  changeEmoji: (podId, emoji, label) => ChangeEmojiResult;
+};
+```
+
+### 12.8 Validaciones / errores
+
+| Capa | Regla | Mensaje |
+|---|---|---|
+| Modal Zod | `presentCount` int >0 | "Indica cuántos alumnos hay presentes" / "Debe ser un entero" / "Debe ser mayor que 0" |
+| Modal Zod | `robotCount` int >0 | idem |
+| Modal Zod | `robotCount <= 15` | "Máximo 15 grupos permitidos" |
+| Modal Zod | `robotCount <= presentCount` | "No puede haber más robots que alumnos" |
+| Modal handler | `presentCount <= totalStudents` | "Solo hay X alumnos en la clase" |
+| `createPods` | `presentCount > students.length` | "No hay tantos alumnos en clase" |
+| `createPods` | `robotCount > presentCount` | "Hay más robots que alumnos" |
+| `createPods` | `robotCount > 15` | "Máximo 15 grupos permitidos" |
+| `createPods` | cap silencioso | si `presentCount > robotCount * maxPerPod`, los excedentes quedan fuera (en "Sin asignar") |
+| `moveStudent` / `addStudentToPod` | destino lleno | `destination-pod-full` → banner "El grupo destino está lleno" |
+| `changePodEmoji` | emoji ya en uso | `emoji-in-use` (no se aplica) |
+| `createEmptyPod` | 15 grupos ya creados | "Máximo 15 grupos permitidos" |
+
+### 12.9 Convenciones visuales aplicadas
+
+- Nombres de alumno en celda Alumno: `displayName(full_name)` → MAYÚSCULAS, formato "APELLIDO APELLIDO, NOMBRE", color azul `text-blue-700`, hover underline. Con `href="#"` y `e.preventDefault()`.
+- Cabecera de bloque (sort grouped): fondo del color del grupo al 10% (`hex + "1a"`) + border-top de 2px del color completo + sticky-left. Contiene `PodHeaderTrigger` (`Grupo {emoji} ▾`), contador `N de M alumnos`, y `+` (PodAddStudentButton) en `ml-auto`.
+- Tira de color en filas dentro de un grupo: `box-shadow: inset 4px 0 0 0 {color}` en la celda Alumno (`podColorBorder=true`). En grouped no se renderiza badge en cada fila (la cabecera ya tiene el grupo).
+- Badge de cambio (alfabético): `PodBadge withChevron` (clickeable, abre `PodChangeDropdown`). El alumno sin grupo muestra placeholder dashed `Sin grupo ▾` también clickeable (mismo dropdown, header "Asignar a un grupo").
+- DnD ring: tbody del grupo destino → verde si capacidad ok (`box-shadow: inset 0 0 0 2px rgb(16 185 129)` + tinte 4%), rojo si lleno. Sin ring en el origen.
+- Botón "+ Crear nuevo grupo" al final de la tabla en grouped mode: full-width, `border-y dashed`, hover sutil. Sticky-left.
+- Popovers: `position: fixed` calculada con `computePopoverPosition` (flip arriba si no cabe abajo, clamp horizontal). `visibility: hidden` hasta que la posición está computada (sin parpadeo).
+
+### 12.10 Tests
+
+```
+__tests__/pods/create-pods.test.ts (22 tests):
+  - 8 casos del SUPERPROMPT §6: 24/6, 22/6, 18/5, 20/5, 1/1, 0/1 error, 2/5 error, 30/16 error
+  - 30/15 ok (límite)
+  - primeros presentCount como pool
+  - reparto entre grupos aleatorio (30 ejecuciones, ≥2 ordenaciones)
+  - random() inyectable reproducible
+  - emojis únicos, colores únicos hasta 15
+  - ids pod-N secuenciales
+  - cap presentCount > robotCount * maxPerPod (default + custom)
+  - createEmptyPod sin colisión, con preferredEmoji disponible / en uso
+  - error al intentar el 16
+
+__tests__/pods/move-student.test.ts (13 tests):
+  - moveStudent: A→B con espacio, POD lleno, mismo POD no-op, alumno
+    inexistente, POD inexistente, inmutabilidad
+  - removeStudentFromPod: ok, alumno no encontrado, inmutabilidad
+  - addStudentToPod: ok, lleno, ya estaba en otro POD (delega en moveStudent)
+
+__tests__/pods/edit-pod.test.ts (5 tests):
+  - changePodEmoji: ok, emoji en uso por otro, no-op mismo emoji,
+    pod inexistente, inmutabilidad
+
+Total: 40/40 verde.
+```
+
+Para tests deterministas con shuffle: pasar `random: () => 0.999` (shuffle identidad) o un generador con secuencia fija.
+
+### 12.11 Visual realmente clavado vs el mockup C360
+
+Lo que está mimetizado pixel-aproximado del screenshot original (`Screenshot 2026-05-06 120918.png`):
+- Sidebar oscura `bg-[#1f2937]` con cursos `1º ESO`, `2º ESO`, `3º ESO` y subitems.
+- Header blanco: `Mi alumnado: Progreso por unidad didáctica` en `text-[#0f4c5c]`, breadcrumb `1º ESO / C1250 · Superhéroes futuro X`, botón Descargar teal.
+- Score legend: 6 chips + "Última actualización 6/05/2026" en italic.
+- Tabla: 6 unidades × 4 actividades con headers rotados, celdas score/check/X.
+- Nombres en mayúsculas formato apellido, NOMBRE.
+
+Lo que añadí encima del mockup (no estaba en la captura):
+- Botón "Agrupar" pequeño junto a Descargar (variant secondary, no robar foco).
+- Strip azul `PodControls` (toggle + sort) tras crear grupos.
+- Cabeceras de bloque con tinte de color del grupo en mode grouped.
+- Botón `+ Crear nuevo grupo` al final.
+
+### 12.12 Limitaciones conocidas / fuera de scope
+
+- **Sin persistencia**: refrescar pierde los grupos. Es lo esperado.
+- **Sin auth / RLS estricta**: cualquiera con la URL del prototipo puede leer/escribir Supabase. Bloqueante para producción.
+- **Sin tests E2E** (Playwright). Solo tests de lógica pura.
+- **Sin tests de componentes**. Modales, dropdowns, etc., solo se validan manualmente.
+- **`@dnd-kit/sortable` instalado pero no usado**. No se reordena dentro de un grupo (spec no lo pide).
+- **`@dnd-kit/accessibility` no instalado**. Los utils ya están en `core`.
+- **i18n no implementado**. Strings castellano hardcoded.
+- **El botón "Crear nuevo grupo" no se autodesactiva al llegar a 15** (lanzaría error en el store). Si llegas, fallback es no hacer nada visible. Mejorable con `disabled` cuando `pods.length >= 15`.
+- **`colorDistance` en `pickUniqueColors`** es Euclidean RGB, no perceptualmente uniforme (LAB/LCH sería más correcto). Suficiente con la paleta actual.
+- **Tras un drag, el banner de error usa `setTimeout`**; si el usuario hace varios drags fallidos rápido, el último timeout tapa al anterior (no acumula). Aceptable.
+- **Las `name` keys de `PodColor`** ("red", "navy"...) no se muestran al usuario, solo identifican en el código.
+
+### 12.13 Cómo arrancar la próxima sesión
+
+```bash
+cd robotix_group_prototype
+npm install
+npm test          # debería decir 40 passed
+npm run dev       # http://localhost:3000
+```
+
+Variables en `.env.local` (ya existe en el repo, gitignored):
+```
+NEXT_PUBLIC_SUPABASE_URL=https://andprbqacpspbxmqqxuj.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable__-RDC0rLI9Rg2iARjbOnXA_t2uICKYK
+```
+
+### 12.14 Historial de commits relevantes (orden cronológico)
+
+```
+b783feb  Fase 1   scaffold Next.js 15 + Supabase + tabla /mi-alumnado
+0d9755f  Fase 2   createPods puro + 14 tests verdes (paleta de 12 colores)
+313b1fb  Fase 3   botón Agrupar + modal Zod + store Zustand
+ac897ba  Fase 4   vista con badges + sort alfa/grouped + sección Sin asignar
+35437eb  Fase 5   drag and drop entre PODs con @dnd-kit
+414ebb4  Fase 6   botón + en cabecera de POD con menú de no asignados
+284a803  style    mímica fiel del C360 mockup en /mi-alumnado
+88b6de0  feat     reparto aleatorio + botón Crear nuevo POD vacío
+1ac6db5  refactor identidad por emoji + color aleatorio único en createPods
+097f776  feat     rebrand UI POD→Grupo + validación max 15
+265165c  feat     dropdown para cambiar de grupo desde alfabético
+6c1dd5f  feat     emoji picker en cabecera de grupo
+99dead9  fix      popovers se autoposicionan + no asignados clickeables
+1927dc1  fix      paleta de 15 colores + DnD en sin asignar + sin badge en grouped
+f873fa6  fix      excedentes presentCount > robotCount*max quedan sin asignar
+28c2200  feat     "Crear nuevo grupo" desde el dropdown con emoji picker
+4d1cb5b  feat     orden alfabético dentro de cada grupo (al renderizar)
+0fb03b6  feat     paleta con más contraste + max-distance sampling
+```
+
+---
+
+*SUPERPROMPT.md v2 (apéndice §12 actualizado mayo 2026) — Prototipo de Agrupación por Grupos (C360 / ROBOTIX).*
+````
