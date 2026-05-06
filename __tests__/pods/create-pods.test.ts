@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest";
 import {
+  createEmptyPod,
   createPods,
-  letterForPodIndex,
   type Student,
 } from "@/lib/pods/create-pods";
 import { POD_COLORS } from "@/lib/pods/pod-colors";
+import { POD_EMOJIS } from "@/lib/pods/pod-emojis";
 
 function makeStudents(n: number): Student[] {
   return Array.from({ length: n }, (_, i) => ({
@@ -14,7 +15,7 @@ function makeStudents(n: number): Student[] {
 }
 
 describe("createPods — casos del SUPERPROMPT §5", () => {
-  it("24 alumnos / 6 robots → 6 PODs de 4", () => {
+  it("24 alumnos / 6 robots → 6 grupos de 4", () => {
     const pods = createPods({
       students: makeStudents(30),
       presentCount: 24,
@@ -25,7 +26,7 @@ describe("createPods — casos del SUPERPROMPT §5", () => {
     expect(pods.flatMap((p) => p.students.map((s) => s.id))).toHaveLength(24);
   });
 
-  it("22 alumnos / 6 robots → 4 PODs de 4 + 2 PODs de 3", () => {
+  it("22 alumnos / 6 robots → 4 grupos de 4 + 2 grupos de 3", () => {
     const pods = createPods({
       students: makeStudents(30),
       presentCount: 22,
@@ -35,7 +36,7 @@ describe("createPods — casos del SUPERPROMPT §5", () => {
     expect(pods.map((p) => p.students.length)).toEqual([4, 4, 4, 4, 3, 3]);
   });
 
-  it("18 alumnos / 5 robots → 3 PODs de 4 + 2 PODs de 3", () => {
+  it("18 alumnos / 5 robots → 3 grupos de 4 + 2 grupos de 3", () => {
     const pods = createPods({
       students: makeStudents(20),
       presentCount: 18,
@@ -45,7 +46,7 @@ describe("createPods — casos del SUPERPROMPT §5", () => {
     expect(pods.map((p) => p.students.length)).toEqual([4, 4, 4, 3, 3]);
   });
 
-  it("20 alumnos / 5 robots → 5 PODs de 4", () => {
+  it("20 alumnos / 5 robots → 5 grupos de 4", () => {
     const pods = createPods({
       students: makeStudents(20),
       presentCount: 20,
@@ -55,7 +56,7 @@ describe("createPods — casos del SUPERPROMPT §5", () => {
     expect(pods.map((p) => p.students.length)).toEqual([4, 4, 4, 4, 4]);
   });
 
-  it("1 alumno / 1 robot → 1 POD de 1", () => {
+  it("1 alumno / 1 robot → 1 grupo de 1", () => {
     const pods = createPods({
       students: makeStudents(1),
       presentCount: 1,
@@ -63,7 +64,9 @@ describe("createPods — casos del SUPERPROMPT §5", () => {
     });
     expect(pods).toHaveLength(1);
     expect(pods[0]?.students).toHaveLength(1);
-    expect(pods[0]?.label).toBe("POD A");
+    expect(pods[0]?.id).toBe("pod-1");
+    expect(pods[0]?.emoji).toBeTruthy();
+    expect(pods[0]?.emojiLabel).toBeTruthy();
   });
 
   it("0 alumnos / 1 robot → error", () => {
@@ -85,6 +88,26 @@ describe("createPods — casos del SUPERPROMPT §5", () => {
       }),
     ).toThrow(/más robots que alumnos/);
   });
+
+  it("30 alumnos / 16 robots → error (máximo 15 grupos)", () => {
+    expect(() =>
+      createPods({
+        students: makeStudents(30),
+        presentCount: 30,
+        robotCount: 16,
+      }),
+    ).toThrow(/Máximo 15 grupos/);
+  });
+
+  it("30 alumnos / 15 robots → 15 grupos OK (en el límite)", () => {
+    const pods = createPods({
+      students: makeStudents(30),
+      presentCount: 30,
+      robotCount: 15,
+    });
+    expect(pods).toHaveLength(15);
+    expect(new Set(pods.map((p) => p.emoji)).size).toBe(15);
+  });
 });
 
 describe("createPods — comportamiento adicional", () => {
@@ -102,7 +125,7 @@ describe("createPods — comportamiento adicional", () => {
     ]);
   });
 
-  it("reparto entre PODs es aleatorio (no respeta orden de entrada)", () => {
+  it("reparto entre grupos es aleatorio (no respeta orden de entrada)", () => {
     const students = makeStudents(24);
     const seen = new Set<string>();
     for (let i = 0; i < 30; i++) {
@@ -128,30 +151,41 @@ describe("createPods — comportamiento adicional", () => {
     );
   });
 
-  it("asigna letras incrementales A, B, C…", () => {
+  it("emojis asignados son unicos dentro de la misma llamada", () => {
+    const pods = createPods({
+      students: makeStudents(12),
+      presentCount: 12,
+      robotCount: 6,
+    });
+    const emojis = pods.map((p) => p.emoji);
+    expect(new Set(emojis).size).toBe(emojis.length);
+    emojis.forEach((e) =>
+      expect(POD_EMOJIS.map((x) => x.emoji)).toContain(e),
+    );
+  });
+
+  it("colores asignados son unicos dentro de la misma llamada hasta 12", () => {
+    const pods = createPods({
+      students: makeStudents(12),
+      presentCount: 12,
+      robotCount: 12,
+    });
+    const colors = pods.map((p) => p.color.hex);
+    expect(new Set(colors).size).toBe(12);
+  });
+
+  it("ids son pod-1, pod-2... incrementales", () => {
     const pods = createPods({
       students: makeStudents(12),
       presentCount: 12,
       robotCount: 4,
     });
-    expect(pods.map((p) => p.letter)).toEqual(["A", "B", "C", "D"]);
     expect(pods.map((p) => p.id)).toEqual([
-      "pod-a",
-      "pod-b",
-      "pod-c",
-      "pod-d",
+      "pod-1",
+      "pod-2",
+      "pod-3",
+      "pod-4",
     ]);
-  });
-
-  it("asigna colores de la paleta y los cicla más allá de 12", () => {
-    const pods = createPods({
-      students: makeStudents(14),
-      presentCount: 14,
-      robotCount: 14,
-    });
-    pods.forEach((p, i) => {
-      expect(p.color.hex).toBe(POD_COLORS[i % POD_COLORS.length]!.hex);
-    });
   });
 
   it("error si presentCount > students.length", () => {
@@ -175,14 +209,29 @@ describe("createPods — comportamiento adicional", () => {
   });
 });
 
-describe("letterForPodIndex", () => {
-  it("0..25 devuelve A..Z", () => {
-    expect(letterForPodIndex(0)).toBe("A");
-    expect(letterForPodIndex(25)).toBe("Z");
+describe("createEmptyPod", () => {
+  it("crea un grupo vacio con emoji y color no usados por los existentes", () => {
+    const existing = createPods({
+      students: makeStudents(12),
+      presentCount: 12,
+      robotCount: 6,
+    });
+    const empty = createEmptyPod({ existing });
+    expect(empty.students).toHaveLength(0);
+    expect(existing.map((p) => p.emoji)).not.toContain(empty.emoji);
+    expect(existing.map((p) => p.color.hex)).not.toContain(empty.color.hex);
   });
 
-  it("26..27 devuelve AA, AB", () => {
-    expect(letterForPodIndex(26)).toBe("AA");
-    expect(letterForPodIndex(27)).toBe("AB");
+  it("error si existing tiene 15 grupos (limite de emojis)", () => {
+    const existing: Parameters<typeof createEmptyPod>[0]["existing"] =
+      POD_EMOJIS.map((e, i) => ({
+        id: `pod-${i + 1}`,
+        emoji: e.emoji,
+        emojiLabel: e.label,
+        color: POD_COLORS[i % POD_COLORS.length]!,
+        students: [],
+        maxCapacity: 4,
+      }));
+    expect(() => createEmptyPod({ existing })).toThrow(/Máximo 15 grupos/);
   });
 });

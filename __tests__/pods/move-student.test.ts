@@ -19,11 +19,11 @@ describe("moveStudent", () => {
       robotCount: 2,
       random: noShuffle,
     });
-    const result = moveStudent(pods, "s-001", "pod-b");
+    const result = moveStudent(pods, "s-001", "pod-2");
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    const podA = result.pods.find((p) => p.id === "pod-a")!;
-    const podB = result.pods.find((p) => p.id === "pod-b")!;
+    const podA = result.pods.find((p) => p.id === "pod-1")!;
+    const podB = result.pods.find((p) => p.id === "pod-2")!;
     expect(podA.students.map((s) => s.id)).not.toContain("s-001");
     expect(podB.students.map((s) => s.id)).toContain("s-001");
     expect(podA.students).toHaveLength(2);
@@ -38,7 +38,7 @@ describe("moveStudent", () => {
       maxPerPod: 4,
       random: noShuffle,
     });
-    const result = moveStudent(pods, "s-001", "pod-b");
+    const result = moveStudent(pods, "s-001", "pod-2");
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.reason).toBe("destination-pod-full");
@@ -51,7 +51,7 @@ describe("moveStudent", () => {
       robotCount: 2,
       random: noShuffle,
     });
-    const result = moveStudent(pods, "s-001", "pod-a");
+    const result = moveStudent(pods, "s-001", "pod-1");
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.pods).toEqual(pods);
@@ -64,7 +64,7 @@ describe("moveStudent", () => {
       robotCount: 2,
       random: noShuffle,
     });
-    const result = moveStudent(pods, "no-existe", "pod-b");
+    const result = moveStudent(pods, "no-existe", "pod-2");
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.reason).toBe("student-not-found");
@@ -91,7 +91,7 @@ describe("moveStudent", () => {
       random: noShuffle,
     });
     const snapshot = JSON.stringify(pods);
-    const result = moveStudent(pods, "s-001", "pod-b");
+    const result = moveStudent(pods, "s-001", "pod-2");
     expect(result.ok).toBe(true);
     expect(JSON.stringify(pods)).toBe(snapshot);
   });
@@ -107,10 +107,10 @@ describe("addStudentToPod", () => {
       random: noShuffle,
     });
     const unassigned = all[7]!;
-    const result = addStudentToPod(pods, unassigned, "pod-a");
+    const result = addStudentToPod(pods, unassigned, "pod-1");
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    const podA = result.pods.find((p) => p.id === "pod-a")!;
+    const podA = result.pods.find((p) => p.id === "pod-1")!;
     expect(podA.students.map((s) => s.id)).toContain(unassigned.id);
   });
 
@@ -124,7 +124,7 @@ describe("addStudentToPod", () => {
       random: noShuffle,
     });
     const unassigned = all[8]!;
-    const result = addStudentToPod(pods, unassigned, "pod-a");
+    const result = addStudentToPod(pods, unassigned, "pod-1");
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.reason).toBe("destination-pod-full");
@@ -138,11 +138,11 @@ describe("addStudentToPod", () => {
       random: noShuffle,
     });
     const studentInA = pods[0]!.students[0]!;
-    const result = addStudentToPod(pods, studentInA, "pod-b");
+    const result = addStudentToPod(pods, studentInA, "pod-2");
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    const podA = result.pods.find((p) => p.id === "pod-a")!;
-    const podB = result.pods.find((p) => p.id === "pod-b")!;
+    const podA = result.pods.find((p) => p.id === "pod-1")!;
+    const podB = result.pods.find((p) => p.id === "pod-2")!;
     expect(podA.students.map((s) => s.id)).not.toContain(studentInA.id);
     expect(podB.students.map((s) => s.id)).toContain(studentInA.id);
   });

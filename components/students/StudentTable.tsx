@@ -341,7 +341,7 @@ function PodSectionHeaderRow({
           className="flex items-center gap-3 px-4 py-2"
           style={{ backgroundColor: `${pod.color.hex}1a` }}
         >
-          <PodBadge pod={pod} size="md" />
+          <PodBadge pod={pod} size="md" prefix="Grupo" />
           <span className="text-xs font-semibold text-slate-700">
             {pod.students.length} de {pod.maxCapacity} alumnos
           </span>

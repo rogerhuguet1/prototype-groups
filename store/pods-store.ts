@@ -65,7 +65,10 @@ export const usePodsStore = create<State & Actions>((set, get) => ({
     const state = get();
     const maxCapacity =
       state.pods[0]?.maxCapacity ?? DEFAULT_MAX_PER_POD;
-    const newPod = createEmptyPod(state.pods.length, maxCapacity);
+    const newPod = createEmptyPod({
+      existing: state.pods,
+      maxCapacity,
+    });
     set({
       pods: [...state.pods, newPod],
       viewWithPods: true,
