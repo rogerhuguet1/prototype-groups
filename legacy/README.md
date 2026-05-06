@@ -1,10 +1,20 @@
 # legacy/
 
-Prototipos previos de **VisualGroups**, congelados como referencia.
-**No se mantienen ni se actualizan.** Sirven para no perder el trabajo
-hecho mientras la nueva versión cambia de enfoque y reestructura.
+Iteraciones previas y documentación asociada de **VisualGroups**,
+congeladas como referencia. **No se mantienen ni se actualizan.**
+Sirven para no perder el trabajo hecho mientras la nueva versión
+cambia de enfoque y reestructura.
 
-## Índice
+## Documentos del enfoque previo
+
+- **`CLAUDE.md`** — visión, arquitectura completa con Moodle Workplace
+  4.5 + LTI 1.3, modelo de datos `vg_*`, plan por fases. Incluye §18
+  con el estado real de las iteraciones y los aprendizajes técnicos
+  heredables (la sección más útil para futuras iteraciones).
+- **`PROTOTIPO_FUNCIONAL.md`** — especificación funcional inicial del
+  prototipo (las 12 funciones que cumplió `simpler-prototype/`).
+
+## Iteraciones de código
 
 ### `canvas-prototype/`
 Primer prototipo (mayo 2026). Stack: Next.js 15 + React 19 + Tailwind v4
@@ -32,4 +42,5 @@ npm run dev
 ```
 
 `simpler-prototype/` necesita `.env.local` con
-`NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+`NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+(viven en la raíz del repo, no aquí).

@@ -1,20 +1,22 @@
 # VisualGroups
 
 Herramienta visual para que el profesorado cree y evalúe grupos de
-alumnos, embebida en **Moodle Workplace 4.5** — by **ROBOTIX**.
+alumnos — by **ROBOTIX**.
 
 > **Estado actual: en reestructuración.** El enfoque del producto va a
-> cambiar. La raíz del repo está vacía a propósito; el código de las
-> iteraciones anteriores se conserva en `legacy/`.
+> cambiar. La raíz del repo está vacía de código a propósito; las
+> iteraciones anteriores y la documentación del enfoque previo se
+> conservan en `legacy/`.
 
-## Documentos del proyecto
+## Documentos en raíz
 
 | Archivo | Para qué |
 |---|---|
-| `CLAUDE.md` | Visión, arquitectura, modelo de datos, plan por fases del producto. |
-| `SKILLS.md` | Rol del agente, principios técnicos, identidad visual, antipatrones. |
-| `PROTOTIPO_FUNCIONAL.md` | Especificación funcional del prototipo (12 funciones). |
-| `legacy/README.md` | Índice de prototipos anteriores. |
+| `SKILLS.md` | Rol del agente, principios técnicos, identidad visual, antipatrones. **Sigue vigente.** |
+| `CLAUDE_SCHEMA.md` | Schema actual de la BD Supabase activa. Útil si la nueva iteración sigue usando ese proyecto. |
+| `legacy/README.md` | Índice de iteraciones y docs anteriores. |
+| `legacy/CLAUDE.md` | Visión y plan del enfoque previo (Moodle Workplace + LTI). Pendiente de revisión. |
+| `legacy/PROTOTIPO_FUNCIONAL.md` | Especificación funcional del prototipo previo. |
 
 ## Iteraciones anteriores
 
@@ -28,7 +30,14 @@ Conservadas en `legacy/`, congeladas:
 Cada uno es autocontenido (`npm install` + `npm run dev` desde su
 carpeta). Ver `legacy/README.md` para más detalle.
 
+## Variables de entorno
+
+`.env.local` (gitignored) y `.env.example` (plantilla) viven en raíz y
+los reutilizan los prototipos de `legacy/` mediante ruta relativa.
+
 ## Próximos pasos
 
 Pendiente: definir el nuevo enfoque y empezar la siguiente iteración en
-la raíz desde cero.
+la raíz desde cero. El §18 de `legacy/CLAUDE.md` recoge los aprendizajes
+técnicos heredables si se quiere reciclar parte del código de
+`legacy/simpler-prototype/`.
