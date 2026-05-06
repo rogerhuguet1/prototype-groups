@@ -1,5 +1,5 @@
-# dependencies
-/node_modules
+# dependencies (en cualquier nivel, también en legacy/)
+node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -11,9 +11,9 @@
 # testing
 /coverage
 
-# next.js
-/.next/
-/out/
+# next.js (en cualquier nivel, también en legacy/)
+.next/
+out/
 
 # production
 /build

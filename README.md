@@ -1,93 +1,57 @@
-# VisualGroups — Prototipo funcional (Fase 0)
+# VisualGroups
 
-Prototipo visual e interactivo para la herramienta de creación y evaluación de grupos
-**VisualGroups**, que evolucionará como plugin para **Moodle Workplace 4.5** (ROBOTIX).
+Gestión visual de grupos para Moodle Workplace 4.5 — by **ROBOTIX**.
 
-> Esta fase **no** integra Moodle ni Supabase. Todo el estado vive en memoria del
-> navegador con datos mock. Los nombres y la estructura ya están alineados con
-> `CLAUDE.md` y `SKILLS.md` para que la migración a Next.js + Supabase + LTI sea
-> incremental, no una reescritura.
+Iteración local sobre **Next.js 15 + Supabase**, construida por fases pequeñas y
+verificables (ver `CLAUDE.md` y `SKILLS.md` para arquitectura y convenciones).
+
+> El prototipo anterior (mocks en cliente, sin Supabase) está congelado en
+> `legacy/` solo como referencia. La nueva implementación vive en la raíz.
 
 ## Stack
 
-- Next.js 15 (App Router, RSC)
+- Next.js 15 (App Router)
 - React 19
-- TypeScript estricto (`strict`, `noUncheckedIndexedAccess`)
+- TypeScript en modo `strict` (con `noUncheckedIndexedAccess`)
 - Tailwind v4 (`@theme` en CSS, sin `tailwind.config.*`)
-- Zustand 5 (estado UI)
-- Zod (validación de notas)
-- @dnd-kit (drag & drop accesible)
+- `@supabase/supabase-js`
 
-## Cómo ejecutar
+## Arrancar en local
 
 ```bash
 npm install
+cp .env.example .env.local       # rellena con tus claves de Supabase
 npm run dev
-# abre http://localhost:3000
-```
-
-Otros scripts:
-
-```bash
-npm run typecheck   # tsc --noEmit
-npm run build       # build producción
-npm run start       # servir build
-```
-
-## Estructura
-
-```
-app/                 # App Router: layout, rutas grupos / historial / configuracion
-components/
-  layout/            # AppShell, header, tabs
-  sidebar/           # Lista de alumnos sin asignar
-  canvas/            # Tablero de grupos (paneles)
-  detail/            # Panel de detalle del grupo seleccionado
-  history/           # Historial simulado
-  config/            # Configuración de la sesión
-  dnd/               # Provider y alternativa accesible al DnD
-  ui/                # Primitivos de UI (Button, Modal, Toast, ...)
-lib/
-  domain/            # types.ts, constants.ts, grading.ts
-  store/             # Zustand store central
-  data/              # mock-students, mock-panels, mock-history
-  utils/             # distribute, initials, cx
-  i18n/              # strings.ts (catalogados con la convención next-intl)
-  supabase/          # client stub, NO se usa todavía
+# http://localhost:3000
 ```
 
 ## Variables de entorno
 
-Copia `.env.example` a `.env.local`. En la fase 0 las variables están vacías;
-sirven sólo de plantilla para cuando se conecte Supabase. **Nunca** uses
-`service_role` en el cliente.
+Plantilla en `.env.example`. Copia a `.env.local` (gitignored):
 
-## Documentos del proyecto
+```
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+```
 
-- `CLAUDE.md` — qué construir (visión y modelo de datos del producto final).
-- `SKILLS.md` — cómo trabajar (rol, principios, identidad visual, antipatrones).
-- `PROTOTIPO_FUNCIONAL.md` — alcance acordado de esta Fase 0.
+`.env.local` **nunca** se sube al repo. La `service_role` jamás aquí.
 
-## Funcionalidades del prototipo
+## Scripts
 
-- [x] Layout responsive de 3 zonas (sidebar / canvas / detalle).
-- [x] Lista de alumnos sin asignar con búsqueda y contador.
-- [x] Crear, renombrar y eliminar grupos; limpiar todos.
-- [x] Distribuir alumnos automáticamente (round-robin).
-- [x] Drag & Drop (sidebar ↔ paneles, paneles ↔ paneles) con @dnd-kit.
-- [x] Alternativa accesible: menú "Asignar a…" + teclado.
-- [x] Bloqueo de capacidad con feedback visual + toast de error.
-- [x] Panel de detalle: nota grupal, override individual, estado de evaluación.
-- [x] Validación 0–10 con Zod.
-- [x] Historial simulado de sesiones.
-- [x] Configuración de sesión (nombre, tamaños mín/máx).
-- [x] Guardado simulado con toast.
+| Comando | Hace |
+|---|---|
+| `npm run dev` | Servidor de desarrollo en `:3000` |
+| `npm run build` | Build de producción |
+| `npm run start` | Sirve el build |
+| `npm run typecheck` | `tsc --noEmit` |
 
-## Fuera de alcance (Fase 0)
+## Estado del proyecto
 
-Integración Moodle real, conexión Supabase, LTI 1.3, Privacy API, push a gradebook,
-rúbricas avanzadas, coevaluación, asistencia, modo presentación, realtime,
-internacionalización completa (sólo es-ES por ahora; claves preparadas en
-`lib/i18n/strings.ts`).
+Construyendo por fases. Estado actual: **Fase 2 cerrada — scaffold limpio**.
+Próxima fase: cliente Supabase + verificación de conexión.
 
-— *VisualGroups by ROBOTIX. Prototipo Fase 0.*
+## Documentación
+
+- `CLAUDE.md` — qué construir (arquitectura, modelo, fases del producto).
+- `SKILLS.md` — cómo trabajar (rol, convenciones, identidad visual).
+- `PROTOTIPO_FUNCIONAL.md` — referencia funcional del prototipo.
