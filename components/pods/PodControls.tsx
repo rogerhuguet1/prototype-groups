@@ -12,7 +12,7 @@ export function PodControls() {
     s.pods.reduce((acc, p) => acc + p.students.length, 0),
   );
 
-  if (!hasPods) return null;
+  if (!hasPods || !viewWithPods) return null;
 
   return (
     <div className="bg-blue-50 border-b border-blue-100">

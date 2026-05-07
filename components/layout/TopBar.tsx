@@ -6,6 +6,7 @@ import { PodRegroupButton } from "@/components/pods/PodRegroupButton";
 import { PodHistoryButton } from "@/components/pods/PodHistoryButton";
 import { PodProjectionButton } from "@/components/pods/PodProjectionButton";
 import { PodSaveSnapshotButton } from "@/components/pods/PodSaveSnapshotButton";
+import { PodToggleViewButton } from "@/components/pods/PodToggleViewButton";
 import { COURSE_LABEL, PROGRAM_LABEL } from "@/lib/data/units";
 import type { ClassRow } from "@/types/database";
 
@@ -43,6 +44,7 @@ export function TopBar({
               onSelectClass={onSelectClass}
             />
           )}
+          <PodToggleViewButton />
           <PodRegroupButton />
           <PodSaveSnapshotButton />
           <PodProjectionButton />
