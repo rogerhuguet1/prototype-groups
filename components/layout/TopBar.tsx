@@ -2,27 +2,23 @@
 
 import { Download } from "lucide-react";
 import { ClassSelector } from "./ClassSelector";
-import { PodGroupingButton } from "@/components/pods/PodGroupingButton";
 import { PodRegroupButton } from "@/components/pods/PodRegroupButton";
 import { PodHistoryButton } from "@/components/pods/PodHistoryButton";
 import { PodProjectionButton } from "@/components/pods/PodProjectionButton";
 import { PodSaveSnapshotButton } from "@/components/pods/PodSaveSnapshotButton";
 import { COURSE_LABEL, PROGRAM_LABEL } from "@/lib/data/units";
 import type { ClassRow } from "@/types/database";
-import type { Student } from "@/lib/pods/create-pods";
 
 type Props = {
   classes: ClassRow[];
   activeClassId: string | null;
   onSelectClass: (id: string) => void;
-  students: Student[];
 };
 
 export function TopBar({
   classes,
   activeClassId,
   onSelectClass,
-  students,
 }: Props) {
   return (
     <header className="bg-white">
@@ -47,7 +43,6 @@ export function TopBar({
               onSelectClass={onSelectClass}
             />
           )}
-          <PodGroupingButton students={students} classId={activeClassId} />
           <PodRegroupButton />
           <PodSaveSnapshotButton />
           <PodProjectionButton />

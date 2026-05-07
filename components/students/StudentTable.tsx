@@ -94,6 +94,7 @@ export function StudentTable({ students }: Props) {
                   columns={FLAT_COLUMNS}
                   pod={viewWithPods ? studentToPod.get(s.id) : undefined}
                   showBadge={viewWithPods}
+                  withChangeDropdown={viewWithPods}
                 />
               ))}
             </tbody>

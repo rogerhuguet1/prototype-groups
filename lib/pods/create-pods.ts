@@ -154,7 +154,7 @@ export function createEmptyPod(input: {
   };
 }
 
-function pickUniqueColors(
+export function pickUniqueColors(
   count: number,
   excluded: PodColor[],
   random: () => number,
@@ -197,6 +197,101 @@ function pickUniqueColors(
     result.push(POD_COLORS[result.length % POD_COLORS.length] as PodColor);
   }
   return result;
+}
+
+export type RegroupMode = "mixed" | "leveled";
+
+export type CreatePodsByLevelInput = {
+  students: Student[];
+  presentCount: number;
+  robotCount: number;
+  mode: RegroupMode;
+  scoreFn: (studentId: string) => number;
+  maxPerPod?: number;
+  seed?: string;
+};
+
+export function createPodsByLevel(
+  input: CreatePodsByLevelInput,
+): CreatePodsOutput {
+  const {
+    students,
+    presentCount,
+    robotCount,
+    mode,
+    scoreFn,
+    maxPerPod = DEFAULT_MAX_PER_POD,
+  } = input;
+
+  if (!Number.isInteger(presentCount) || presentCount < 0) {
+    throw new Error("presentCount debe ser un entero >= 0");
+  }
+  if (!Number.isInteger(robotCount) || robotCount < 1) {
+    throw new Error("robotCount debe ser un entero > 0");
+  }
+  if (robotCount > MAX_PODS) {
+    throw new Error("Máximo 15 grupos permitidos");
+  }
+  if (presentCount > students.length) {
+    throw new Error("No hay tantos alumnos en clase");
+  }
+  if (robotCount > presentCount) {
+    throw new Error("Hay más robots que alumnos");
+  }
+
+  const seed = input.seed ?? generateSeed();
+  const random = randomFromSeed(seed);
+
+  const capacity = robotCount * maxPerPod;
+  const effectivePresent = Math.min(presentCount, capacity);
+
+  const pool = students.slice(0, presentCount);
+  const sorted = [...pool]
+    .sort((a, b) => scoreFn(b.id) - scoreFn(a.id))
+    .slice(0, effectivePresent);
+
+  const emojis = shuffleInPlace([...POD_EMOJIS], random).slice(0, robotCount);
+  const colors = pickUniqueColors(robotCount, [], random);
+
+  const buckets: Student[][] = Array.from(
+    { length: robotCount },
+    () => [],
+  );
+
+  if (mode === "leveled") {
+    const base = Math.floor(effectivePresent / robotCount);
+    const extra = effectivePresent % robotCount;
+    let cursor = 0;
+    for (let i = 0; i < robotCount; i++) {
+      const size = base + (i < extra ? 1 : 0);
+      buckets[i] = sorted.slice(cursor, cursor + size);
+      cursor += size;
+    }
+  } else {
+    let pos = 0;
+    let dir: 1 | -1 = 1;
+    for (let i = 0; i < sorted.length; i++) {
+      (buckets[pos] as Student[]).push(sorted[i] as Student);
+      if (dir === 1) {
+        if (pos === robotCount - 1) dir = -1;
+        else pos += 1;
+      } else {
+        if (pos === 0) dir = 1;
+        else pos -= 1;
+      }
+    }
+  }
+
+  const pods: Pod[] = buckets.map((bucket, i) => ({
+    id: `pod-${i + 1}`,
+    emoji: (emojis[i] as PodEmoji).emoji,
+    emojiLabel: (emojis[i] as PodEmoji).label,
+    color: colors[i] as PodColor,
+    students: bucket,
+    maxCapacity: maxPerPod,
+  }));
+
+  return { pods, seed };
 }
 
 function colorDistance(a: PodColor, b: PodColor): number {
