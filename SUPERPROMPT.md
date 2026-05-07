@@ -699,5 +699,249 @@ f873fa6  fix      excedentes presentCount > robotCount*max quedan sin asignar
 
 ---
 
-*SUPERPROMPT.md v2 (apéndice §12 actualizado mayo 2026) — Prototipo de Agrupación por Grupos (C360 / ROBOTIX).*
+## 13. Estado actual (mayo 2026, post-iteración v3+)
+
+> Apéndice operativo. Refleja todos los cambios introducidos durante la sesión iterativa con el profesor (commits 893b70d → 53b61d3, ya en GitHub). Reemplaza la visión de §12 donde aún era válida; añade el comportamiento nuevo donde difiere.
+
+### 13.1 Cambio de modelo principal
+
+El producto **ya no es un wizard de "Agrupar"**. La vista por defecto es la pantalla del C360 sin grupos, y el profesor decide cuándo activar la vista de grupos pulsando un botón en el TopBar. La feature gira ahora alrededor de:
+
+1. Pantalla inicial idéntica al mock C360 (sidebar oscura, ScoreLegend, tabla alfabética sin badges).
+2. Botón **`Grupos`** en TopBar que, al pulsar, **genera una distribución aleatoria nueva** (no reutiliza la previa) y entra directo en sort `grouped`.
+3. Menú **`Reagrupar`** con dropdown de cuatro modos (uno por progreso del curso + tres clásicos).
+4. Botón **`Guardar`** que **reemplaza** la entrada activa del historial en lugar de duplicar.
+5. Drag & drop, "+ Crear grupo", dropdown editable en alfabética, modo Proyección, panel Historial — todos disponibles solo cuando `viewWithPods=true`.
+
+`viewWithPods` y `sortMode` **no se persisten**: cada carga de la app vuelve a alfabética, sin importar qué dejó el profesor abierto la vez anterior.
+
+### 13.2 Ratio 1:3
+
+- `DEFAULT_MAX_PER_POD = 3` (antes 4).
+- `DEFAULT_MIN_PER_POD = 2`.
+- Cálculo central: `robotCountFor(presentCount) = min(15, max(1, ceil(presentCount / 3)))`.
+- Para 30 alumnos → 10 grupos de 3.
+- Reparto con resto: `[3,3,3,3,3,3,3,3,2,2]` (los grupos llenos al principio, los menos llenos al final).
+- Tests del SUPERPROMPT v3 §6 que asumían max=4 ahora pasan `maxPerPod: 4` explícito (su intención original sigue verificada).
+
+### 13.3 Botón `Grupos` (PodToggleViewButton)
+
+Vive en el TopBar. Reemplaza al borrado `PodGroupingButton`/`PodGroupingModal`.
+
+- Visible cuando `students.length > 0 && !viewWithPods`.
+- Click: llama `createPodsFromInput(students, robotCountFor(students.length))` + `addEntry(...)` + `setCurrentEntryId(...)`.
+- El store se encarga de poner `viewWithPods=true` y `sortMode="grouped"`.
+- Si ya había pods previos persistidos, se sobreescriben (cada click = nueva combinación aleatoria).
+
+### 13.4 Menú `Reagrupar` (PodRegroupMenu)
+
+Dropdown desde el botón `Reagrupar` con dos secciones:
+
+**Según el progreso del curso**
+- **Por avance en el curso** — `createPodsByProgress`. Primary: `getStudentProgress` (unidad alcanzada 0-6). Secondary: `getStudentOverallScore` (promedio sobre TODAS las cells no-empty del curso). Disabled si Unidad 1 no completada.
+
+**Sin tener en cuenta el progreso**
+- **Aleatoria** — `createPods` clásico.
+- **Mixta — equilibrada por nivel** — `createPodsByLevel(mode="mixed")`. Snake round-robin sobre orden de score Unidad 1. Disabled si Unidad 1 no completada.
+- **Por niveles — alumnos similares juntos** — `createPodsByLevel(mode="leveled")`. Chunks contiguos por score Unidad 1. Disabled si Unidad 1 no completada.
+
+Click en el botón `Reagrupar` SIEMPRE abre el menú; la opción seleccionada SIEMPRE pide `ConfirmDialog`. La semántica del v3 §5.8 (primer click instantáneo, segundo confirma) **se descartó por petición del usuario**.
+
+`robotCount` en cada modo se recalcula vía `robotCountFor(presentCount)` para preservar el ratio 1:3 — `lastInputs.robotCount` se actualiza al valor nuevo. Antes el algoritmo respetaba el robotCount persistido aunque ya no encajara con 1:3.
+
+### 13.5 Presets — funciones puras
+
+```
+createPods(input)                    → aleatorio puro con seed reproducible
+createPodsByLevel(input, mode)       → mixed | leveled, score Unidad 1
+createPodsByProgress(input)          → primary progress, secondary overallScore
+                                       (delega en createPodsByLevel "leveled" con
+                                        score compuesto = progress*1000 + score)
+```
+
+Funciones de score auxiliares (`lib/pods/student-score.ts`):
+- `getStudentScore(id)` — promedio Unidad 1 (cols 0-3).
+- `getStudentOverallScore(id)` — promedio del curso completo (cols 0-23).
+- `getStudentProgress(id)` — unidad más alta (1-6) con al menos una cell no-empty; 0 si no ha empezado.
+- `isUnitOneComplete(ids)` — true si ≥70% de cells de Unidad 1 son no-empty para los alumnos pasados.
+
+### 13.6 Vista alfabética con dropdown editable (revertido v3 §5.7)
+
+`PodBadgeWithDropdown` y `PodChangeDropdown` se borraron en `3b3c05c` siguiendo el spec v3 estricto, y se restauraron en `743fa90` por petición del profesor. En sort `Alfabético` con `viewWithPods=true`:
+- Cada badge es clickeable y abre el dropdown.
+- Opciones: lista de grupos disponibles, "Sin grupo", "Crear nuevo grupo" (sub-modo emoji-picker).
+- Sin chevron en el badge sí que en el botón.
+- "Sin grupo" se muestra como botón con borde dashed y chevron, también clickeable.
+
+### 13.7 Acciones de edición disponibles desde la UI
+
+| Origen | Acción | Donde |
+|---|---|---|
+| DnD entre tbodies | `moveStudent` | Solo sort `grouped` |
+| DnD desde "Sin asignar" | `addStudentToPod` | Solo sort `grouped` |
+| Botón `+` en cabecera | `addStudentToPod` (popover) | Solo sort `grouped` |
+| Botón `+ Crear nuevo grupo` al pie | `addEmptyPod` | Solo sort `grouped` |
+| Cabecera del bloque | `changeEmoji` | Solo sort `grouped` |
+| Icono `UserMinus` en fila (hover) | `removeStudentFromPod` | Solo sort `grouped` (alumnos en pod) |
+| Badge clickeable | `move/add/remove/createAndAssign` | Solo sort `alphabetical` |
+
+Cualquier acción manual que modifique pods resetea `regroupConfirmNeeded` a `false` (el flag persiste pero ya no se lee).
+
+`addEmptyPod` y `createPodAndAssignStudent` actualizan `lastInputs.robotCount = pods.length` para que el siguiente Reagrupar no descarte el grupo extra. (Si no se quisiera preservar lo manual y forzar siempre el ratio puro, basta con que `PodRegroupButton.doRegroup` ignore esa actualización — actualmente sí la ignora porque recalcula con `robotCountFor`.)
+
+### 13.8 Botón `Guardar` (PodSaveSnapshotButton)
+
+- Visible cuando `viewWithPods && hasPods`.
+- Si `currentEntryId` apunta a una entrada existente: `replaceEntry(id, { pods, timestamp, seed, presentStudents, robotCount })`. La entrada activa se actualiza in-place y sube al top porque su timestamp se renueva.
+- Si no hay `currentEntryId` válido: `addEntry(...)` + `setCurrentEntryId(nuevoId)`.
+- Feedback "Guardado" durante 1.5s tras pulsar.
+
+`currentEntryId` también se mantiene al cargar entrada del historial (`loadFromHistory(snapshot)` recibe `entryId` opcional). Eso permite que después de cargar, los `Guardar` posteriores actualicen la misma entrada.
+
+### 13.9 Visual del historial
+
+- Drawer lateral derecho (portal a `body`).
+- Favoritas arriba, resto por timestamp desc.
+- Cada entrada con: timestamp formateado en `es-ES`, contador `N grupos · M alumnos`, fila de emojis, label inline editable, ⭐ favorito, "Cargar", "Ver detalle" (expand-collapse), papelera.
+- **Anillo azul** en la entrada activa (`currentEntryId === entry.id`).
+- Footer: "Borrar todo el historial" con `ConfirmDialog danger`.
+- Cap 100 entries con FIFO; favoritas protegidas (no se descartan aunque excedan el cap).
+
+### 13.10 Modo Proyección
+
+Sin cambios respecto a §12 salvo dos fixes tras prueba con >6 grupos:
+- Contenedor con `overflow-y-auto` + `min-h-screen` + `auto-rows-fr` (antes se cortaba a media pantalla).
+- Tipografías adaptativas según N grupos:
+  - ≤4 grupos: emoji `text-8xl`, título `text-3xl`, nombres `text-xl`.
+  - 5–9: emoji `text-6xl`, título `text-xl`, nombres `text-lg`.
+  - 10+: emoji `text-5xl`, título `text-base`, nombres `text-sm`.
+
+### 13.11 Persistencia con migración
+
+Ambos stores tienen `version: 1` + `migrate(persistedState, version)` en zustand `persist`. Si version < 1 (carga previa al bump), el state se descarta y arranca limpio. Esto sustituye al "vacía localStorage manualmente" tras cada cambio invasivo.
+
+`partialize` del `pods-store` excluye explícitamente `viewWithPods` y `sortMode` para que cada carga vuelva a alfabética. El resto del state (pods, lastInputs, currentSeed, currentClassId, currentEntryId, regroupConfirmNeeded) sí se persiste.
+
+`StoresHydrator` (en `Providers`) dispara `rehydrate()` en `useEffect` para evitar hydration mismatch con SSR.
+
+### 13.12 Estructura de archivos real (post-iteración)
+
+```
+components/pods/
+  PodToggleViewButton.tsx         ← NUEVO. Boton "Grupos" en TopBar
+  PodRegroupButton.tsx            ← reescrito con dropdown de modos
+  PodRegroupMenu.tsx              ← NUEVO. Portal con 4 modos en 2 secciones
+  PodSaveSnapshotButton.tsx       ← NUEVO. Replace o add
+  PodProjectionButton.tsx         ← NUEVO
+  PodProjectionModal.tsx          ← NUEVO. Overlay grande adaptativo
+  PodHistoryButton.tsx            ← NUEVO
+  PodHistoryPanel.tsx             ← NUEVO. Drawer derecho
+  PodHistoryEntry.tsx             ← NUEVO. Item con favorito/cargar/papelera
+  PodBadge.tsx
+  PodBadgeWithDropdown.tsx        ← restaurado tras borrado en fase 4
+  PodChangeDropdown.tsx           ← restaurado
+  PodHeaderTrigger.tsx
+  PodEmojiPicker.tsx
+  PodAddStudentButton.tsx
+  PodAddStudentMenu.tsx
+  PodControls.tsx                 ← oculto si !viewWithPods
+  PodViewToggle.tsx
+  PodSortControl.tsx
+  PodDroppableTbody.tsx
+  (BORRADOS: PodGroupingButton, PodGroupingModal)
+
+components/ui/
+  ConfirmDialog.tsx               ← NUEVO. Genérico para Reagrupar/Borrar/etc
+
+components/layout/
+  StoresHydrator.tsx              ← NUEVO. Dispara rehydrate() en mount
+  AppShell.tsx                    ← simplificado, ya no monta AutoInitialGrouping
+  TopBar.tsx                      ← orden: Toggle, Reagrupar, Guardar, Proyeccion, Historial, Descargar
+  Sidebar.tsx, ClassSelector.tsx
+
+lib/pods/
+  create-pods.ts                  ← + createPodsByLevel + createPodsByProgress
+  seeded-random.ts                ← NUEVO. mulberry32 + hash + generateSeed
+  student-score.ts                ← NUEVO. getStudentScore, getStudentOverallScore, getStudentProgress, isUnitOneComplete
+  co-occurrence.ts                ← NUEVO. getCoOccurrenceMatrix puro
+  move-student.ts, edit-pod.ts, pod-colors.ts, pod-emojis.ts
+  (BORRADOS: grouping-schema.ts)
+
+store/
+  pods-store.ts                   ← persist v1 + migrate + skipHydration; partialize SIN viewWithPods/sortMode
+  history-store.ts                ← NUEVO. persist v1, cap 100 FIFO con favoritas
+
+types/
+  history.ts                      ← NUEVO. HistoryEntry
+  database.ts
+
+__tests__/pods/
+  create-pods.test.ts             ← actualizados para max=3 default + ratio 1:3
+  create-pods-by-level.test.ts    ← + tests para createPodsByProgress
+  co-occurrence.test.ts           ← NUEVO
+  move-student.test.ts, edit-pod.test.ts
+```
+
+Total: 67/67 tests verde.
+
+### 13.13 Diferencias respecto a la spec v3 (intencionales)
+
+| §v3 | Comportamiento spec | Implementación actual | Razón |
+|---|---|---|---|
+| §5.1 | Estado inicial sin grupos creados, lista alfabética | ✅ idéntico al mock C360 | — |
+| §5.2 | Modal Agrupar con presentCount/robotCount | ❌ borrado | El profesor pidió botón directo "Grupos" sin modal |
+| §5.7 | Badges en alfabética solo informativos, no clickeables | ❌ revertido. Badges son botones que abren dropdown editable | Petición explícita del profesor |
+| §5.8 | Reagrupar con primer click instantáneo, segundo confirma | ❌ Cada click confirma siempre | Petición explícita del profesor |
+| §6.2 | Solo Agrupar/Reagrupar crean entrada en historial | ✅ + `Guardar` añade snapshot manual (no auto) | Resuelve el caso "ajusté tras Reagrupar y se perdió" |
+| §6.6 | Matriz coocurrencia computable, no en UI | ✅ idéntico | — |
+| §7 | Modo Proyección read-only con grid responsivo | ✅ + scroll vertical y tipografías adaptativas | Fix tras observar corte con >6 grupos |
+| §8 | `createPods` con seed reproducible | ✅ + 2 variantes nuevas (byLevel, byProgress) | Presets de agrupación pedidos |
+
+### 13.14 Cómo arrancar
+
+```bash
+cd robotix_group_prototype
+npm install
+npm test          # 67/67 verde
+npm run dev       # http://localhost:3000
+```
+
+No hace falta vaciar localStorage manualmente: los stores tienen `version: 1` con `migrate()` que descarta cualquier state pre-v1.
+
+### 13.15 Gaps conocidos pendientes
+
+- **Sin cap visual del Reagrupar al ratio**: si el profesor crea grupos extra con `+`, los ve hasta el siguiente Reagrupar (que recalcula al ratio puro y descarta el extra). Si quisiera preservar lo manual, habría que respetar `lastInputs.robotCount` actualizado en lugar de recalcular.
+- **`loadFromHistory` con cap silencioso**: si la entry tenía menos alumnos asignados que `presentCount` (cap), `lastInputs.students` se reconstruye solo desde el snapshot y los Reagrupar futuros parten de subset. Edge raro, no fixeado.
+- **Equilibrar dentro del bloque de progreso**: `createPodsByProgress` actualmente reparte chunks contiguos (homogéneo dentro del bloque). El usuario sugirió "compensados/mixtos" dentro del bloque — pendiente de iteración. Cambiar `mode: "leveled"` por `"mixed"` en el delegate sería el cambio mínimo.
+- **Botón Reiniciar / volver a alfabética**: la única forma de "ocultar grupos" es desactivar el toggle "Vista con Grupos" en el strip. No hay botón explícito en el TopBar.
+
+### 13.16 Historial de commits relevantes (esta iteración)
+
+```
+53b61d3  feat     preset "Por avance en el curso" + menu en 2 secciones
+407ee9f  fix      vista alfabetica al cargar SIEMPRE + Grupos genera nueva
+5da2ad3  feat     texto grupos-de-3 + Reagrupar respeta ratio 1:3 + boton quitar
+505a2f0  fix      migracion v1 invalida localStorage previo
+f83598e  feat     ratio 1:3 + boton Grupos abre vista grouped directa
+8eba518  fix      pantalla inicial identica al mock C360 (sin strip)
+83f9568  fix      vista alfabetica al entrar + bucle infinito Reagrupar
+01cdb19  fix      cuatro fallos detectados en localhost
+743fa90  feat     auto-agrupado inicial + presets mixto/por nivel + dropdown editable
+ccd24df  fix      boton Historial requiere ademas hasPods
+3d87e6f  fix      Reagrupar siempre confirma + Guardar reemplaza entrada
+909aa44  fix      tres bugs reportados tras prueba manual
+b55d582  fix      "Crear nuevo grupo" disabled al llegar a 15
+8af3c04  feat     modo proyeccion read-only
+c2e7df3  feat     panel Historial + favoritos + revert + coocurrencia
+a39a2af  feat     boton Reagrupar con confirmacion en clic consecutivo
+3b3c05c  refactor badges en alfabetica solo informativos (revertido despues)
+d949d2f  feat     persistencia en localStorage (pods + historial)
+893b70d  feat     seed determinista en createPods + test reproducibilidad
+```
+
+(El auto-init introducido en `743fa90` quedó eliminado en `407ee9f`. El bump de versión `505a2f0` invalida cualquier state de las versiones intermedias.)
+
+---
+
+*SUPERPROMPT.md v3+ (apéndice §13 mayo 2026) — Prototipo de Agrupación por Grupos (C360 / ROBOTIX). Estado real tras iteración con el profesor.*
 ````
