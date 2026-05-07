@@ -4,6 +4,7 @@ import { Download } from "lucide-react";
 import { ClassSelector } from "./ClassSelector";
 import { PodGroupingButton } from "@/components/pods/PodGroupingButton";
 import { PodRegroupButton } from "@/components/pods/PodRegroupButton";
+import { PodHistoryButton } from "@/components/pods/PodHistoryButton";
 import { COURSE_LABEL, PROGRAM_LABEL } from "@/lib/data/units";
 import type { ClassRow } from "@/types/database";
 import type { Student } from "@/lib/pods/create-pods";
@@ -46,6 +47,7 @@ export function TopBar({
           )}
           <PodGroupingButton students={students} classId={activeClassId} />
           <PodRegroupButton />
+          <PodHistoryButton />
           <button
             type="button"
             className="inline-flex items-center gap-1.5 bg-[#0e7c66] hover:bg-[#0c6c58] text-white text-[11px] font-bold uppercase tracking-wider px-4 py-2 rounded-md"
