@@ -36,6 +36,7 @@ type State = {
   currentSeed: string | null;
   currentClassId: string | null;
   lastInputs: LastInputs | null;
+  currentEntryId: string | null;
 };
 
 export type CreatePodsResult = {
@@ -59,6 +60,7 @@ type Actions = {
   setViewWithPods: (on: boolean) => void;
   setSortMode: (mode: SortMode) => void;
   setRegroupConfirmNeeded: (value: boolean) => void;
+  setCurrentEntryId: (id: string | null) => void;
   moveStudent: (studentId: string, toPodId: string) => MoveStudentResult;
   addStudentToPod: (student: Student, toPodId: string) => MoveStudentResult;
   removeStudentFromPod: (studentId: string) => MoveStudentResult;
@@ -80,6 +82,7 @@ type Actions = {
     presentCount: number;
     robotCount: number;
     students: Student[];
+    entryId?: string;
   }) => void;
 };
 
@@ -91,6 +94,7 @@ const INITIAL: State = {
   currentSeed: null,
   currentClassId: null,
   lastInputs: null,
+  currentEntryId: null,
 };
 
 export const usePodsStore = create<State & Actions>()(
@@ -132,6 +136,7 @@ export const usePodsStore = create<State & Actions>()(
       setSortMode: (mode) => set({ sortMode: mode }),
       setRegroupConfirmNeeded: (value) =>
         set({ regroupConfirmNeeded: value }),
+      setCurrentEntryId: (id) => set({ currentEntryId: id }),
       moveStudent: (studentId, toPodId) => {
         const result = moveStudentLogic(get().pods, studentId, toPodId);
         if (result.ok) set({ pods: result.pods, regroupConfirmNeeded: false });
@@ -203,6 +208,7 @@ export const usePodsStore = create<State & Actions>()(
             presentCount: snapshot.presentCount,
             robotCount: snapshot.robotCount,
           },
+          currentEntryId: snapshot.entryId ?? null,
         });
       },
     }),
@@ -217,6 +223,7 @@ export const usePodsStore = create<State & Actions>()(
         currentSeed: state.currentSeed,
         currentClassId: state.currentClassId,
         lastInputs: state.lastInputs,
+        currentEntryId: state.currentEntryId,
       }),
     },
   ),

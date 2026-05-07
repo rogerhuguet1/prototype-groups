@@ -26,12 +26,15 @@ export function PodHistoryEntry({ entry, onLoaded }: Props) {
   const deleteEntry = useHistoryStore((s) => s.deleteEntry);
   const setLabel = useHistoryStore((s) => s.setLabel);
   const loadFromHistory = usePodsStore((s) => s.loadFromHistory);
+  const currentEntryId = usePodsStore((s) => s.currentEntryId);
+  const setCurrentEntryId = usePodsStore((s) => s.setCurrentEntryId);
 
   const totalAssigned = entry.pods.reduce(
     (acc, p) => acc + p.students.length,
     0,
   );
   const date = new Date(entry.timestamp);
+  const isActive = currentEntryId === entry.id;
 
   const onLoad = () => {
     const studentsFromSnapshot = entry.pods.flatMap((p) =>
@@ -44,8 +47,14 @@ export function PodHistoryEntry({ entry, onLoaded }: Props) {
       presentCount: entry.presentStudents,
       robotCount: entry.robotCount,
       students: studentsFromSnapshot,
+      entryId: entry.id,
     });
     onLoaded();
+  };
+
+  const onDelete = () => {
+    if (isActive) setCurrentEntryId(null);
+    deleteEntry(entry.id);
   };
 
   const onLabelBlur = () => {
@@ -55,7 +64,11 @@ export function PodHistoryEntry({ entry, onLoaded }: Props) {
   };
 
   return (
-    <div className="border border-slate-200 rounded-md bg-white">
+    <div
+      className={`border rounded-md bg-white ${
+        isActive ? "border-blue-400 ring-2 ring-blue-100" : "border-slate-200"
+      }`}
+    >
       <div className="flex items-start gap-2 p-3">
         <button
           type="button"
@@ -124,7 +137,7 @@ export function PodHistoryEntry({ entry, onLoaded }: Props) {
         </button>
         <button
           type="button"
-          onClick={() => deleteEntry(entry.id)}
+          onClick={onDelete}
           aria-label="Borrar entrada"
           className="ml-auto p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
         >

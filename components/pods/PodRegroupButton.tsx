@@ -10,8 +10,8 @@ import { useHistoryStore } from "@/store/history-store";
 export function PodRegroupButton() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const hasPods = usePodsStore((s) => s.pods.length > 0);
-  const regroupConfirmNeeded = usePodsStore((s) => s.regroupConfirmNeeded);
   const regroup = usePodsStore((s) => s.regroup);
+  const setCurrentEntryId = usePodsStore((s) => s.setCurrentEntryId);
   const addEntry = useHistoryStore((s) => s.addEntry);
 
   if (!hasPods) return null;
@@ -22,8 +22,9 @@ export function PodRegroupButton() {
     if (!result.ok) return;
     const lastInputs = state.lastInputs;
     if (!lastInputs) return;
+    const entryId = crypto.randomUUID();
     addEntry({
-      id: crypto.randomUUID(),
+      id: entryId,
       timestamp: new Date().toISOString(),
       classId: state.currentClassId,
       presentStudents: lastInputs.presentCount,
@@ -32,21 +33,14 @@ export function PodRegroupButton() {
       pods: result.pods,
       isFavorite: false,
     });
-  };
-
-  const onClick = () => {
-    if (regroupConfirmNeeded) {
-      setConfirmOpen(true);
-    } else {
-      doRegroup();
-    }
+    setCurrentEntryId(entryId);
   };
 
   return (
     <>
       <Button
         variant="secondary"
-        onClick={onClick}
+        onClick={() => setConfirmOpen(true)}
         className="text-[11px] font-bold uppercase tracking-wider px-3 py-2"
       >
         <Shuffle className="size-3.5" aria-hidden />
@@ -54,7 +48,7 @@ export function PodRegroupButton() {
       </Button>
       <ConfirmDialog
         open={confirmOpen}
-        title="¿Reagrupar de nuevo?"
+        title="¿Reagrupar?"
         description="Vas a generar una nueva combinación. La actual se guardará en el historial y podrás recuperarla desde ahí."
         confirmLabel="Sí, reagrupar"
         cancelLabel="Cancelar"

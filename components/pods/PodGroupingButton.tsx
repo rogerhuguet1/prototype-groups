@@ -17,6 +17,7 @@ export function PodGroupingButton({ students, classId }: Props) {
   const [open, setOpen] = useState(false);
   const createPodsFromInput = usePodsStore((s) => s.createPodsFromInput);
   const resetPods = usePodsStore((s) => s.resetPods);
+  const setCurrentEntryId = usePodsStore((s) => s.setCurrentEntryId);
   const hasPods = usePodsStore((s) => s.pods.length > 0);
   const addEntry = useHistoryStore((s) => s.addEntry);
 
@@ -56,8 +57,9 @@ export function PodGroupingButton({ students, classId }: Props) {
             robotCount: input.robotCount,
             classId,
           });
+          const entryId = crypto.randomUUID();
           addEntry({
-            id: crypto.randomUUID(),
+            id: entryId,
             timestamp: new Date().toISOString(),
             classId,
             presentStudents: input.presentCount,
@@ -66,6 +68,7 @@ export function PodGroupingButton({ students, classId }: Props) {
             pods: result.pods,
             isFavorite: false,
           });
+          setCurrentEntryId(entryId);
           setOpen(false);
         }}
         totalStudents={students.length}

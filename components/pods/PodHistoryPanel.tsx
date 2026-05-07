@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { X, Trash2 } from "lucide-react";
 import { useHistoryStore } from "@/store/history-store";
+import { usePodsStore } from "@/store/pods-store";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { PodHistoryEntry } from "./PodHistoryEntry";
 
@@ -15,6 +16,7 @@ type Props = {
 export function PodHistoryPanel({ open, onClose }: Props) {
   const entries = useHistoryStore((s) => s.entries);
   const clearAll = useHistoryStore((s) => s.clearAll);
+  const setCurrentEntryId = usePodsStore((s) => s.setCurrentEntryId);
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -109,6 +111,7 @@ export function PodHistoryPanel({ open, onClose }: Props) {
         onCancel={() => setConfirmClearOpen(false)}
         onConfirm={() => {
           clearAll();
+          setCurrentEntryId(null);
           setConfirmClearOpen(false);
         }}
       />

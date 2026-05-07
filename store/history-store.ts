@@ -10,6 +10,13 @@ type State = {
 
 type Actions = {
   addEntry: (entry: HistoryEntry) => void;
+  replaceEntry: (
+    id: string,
+    update: Pick<
+      HistoryEntry,
+      "pods" | "timestamp" | "seed" | "presentStudents" | "robotCount"
+    >,
+  ) => void;
   deleteEntry: (id: string) => void;
   toggleFavorite: (id: string) => void;
   setLabel: (id: string, label: string) => void;
@@ -37,6 +44,12 @@ export const useHistoryStore = create<State & Actions>()(
       addEntry: (entry) =>
         set((state) => ({
           entries: trimToCap([entry, ...state.entries]),
+        })),
+      replaceEntry: (id, update) =>
+        set((state) => ({
+          entries: state.entries.map((e) =>
+            e.id === id ? { ...e, ...update } : e,
+          ),
         })),
       deleteEntry: (id) =>
         set((state) => ({

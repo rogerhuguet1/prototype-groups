@@ -8,7 +8,10 @@ import { useHistoryStore } from "@/store/history-store";
 
 export function PodSaveSnapshotButton() {
   const hasPods = usePodsStore((s) => s.pods.length > 0);
+  const setCurrentEntryId = usePodsStore((s) => s.setCurrentEntryId);
   const addEntry = useHistoryStore((s) => s.addEntry);
+  const replaceEntry = useHistoryStore((s) => s.replaceEntry);
+  const entries = useHistoryStore((s) => s.entries);
   const [justSaved, setJustSaved] = useState(false);
 
   if (!hasPods) return null;
@@ -19,17 +22,39 @@ export function PodSaveSnapshotButton() {
       (acc, p) => acc + p.students.length,
       0,
     );
-    addEntry({
-      id: crypto.randomUUID(),
-      timestamp: new Date().toISOString(),
-      classId: state.currentClassId,
-      presentStudents:
-        state.lastInputs?.presentCount ?? totalAssigned,
-      robotCount: state.pods.length,
-      seed: state.currentSeed ?? "manual",
-      pods: state.pods,
-      isFavorite: false,
-    });
+    const presentStudents =
+      state.lastInputs?.presentCount ?? totalAssigned;
+    const robotCount = state.pods.length;
+    const seed = state.currentSeed ?? "manual";
+    const timestamp = new Date().toISOString();
+
+    const activeId = state.currentEntryId;
+    const activeExists =
+      activeId !== null && entries.some((e) => e.id === activeId);
+
+    if (activeExists && activeId) {
+      replaceEntry(activeId, {
+        pods: state.pods,
+        timestamp,
+        seed,
+        presentStudents,
+        robotCount,
+      });
+    } else {
+      const entryId = crypto.randomUUID();
+      addEntry({
+        id: entryId,
+        timestamp,
+        classId: state.currentClassId,
+        presentStudents,
+        robotCount,
+        seed,
+        pods: state.pods,
+        isFavorite: false,
+      });
+      setCurrentEntryId(entryId);
+    }
+
     setJustSaved(true);
     window.setTimeout(() => setJustSaved(false), 1500);
   };
@@ -39,7 +64,7 @@ export function PodSaveSnapshotButton() {
       variant="secondary"
       onClick={onSave}
       className="text-[11px] font-bold uppercase tracking-wider px-3 py-2"
-      title="Guardar el estado actual de los grupos en el historial"
+      title="Actualizar la entrada del historial con el estado actual"
     >
       {justSaved ? (
         <>
