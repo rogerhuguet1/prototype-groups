@@ -12,6 +12,11 @@ import {
   createPodsByLevel,
 } from "@/lib/pods/create-pods";
 import { getStudentScore } from "@/lib/pods/student-score";
+import { MAX_PODS } from "@/lib/pods/pod-emojis";
+
+function robotCountFor(presentCount: number): number {
+  return Math.min(MAX_PODS, Math.max(1, Math.ceil(presentCount / 3)));
+}
 
 const MODE_TITLES: Record<RegroupChoice, string> = {
   random: "¿Reagrupar al azar?",
@@ -60,17 +65,19 @@ export function PodRegroupButton() {
     const lastInputs = state.lastInputs;
     if (!lastInputs) return;
 
+    const robotCount = robotCountFor(lastInputs.presentCount);
+
     const result =
       mode === "random"
         ? createPods({
             students: lastInputs.students,
             presentCount: lastInputs.presentCount,
-            robotCount: lastInputs.robotCount,
+            robotCount,
           })
         : createPodsByLevel({
             students: lastInputs.students,
             presentCount: lastInputs.presentCount,
-            robotCount: lastInputs.robotCount,
+            robotCount,
             mode,
             scoreFn: getStudentScore,
           });
@@ -81,6 +88,7 @@ export function PodRegroupButton() {
       sortMode: "grouped",
       regroupConfirmNeeded: true,
       currentSeed: result.seed,
+      lastInputs: { ...lastInputs, robotCount },
     });
 
     const entryId = crypto.randomUUID();
@@ -90,7 +98,7 @@ export function PodRegroupButton() {
       timestamp: new Date().toISOString(),
       classId: state.currentClassId,
       presentStudents: lastInputs.presentCount,
-      robotCount: lastInputs.robotCount,
+      robotCount,
       seed: result.seed,
       pods: result.pods,
       isFavorite: false,

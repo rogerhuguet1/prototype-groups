@@ -43,6 +43,7 @@ export function StudentTable({ students }: Props) {
     })),
   );
   const assignStudentToPod = usePodsStore((s) => s.addStudentToPod);
+  const removeStudentFromPod = usePodsStore((s) => s.removeStudentFromPod);
   const addEmptyPod = usePodsStore((s) => s.addEmptyPod);
 
   const studentToPod = useMemo(() => {
@@ -81,6 +82,7 @@ export function StudentTable({ students }: Props) {
               studentMap={studentMap}
               studentToPod={studentToPod}
               onAssign={assignStudentToPod}
+              onRemove={removeStudentFromPod}
               onAddEmptyPod={addEmptyPod}
               canAddPod={pods.length < MAX_PODS}
             />
@@ -161,6 +163,7 @@ type DndBodiesProps = {
   studentMap: Map<string, StudentRowType>;
   studentToPod: Map<string, Pod>;
   onAssign: ReturnType<typeof usePodsStore.getState>["addStudentToPod"];
+  onRemove: ReturnType<typeof usePodsStore.getState>["removeStudentFromPod"];
   onAddEmptyPod: () => void;
   canAddPod: boolean;
 };
@@ -171,6 +174,7 @@ function DndStudentBodies({
   studentMap,
   studentToPod,
   onAssign,
+  onRemove,
   onAddEmptyPod,
   canAddPod,
 }: DndBodiesProps) {
@@ -273,6 +277,7 @@ function DndStudentBodies({
                     index={i}
                     columns={FLAT_COLUMNS}
                     pod={pod}
+                    onRemoveFromPod={() => onRemove(podStudent.id)}
                   />
                 );
               })}

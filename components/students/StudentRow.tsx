@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, X } from "lucide-react";
+import { Check, X, UserMinus } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { displayName } from "@/lib/utils/sort-students";
 import {
@@ -26,6 +26,7 @@ type Props = {
   rowRef?: Ref<HTMLTableRowElement>;
   dragHandle?: ReactNode;
   isDragging?: boolean;
+  onRemoveFromPod?: () => void;
 };
 
 export function StudentRow({
@@ -39,6 +40,7 @@ export function StudentRow({
   rowRef,
   dragHandle,
   isDragging = false,
+  onRemoveFromPod,
 }: Props) {
   const stripe = index % 2 === 1 ? "bg-slate-50/60" : "bg-white";
   const name = displayName(student.full_name);
@@ -82,6 +84,18 @@ export function StudentRow({
           >
             {name}
           </a>
+          {onRemoveFromPod ? (
+            <button
+              type="button"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={onRemoveFromPod}
+              aria-label={`Quitar a ${name} del grupo`}
+              title="Quitar del grupo"
+              className="ml-auto p-1 rounded text-slate-400 hover:text-rose-700 hover:bg-rose-50 opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-rose-300 transition-opacity"
+            >
+              <UserMinus className="size-3.5" aria-hidden />
+            </button>
+          ) : null}
         </div>
       </td>
       {columns.map((c, i) => {

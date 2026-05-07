@@ -12,9 +12,16 @@ type Props = {
   index: number;
   columns: readonly FlatColumn[];
   pod: Pod | null;
+  onRemoveFromPod?: () => void;
 };
 
-export function StudentRowDraggable({ student, index, columns, pod }: Props) {
+export function StudentRowDraggable({
+  student,
+  index,
+  columns,
+  pod,
+  onRemoveFromPod,
+}: Props) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `student:${student.id}`,
     data: {
@@ -33,6 +40,7 @@ export function StudentRowDraggable({ student, index, columns, pod }: Props) {
       podColorBorder={Boolean(pod)}
       rowRef={setNodeRef}
       isDragging={isDragging}
+      onRemoveFromPod={onRemoveFromPod}
       dragHandle={
         <DragHandle
           label={

@@ -89,7 +89,7 @@ export function PodRegroupMenu({ triggerRect, onSelect, onClose }: Props) {
           label="Mixta — equilibrada por nivel"
           description={
             unitOneDone
-              ? "2 alumnos avanzados + 2 que aún están encajando, en cada grupo."
+              ? "Cada grupo de 3 mezcla niveles altos, medios y bajos para que se apoyen."
               : "Disponible al completar la Unidad 1."
           }
           disabled={!unitOneDone}
@@ -100,7 +100,7 @@ export function PodRegroupMenu({ triggerRect, onSelect, onClose }: Props) {
           label="Por niveles — alumnos similares juntos"
           description={
             unitOneDone
-              ? "Avanzados juntos para tirar; el resto con material acorde."
+              ? "Grupos de 3 con nivel parecido; los avanzados juntos para tirar."
               : "Disponible al completar la Unidad 1."
           }
           disabled={!unitOneDone}
