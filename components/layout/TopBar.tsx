@@ -5,6 +5,7 @@ import { ClassSelector } from "./ClassSelector";
 import { PodGroupingButton } from "@/components/pods/PodGroupingButton";
 import { PodRegroupButton } from "@/components/pods/PodRegroupButton";
 import { PodHistoryButton } from "@/components/pods/PodHistoryButton";
+import { PodProjectionButton } from "@/components/pods/PodProjectionButton";
 import { COURSE_LABEL, PROGRAM_LABEL } from "@/lib/data/units";
 import type { ClassRow } from "@/types/database";
 import type { Student } from "@/lib/pods/create-pods";
@@ -47,6 +48,7 @@ export function TopBar({
           )}
           <PodGroupingButton students={students} classId={activeClassId} />
           <PodRegroupButton />
+          <PodProjectionButton />
           <PodHistoryButton />
           <button
             type="button"
