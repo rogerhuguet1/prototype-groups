@@ -17,6 +17,10 @@ type Props = {
 
 export function AutoInitialGrouping({ students, classId }: Props) {
   const initRanRef = useRef(false);
+  const studentsRef = useRef(students);
+  const classIdRef = useRef(classId);
+  studentsRef.current = students;
+  classIdRef.current = classId;
 
   useEffect(() => {
     if (initRanRef.current) return;
@@ -28,33 +32,31 @@ export function AutoInitialGrouping({ students, classId }: Props) {
       if (!useHistoryStore.persist.hasHydrated()) return;
 
       const podsState = usePodsStore.getState();
-      const historyState = useHistoryStore.getState();
 
-      if (
-        podsState.pods.length > 0 ||
-        historyState.entries.length > 0
-      ) {
+      if (podsState.pods.length > 0) {
         initRanRef.current = true;
         return;
       }
       initRanRef.current = true;
 
-      const robotCount = defaultRobotCount(students.length);
+      const currentStudents = studentsRef.current;
+      const currentClassId = classIdRef.current;
+      const robotCount = defaultRobotCount(currentStudents.length);
       const result = podsState.createPodsFromInput({
-        students: students.map((s) => ({
+        students: currentStudents.map((s) => ({
           id: s.id,
           full_name: s.full_name,
         })),
-        presentCount: students.length,
+        presentCount: currentStudents.length,
         robotCount,
-        classId,
+        classId: currentClassId,
       });
       const entryId = crypto.randomUUID();
-      historyState.addEntry({
+      useHistoryStore.getState().addEntry({
         id: entryId,
         timestamp: new Date().toISOString(),
-        classId,
-        presentStudents: students.length,
+        classId: currentClassId,
+        presentStudents: currentStudents.length,
         robotCount,
         seed: result.seed,
         pods: result.pods,
@@ -71,7 +73,7 @@ export function AutoInitialGrouping({ students, classId }: Props) {
       unsub1();
       unsub2();
     };
-  }, [students, classId]);
+  }, [students.length, classId]);
 
   return null;
 }

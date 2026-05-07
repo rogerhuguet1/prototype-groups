@@ -103,6 +103,7 @@ export function PodRegroupButton() {
       <Button
         ref={buttonRef}
         variant="secondary"
+        onMouseDown={(e) => e.stopPropagation()}
         onClick={openMenu}
         aria-haspopup="menu"
         aria-expanded={Boolean(menuRect)}

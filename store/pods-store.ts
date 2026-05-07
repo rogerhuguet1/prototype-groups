@@ -165,11 +165,15 @@ export const usePodsStore = create<State & Actions>()(
           existing: state.pods,
           maxCapacity,
         });
+        const newPods = [...state.pods, newPod];
         set({
-          pods: [...state.pods, newPod],
+          pods: newPods,
           viewWithPods: true,
           sortMode: "grouped",
           regroupConfirmNeeded: false,
+          lastInputs: state.lastInputs
+            ? { ...state.lastInputs, robotCount: newPods.length }
+            : state.lastInputs,
         });
       },
       createPodAndAssignStudent: (student, emoji, emojiLabel) => {
@@ -189,10 +193,14 @@ export const usePodsStore = create<State & Actions>()(
           ...newPod,
           students: [{ id: student.id, full_name: student.full_name }],
         };
+        const newPods = [...cleanedPods, podWithStudent];
         set({
-          pods: [...cleanedPods, podWithStudent],
+          pods: newPods,
           viewWithPods: true,
           regroupConfirmNeeded: false,
+          lastInputs: state.lastInputs
+            ? { ...state.lastInputs, robotCount: newPods.length }
+            : state.lastInputs,
         });
       },
       loadFromHistory: (snapshot) => {
