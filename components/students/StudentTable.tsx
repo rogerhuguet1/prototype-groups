@@ -24,6 +24,7 @@ import { PodDroppableTbody } from "@/components/pods/PodDroppableTbody";
 import { PodAddStudentButton } from "@/components/pods/PodAddStudentButton";
 import { PodHeaderTrigger } from "@/components/pods/PodHeaderTrigger";
 import { MOVE_ERROR_MESSAGES } from "@/lib/pods/move-student";
+import { MAX_PODS } from "@/lib/pods/pod-emojis";
 import type { StudentRow as StudentRowType } from "@/types/database";
 import type { Pod } from "@/lib/pods/create-pods";
 
@@ -81,6 +82,7 @@ export function StudentTable({ students }: Props) {
               studentToPod={studentToPod}
               onAssign={assignStudentToPod}
               onAddEmptyPod={addEmptyPod}
+              canAddPod={pods.length < MAX_PODS}
             />
           ) : (
             <tbody>
@@ -159,6 +161,7 @@ type DndBodiesProps = {
   studentToPod: Map<string, Pod>;
   onAssign: ReturnType<typeof usePodsStore.getState>["addStudentToPod"];
   onAddEmptyPod: () => void;
+  canAddPod: boolean;
 };
 
 function DndStudentBodies({
@@ -168,6 +171,7 @@ function DndStudentBodies({
   studentToPod,
   onAssign,
   onAddEmptyPod,
+  canAddPod,
 }: DndBodiesProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -280,7 +284,13 @@ function DndStudentBodies({
               <button
                 type="button"
                 onClick={onAddEmptyPod}
-                className="w-full flex items-center justify-center gap-2 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 bg-white hover:bg-slate-50 border-y border-dashed border-slate-300 hover:border-slate-400 transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+                disabled={!canAddPod}
+                title={
+                  canAddPod
+                    ? undefined
+                    : `Máximo ${MAX_PODS} grupos permitidos`
+                }
+                className="w-full flex items-center justify-center gap-2 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 bg-white hover:bg-slate-50 border-y border-dashed border-slate-300 hover:border-slate-400 transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-slate-500"
               >
                 <Plus className="size-4" aria-hidden />
                 Crear nuevo grupo
