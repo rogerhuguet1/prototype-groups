@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Shuffle, Users, BarChart3 } from "lucide-react";
 import {
@@ -21,10 +21,15 @@ type Props = {
 export function PodRegroupMenu({ triggerRect, onSelect, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<Position | null>(null);
-  const studentIds = usePodsStore(
-    (s) => s.lastInputs?.students.map((st) => st.id) ?? [],
+  const lastInputs = usePodsStore((s) => s.lastInputs);
+  const studentIds = useMemo(
+    () => lastInputs?.students.map((st) => st.id) ?? [],
+    [lastInputs],
   );
-  const unitOneDone = isUnitOneComplete(studentIds);
+  const unitOneDone = useMemo(
+    () => isUnitOneComplete(studentIds),
+    [studentIds],
+  );
 
   useLayoutEffect(() => {
     if (!ref.current) return;

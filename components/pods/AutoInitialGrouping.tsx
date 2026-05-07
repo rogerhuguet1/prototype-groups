@@ -51,6 +51,10 @@ export function AutoInitialGrouping({ students, classId }: Props) {
         robotCount,
         classId: currentClassId,
       });
+      usePodsStore.setState({
+        viewWithPods: false,
+        sortMode: "alphabetical",
+      });
       const entryId = crypto.randomUUID();
       useHistoryStore.getState().addEntry({
         id: entryId,

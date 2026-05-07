@@ -8,9 +8,10 @@ import { usePodsStore } from "@/store/pods-store";
 
 export function PodProjectionButton() {
   const [open, setOpen] = useState(false);
+  const viewWithPods = usePodsStore((s) => s.viewWithPods);
   const hasPods = usePodsStore((s) => s.pods.length > 0);
 
-  if (!hasPods) return null;
+  if (!viewWithPods || !hasPods) return null;
 
   return (
     <>

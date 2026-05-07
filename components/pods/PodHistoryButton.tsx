@@ -10,9 +10,10 @@ import { usePodsStore } from "@/store/pods-store";
 export function PodHistoryButton() {
   const [open, setOpen] = useState(false);
   const entriesCount = useHistoryStore((s) => s.entries.length);
+  const viewWithPods = usePodsStore((s) => s.viewWithPods);
   const hasPods = usePodsStore((s) => s.pods.length > 0);
 
-  if (!hasPods || entriesCount === 0) return null;
+  if (!viewWithPods || !hasPods || entriesCount === 0) return null;
 
   return (
     <>

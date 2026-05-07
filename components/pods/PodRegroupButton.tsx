@@ -38,11 +38,12 @@ export function PodRegroupButton() {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [menuRect, setMenuRect] = useState<DOMRect | null>(null);
   const [pendingMode, setPendingMode] = useState<RegroupChoice | null>(null);
+  const viewWithPods = usePodsStore((s) => s.viewWithPods);
   const hasPods = usePodsStore((s) => s.pods.length > 0);
   const setCurrentEntryId = usePodsStore((s) => s.setCurrentEntryId);
   const addEntry = useHistoryStore((s) => s.addEntry);
 
-  if (!hasPods) return null;
+  if (!viewWithPods || !hasPods) return null;
 
   const openMenu = () => {
     if (menuRect) {
