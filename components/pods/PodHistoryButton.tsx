@@ -5,12 +5,14 @@ import { History } from "lucide-react";
 import { Button } from "../ui/Button";
 import { PodHistoryPanel } from "./PodHistoryPanel";
 import { useHistoryStore } from "@/store/history-store";
+import { usePodsStore } from "@/store/pods-store";
 
 export function PodHistoryButton() {
   const [open, setOpen] = useState(false);
   const entriesCount = useHistoryStore((s) => s.entries.length);
+  const hasPods = usePodsStore((s) => s.pods.length > 0);
 
-  if (entriesCount === 0) return null;
+  if (!hasPods || entriesCount === 0) return null;
 
   return (
     <>
