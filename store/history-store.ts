@@ -69,6 +69,16 @@ export const useHistoryStore = create<State & Actions>()(
         })),
       clearAll: () => set({ entries: [] }),
     }),
-    { name: "c360-pods-history", skipHydration: true },
+    {
+      name: "c360-pods-history",
+      version: 1,
+      skipHydration: true,
+      migrate: (_persistedState, version) => {
+        if (version < 1) {
+          return { entries: [] };
+        }
+        return _persistedState as Partial<State>;
+      },
+    },
   ),
 );

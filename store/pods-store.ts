@@ -222,6 +222,7 @@ export const usePodsStore = create<State & Actions>()(
     }),
     {
       name: "c360-pods-state",
+      version: 1,
       skipHydration: true,
       partialize: (state) => ({
         pods: state.pods,
@@ -233,6 +234,21 @@ export const usePodsStore = create<State & Actions>()(
         lastInputs: state.lastInputs,
         currentEntryId: state.currentEntryId,
       }),
+      migrate: (_persistedState, version) => {
+        if (version < 1) {
+          return {
+            pods: [],
+            viewWithPods: false,
+            sortMode: "alphabetical" as SortMode,
+            regroupConfirmNeeded: false,
+            currentSeed: null,
+            currentClassId: null,
+            lastInputs: null,
+            currentEntryId: null,
+          };
+        }
+        return _persistedState as Partial<State>;
+      },
     },
   ),
 );
