@@ -43,7 +43,7 @@ export function TopBar({
               onSelectClass={onSelectClass}
             />
           )}
-          <PodGroupingButton students={students} />
+          <PodGroupingButton students={students} classId={activeClassId} />
           <button
             type="button"
             className="inline-flex items-center gap-1.5 bg-[#0e7c66] hover:bg-[#0c6c58] text-white text-[11px] font-bold uppercase tracking-wider px-4 py-2 rounded-md"
