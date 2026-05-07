@@ -46,6 +46,7 @@ describe("createPodsByLevel — modo leveled", () => {
       robotCount: 3,
       mode: "leveled",
       scoreFn: linearScore,
+      maxPerPod: 4,
     });
     expect(pods.map((p) => p.students.length).sort()).toEqual([3, 4, 4]);
   });

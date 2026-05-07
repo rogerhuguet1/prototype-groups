@@ -15,45 +15,72 @@ function makeStudents(n: number): Student[] {
 }
 
 describe("createPods — casos del SUPERPROMPT §5", () => {
-  it("24 alumnos / 6 robots → 6 grupos de 4", () => {
+  it("24 alumnos / 6 robots → 6 grupos de 4 (con maxPerPod 4)", () => {
     const { pods } = createPods({
       students: makeStudents(30),
       presentCount: 24,
       robotCount: 6,
+      maxPerPod: 4,
     });
     expect(pods).toHaveLength(6);
     expect(pods.map((p) => p.students.length)).toEqual([4, 4, 4, 4, 4, 4]);
     expect(pods.flatMap((p) => p.students.map((s) => s.id))).toHaveLength(24);
   });
 
-  it("22 alumnos / 6 robots → 4 grupos de 4 + 2 grupos de 3", () => {
+  it("22 alumnos / 6 robots → 4 grupos de 4 + 2 de 3 (con maxPerPod 4)", () => {
     const { pods } = createPods({
       students: makeStudents(30),
       presentCount: 22,
       robotCount: 6,
+      maxPerPod: 4,
     });
     expect(pods).toHaveLength(6);
     expect(pods.map((p) => p.students.length)).toEqual([4, 4, 4, 4, 3, 3]);
   });
 
-  it("18 alumnos / 5 robots → 3 grupos de 4 + 2 grupos de 3", () => {
+  it("18 alumnos / 5 robots → 3 grupos de 4 + 2 de 3 (con maxPerPod 4)", () => {
     const { pods } = createPods({
       students: makeStudents(20),
       presentCount: 18,
       robotCount: 5,
+      maxPerPod: 4,
     });
     expect(pods).toHaveLength(5);
     expect(pods.map((p) => p.students.length)).toEqual([4, 4, 4, 3, 3]);
   });
 
-  it("20 alumnos / 5 robots → 5 grupos de 4", () => {
+  it("20 alumnos / 5 robots → 5 grupos de 4 (con maxPerPod 4)", () => {
     const { pods } = createPods({
       students: makeStudents(20),
       presentCount: 20,
       robotCount: 5,
+      maxPerPod: 4,
     });
     expect(pods).toHaveLength(5);
     expect(pods.map((p) => p.students.length)).toEqual([4, 4, 4, 4, 4]);
+  });
+
+  it("ratio 1:3 por defecto: 30 alumnos / 10 robots → 10 grupos de 3", () => {
+    const { pods } = createPods({
+      students: makeStudents(30),
+      presentCount: 30,
+      robotCount: 10,
+    });
+    expect(pods).toHaveLength(10);
+    expect(pods.map((p) => p.students.length)).toEqual([
+      3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+    ]);
+  });
+
+  it("ratio 1:3 con resto: 28 alumnos / 10 robots → primeros llenos, los del final con menos", () => {
+    const { pods } = createPods({
+      students: makeStudents(30),
+      presentCount: 28,
+      robotCount: 10,
+    });
+    expect(pods.map((p) => p.students.length)).toEqual([
+      3, 3, 3, 3, 3, 3, 3, 3, 2, 2,
+    ]);
   });
 
   it("1 alumno / 1 robot → 1 grupo de 1", () => {
@@ -212,19 +239,19 @@ describe("createPods — comportamiento adicional", () => {
     ).toThrow(/No hay tantos alumnos/);
   });
 
-  it("si presentCount excede robotCount * maxPerPod, el resto queda sin asignar", () => {
+  it("si presentCount excede robotCount * maxPerPod (default 3), el resto queda sin asignar", () => {
     const { pods } = createPods({
       students: makeStudents(30),
       presentCount: 30,
       robotCount: 3,
     });
     expect(pods).toHaveLength(3);
-    pods.forEach((p) => expect(p.students.length).toBeLessThanOrEqual(4));
+    pods.forEach((p) => expect(p.students.length).toBeLessThanOrEqual(3));
     const totalAssigned = pods.reduce(
       (acc, p) => acc + p.students.length,
       0,
     );
-    expect(totalAssigned).toBe(12);
+    expect(totalAssigned).toBe(9);
   });
 
   it("excedentes con maxPerPod custom tambien se respeta el cap", () => {

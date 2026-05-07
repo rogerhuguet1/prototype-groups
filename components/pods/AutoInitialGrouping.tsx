@@ -7,7 +7,7 @@ import { MAX_PODS } from "@/lib/pods/pod-emojis";
 import type { StudentRow } from "@/types/database";
 
 export function defaultRobotCount(studentsCount: number): number {
-  return Math.min(MAX_PODS, Math.max(1, Math.ceil(studentsCount / 4)));
+  return Math.min(MAX_PODS, Math.max(1, Math.ceil(studentsCount / 3)));
 }
 
 type Props = {

@@ -21,6 +21,7 @@ describe("moveStudent", () => {
       students: makeStudents(6),
       presentCount: 6,
       robotCount: 2,
+      maxPerPod: 4,
       random: noShuffle,
     });
     const result = moveStudent(pods, "s-001", "pod-2");
@@ -92,6 +93,7 @@ describe("moveStudent", () => {
       students: makeStudents(6),
       presentCount: 6,
       robotCount: 2,
+      maxPerPod: 4,
       random: noShuffle,
     });
     const snapshot = JSON.stringify(pods);
@@ -152,6 +154,7 @@ describe("addStudentToPod", () => {
       students: all,
       presentCount: 6,
       robotCount: 2,
+      maxPerPod: 4,
       random: noShuffle,
     });
     const unassigned = all[7]!;
@@ -183,6 +186,7 @@ describe("addStudentToPod", () => {
       students: makeStudents(6),
       presentCount: 6,
       robotCount: 2,
+      maxPerPod: 4,
       random: noShuffle,
     });
     const studentInA = pods[0]!.students[0]!;
