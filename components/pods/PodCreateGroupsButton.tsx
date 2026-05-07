@@ -16,13 +16,13 @@ function robotCountFor(presentCount: number): number {
   return Math.min(MAX_PODS, Math.max(1, Math.ceil(presentCount / 3)));
 }
 
-export function PodToggleViewButton({ students, classId }: Props) {
-  const viewWithPods = usePodsStore((s) => s.viewWithPods);
+export function PodCreateGroupsButton({ students, classId }: Props) {
+  const hasPods = usePodsStore((s) => s.pods.length > 0);
   const createPodsFromInput = usePodsStore((s) => s.createPodsFromInput);
   const setCurrentEntryId = usePodsStore((s) => s.setCurrentEntryId);
   const addEntry = useHistoryStore((s) => s.addEntry);
 
-  if (viewWithPods) return null;
+  if (hasPods) return null;
   if (students.length === 0) return null;
 
   const onClick = () => {
@@ -46,6 +46,9 @@ export function PodToggleViewButton({ students, classId }: Props) {
       seed: result.seed,
       pods: result.pods,
       isFavorite: false,
+      evaluations: [],
+      evaluatedAt: null,
+      lockedStudentIds: [],
     });
     setCurrentEntryId(entryId);
   };
@@ -55,10 +58,10 @@ export function PodToggleViewButton({ students, classId }: Props) {
       variant="secondary"
       onClick={onClick}
       className="text-[11px] font-bold uppercase tracking-wider px-3 py-2"
-      title="Generar grupos aleatorios"
+      title="Generar la primera agrupación aleatoria"
     >
       <Users className="size-3.5" aria-hidden />
-      Grupos
+      Agrupar
     </Button>
   );
 }

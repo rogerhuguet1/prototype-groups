@@ -8,7 +8,6 @@ import { PodRegroupMenu, type RegroupChoice } from "./PodRegroupMenu";
 import { usePodsStore } from "@/store/pods-store";
 import { useHistoryStore } from "@/store/history-store";
 import {
-  createPods,
   createPodsByLevel,
   createPodsByProgress,
 } from "@/lib/pods/create-pods";
@@ -52,12 +51,14 @@ export function PodRegroupButton() {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [menuRect, setMenuRect] = useState<DOMRect | null>(null);
   const [pendingMode, setPendingMode] = useState<RegroupChoice | null>(null);
-  const viewWithPods = usePodsStore((s) => s.viewWithPods);
   const hasPods = usePodsStore((s) => s.pods.length > 0);
+  const regroupSelecting = usePodsStore((s) => s.regroupSelecting);
+  const enterRegroupSelection = usePodsStore((s) => s.enterRegroupSelection);
   const setCurrentEntryId = usePodsStore((s) => s.setCurrentEntryId);
   const addEntry = useHistoryStore((s) => s.addEntry);
 
-  if (!viewWithPods || !hasPods) return null;
+  if (!hasPods) return null;
+  if (regroupSelecting) return null;
 
   const openMenu = () => {
     if (menuRect) {
@@ -69,21 +70,15 @@ export function PodRegroupButton() {
     setMenuRect(el.getBoundingClientRect());
   };
 
-  const doRegroup = (mode: RegroupChoice) => {
+  const doLevelRegroup = (mode: Exclude<RegroupChoice, "random">) => {
     const state = usePodsStore.getState();
     const lastInputs = state.lastInputs;
     if (!lastInputs) return;
 
     const robotCount = robotCountFor(lastInputs.presentCount);
 
-    let result;
-    if (mode === "random") {
-      result = createPods({
-        students: lastInputs.students,
-        presentCount: lastInputs.presentCount,
-        robotCount,
-      });
-    } else if (mode === "by-progress") {
+    let result: { pods: typeof state.pods; seed: string };
+    if (mode === "by-progress") {
       result = createPodsByProgress({
         students: lastInputs.students,
         presentCount: lastInputs.presentCount,
@@ -103,8 +98,7 @@ export function PodRegroupButton() {
 
     usePodsStore.setState({
       pods: result.pods,
-      viewWithPods: true,
-      sortMode: "grouped",
+      lockedStudentIds: [],
       regroupConfirmNeeded: true,
       currentSeed: result.seed,
       lastInputs: { ...lastInputs, robotCount },
@@ -121,9 +115,21 @@ export function PodRegroupButton() {
       seed: result.seed,
       pods: result.pods,
       isFavorite: false,
+      evaluations: [],
+      evaluatedAt: null,
+      lockedStudentIds: [],
       ...(label ? { label } : {}),
     });
     setCurrentEntryId(entryId);
+  };
+
+  const onPickMode = (mode: RegroupChoice) => {
+    setMenuRect(null);
+    if (mode === "random") {
+      enterRegroupSelection();
+      return;
+    }
+    setPendingMode(mode);
   };
 
   return (
@@ -144,22 +150,21 @@ export function PodRegroupButton() {
       {menuRect && (
         <PodRegroupMenu
           triggerRect={menuRect}
-          onSelect={(mode) => {
-            setMenuRect(null);
-            setPendingMode(mode);
-          }}
+          onSelect={onPickMode}
           onClose={() => setMenuRect(null)}
         />
       )}
       <ConfirmDialog
-        open={pendingMode !== null}
+        open={pendingMode !== null && pendingMode !== "random"}
         title={pendingMode ? MODE_TITLES[pendingMode] : ""}
         description={pendingMode ? MODE_DESCRIPTIONS[pendingMode] : ""}
         confirmLabel="Sí, reagrupar"
         cancelLabel="Cancelar"
         onCancel={() => setPendingMode(null)}
         onConfirm={() => {
-          if (pendingMode) doRegroup(pendingMode);
+          if (pendingMode && pendingMode !== "random") {
+            doLevelRegroup(pendingMode);
+          }
           setPendingMode(null);
         }}
       />

@@ -21,8 +21,8 @@ import { sortByLastName, displayName } from "@/lib/utils/sort-students";
 import { Plus } from "lucide-react";
 import { PodBadge } from "@/components/pods/PodBadge";
 import { PodDroppableTbody } from "@/components/pods/PodDroppableTbody";
-import { PodAddStudentButton } from "@/components/pods/PodAddStudentButton";
 import { PodHeaderTrigger } from "@/components/pods/PodHeaderTrigger";
+import { PodLockButton } from "@/components/pods/PodLockButton";
 import { MOVE_ERROR_MESSAGES } from "@/lib/pods/move-student";
 import { MAX_PODS } from "@/lib/pods/pod-emojis";
 import type { StudentRow as StudentRowType } from "@/types/database";
@@ -35,13 +35,13 @@ type Props = {
 const TOTAL_COLUMNS = 1 + FLAT_COLUMNS.length;
 
 export function StudentTable({ students }: Props) {
-  const { pods, viewWithPods, sortMode } = usePodsStore(
+  const { pods, sortMode } = usePodsStore(
     useShallow((s) => ({
       pods: s.pods,
-      viewWithPods: s.viewWithPods,
       sortMode: s.sortMode,
     })),
   );
+  const viewWithPods = pods.length > 0;
   const assignStudentToPod = usePodsStore((s) => s.addStudentToPod);
   const removeStudentFromPod = usePodsStore((s) => s.removeStudentFromPod);
   const addEmptyPod = usePodsStore((s) => s.addEmptyPod);
@@ -188,10 +188,6 @@ function DndStudentBodies({
 
   const unassigned = students.filter((s) => !studentToPod.has(s.id));
   const sortedUnassigned = sortByLastName(unassigned);
-  const unassignedForMenu = unassigned.map((s) => ({
-    id: s.id,
-    full_name: s.full_name,
-  }));
 
   function handleDragStart(e: DragStartEvent) {
     const data = e.active.data.current;
@@ -266,7 +262,7 @@ function DndStudentBodies({
           const sortedMembers = sortByLastName(pod.students);
           return (
             <PodDroppableTbody key={pod.id} pod={pod}>
-              <PodSectionHeaderRow pod={pod} unassigned={unassignedForMenu} />
+              <PodSectionHeaderRow pod={pod} />
               {sortedMembers.map((podStudent, i) => {
                 const fullStudent = studentMap.get(podStudent.id);
                 if (!fullStudent) return null;
@@ -311,7 +307,7 @@ function DndStudentBodies({
                 colSpan={TOTAL_COLUMNS}
                 className="px-4 py-2 sticky left-0 z-10 text-xs font-semibold text-slate-700 bg-slate-100 border-t-2 border-slate-300"
               >
-                Sin asignar ({sortedUnassigned.length}) — arrastra al grupo
+                Pendientes de asignar ({sortedUnassigned.length}) — arrastra al grupo
               </td>
             </tr>
             {sortedUnassigned.map((s, i) => (
@@ -348,13 +344,9 @@ function DndStudentBodies({
   );
 }
 
-function PodSectionHeaderRow({
-  pod,
-  unassigned,
-}: {
-  pod: Pod;
-  unassigned: { id: string; full_name: string }[];
-}) {
+function PodSectionHeaderRow({ pod }: { pod: Pod }) {
+  const togglePodLock = usePodsStore((s) => s.togglePodLock);
+  const regroupSelecting = usePodsStore((s) => s.regroupSelecting);
   return (
     <tr>
       <td
@@ -370,9 +362,18 @@ function PodSectionHeaderRow({
           <span className="text-xs font-semibold text-slate-700">
             {pod.students.length} de {pod.maxCapacity} alumnos
           </span>
-          <div className="ml-auto">
-            <PodAddStudentButton pod={pod} unassigned={unassigned} />
-          </div>
+          {regroupSelecting && (
+            <PodLockButton
+              locked={pod.isLocked}
+              onToggle={() => togglePodLock(pod.id)}
+              label={
+                pod.isLocked
+                  ? `Desbloquear grupo ${pod.emojiLabel}`
+                  : `Bloquear grupo ${pod.emojiLabel} para que no se reagrupe`
+              }
+              colorHex={pod.color.hex}
+            />
+          )}
         </div>
       </td>
     </tr>
@@ -392,7 +393,7 @@ function DragGhost({
         <PodBadge pod={pod} />
       ) : (
         <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 whitespace-nowrap leading-none">
-          Sin grupo
+          Pendiente de asignar
         </span>
       )}
       <span className="text-[12px] font-semibold text-slate-800">

@@ -30,8 +30,10 @@ export type LastInputs = {
 
 type State = {
   pods: Pod[];
-  viewWithPods: boolean;
+  lockedStudentIds: string[];
   sortMode: SortMode;
+  sortModeBeforeSelection: SortMode | null;
+  regroupSelecting: boolean;
   regroupConfirmNeeded: boolean;
   currentSeed: string | null;
   currentClassId: string | null;
@@ -57,13 +59,16 @@ type Actions = {
   }) => CreatePodsResult;
   regroup: () => RegroupResult;
   resetPods: () => void;
-  setViewWithPods: (on: boolean) => void;
   setSortMode: (mode: SortMode) => void;
   setRegroupConfirmNeeded: (value: boolean) => void;
   setCurrentEntryId: (id: string | null) => void;
   moveStudent: (studentId: string, toPodId: string) => MoveStudentResult;
   addStudentToPod: (student: Student, toPodId: string) => MoveStudentResult;
   removeStudentFromPod: (studentId: string) => MoveStudentResult;
+  togglePodLock: (podId: string) => void;
+  toggleStudentLock: (studentId: string) => void;
+  enterRegroupSelection: () => void;
+  exitRegroupSelection: () => void;
   addEmptyPod: () => void;
   createPodAndAssignStudent: (
     student: Student,
@@ -82,14 +87,17 @@ type Actions = {
     presentCount: number;
     robotCount: number;
     students: Student[];
+    lockedStudentIds: string[];
     entryId?: string;
   }) => void;
 };
 
 const INITIAL: State = {
   pods: [],
-  viewWithPods: false,
+  lockedStudentIds: [],
   sortMode: "alphabetical",
+  sortModeBeforeSelection: null,
+  regroupSelecting: false,
   regroupConfirmNeeded: false,
   currentSeed: null,
   currentClassId: null,
@@ -105,8 +113,8 @@ export const usePodsStore = create<State & Actions>()(
         const result = createPods({ students, presentCount, robotCount });
         set({
           pods: result.pods,
-          viewWithPods: true,
-          sortMode: "grouped",
+          lockedStudentIds: [],
+          sortMode: "alphabetical",
           regroupConfirmNeeded: false,
           currentSeed: result.seed,
           currentClassId: classId,
@@ -124,33 +132,77 @@ export const usePodsStore = create<State & Actions>()(
         });
         set({
           pods: result.pods,
-          viewWithPods: true,
-          sortMode: "grouped",
+          sortMode: "alphabetical",
           regroupConfirmNeeded: true,
           currentSeed: result.seed,
         });
         return { ok: true, pods: result.pods, seed: result.seed };
       },
       resetPods: () => set({ ...INITIAL }),
-      setViewWithPods: (on) => set({ viewWithPods: on }),
       setSortMode: (mode) => set({ sortMode: mode }),
       setRegroupConfirmNeeded: (value) =>
         set({ regroupConfirmNeeded: value }),
       setCurrentEntryId: (id) => set({ currentEntryId: id }),
       moveStudent: (studentId, toPodId) => {
-        const result = moveStudentLogic(get().pods, studentId, toPodId);
+        const state = get();
+        const result = moveStudentLogic(state.pods, studentId, toPodId, {
+          lockedStudentIds: state.lockedStudentIds,
+        });
         if (result.ok) set({ pods: result.pods, regroupConfirmNeeded: false });
         return result;
       },
       addStudentToPod: (student, toPodId) => {
-        const result = addStudentLogic(get().pods, student, toPodId);
+        const state = get();
+        const result = addStudentLogic(state.pods, student, toPodId, {
+          lockedStudentIds: state.lockedStudentIds,
+        });
         if (result.ok) set({ pods: result.pods, regroupConfirmNeeded: false });
         return result;
       },
       removeStudentFromPod: (studentId) => {
-        const result = removeStudentLogic(get().pods, studentId);
+        const state = get();
+        const result = removeStudentLogic(state.pods, studentId, {
+          lockedStudentIds: state.lockedStudentIds,
+        });
         if (result.ok) set({ pods: result.pods, regroupConfirmNeeded: false });
         return result;
+      },
+      togglePodLock: (podId) => {
+        set((state) => ({
+          pods: state.pods.map((p) =>
+            p.id === podId ? { ...p, isLocked: !p.isLocked } : p,
+          ),
+          regroupConfirmNeeded: false,
+        }));
+      },
+      toggleStudentLock: (studentId) => {
+        set((state) => {
+          const has = state.lockedStudentIds.includes(studentId);
+          return {
+            lockedStudentIds: has
+              ? state.lockedStudentIds.filter((id) => id !== studentId)
+              : [...state.lockedStudentIds, studentId],
+            regroupConfirmNeeded: false,
+          };
+        });
+      },
+      enterRegroupSelection: () => {
+        set((state) => ({
+          regroupSelecting: true,
+          sortModeBeforeSelection: state.sortMode,
+          sortMode: "grouped",
+          lockedStudentIds: [],
+          pods: state.pods.map((p) => ({ ...p, isLocked: false })),
+        }));
+      },
+      exitRegroupSelection: () => {
+        set((state) => ({
+          regroupSelecting: false,
+          sortMode: state.sortModeBeforeSelection ?? state.sortMode,
+          sortModeBeforeSelection: null,
+          lockedStudentIds: [],
+          pods: state.pods.map((p) => ({ ...p, isLocked: false })),
+        }));
       },
       changeEmoji: (podId, emoji, emojiLabel) => {
         const result = changeEmojiLogic(get().pods, podId, emoji, emojiLabel);
@@ -168,7 +220,6 @@ export const usePodsStore = create<State & Actions>()(
         const newPods = [...state.pods, newPod];
         set({
           pods: newPods,
-          viewWithPods: true,
           sortMode: "grouped",
           regroupConfirmNeeded: false,
           lastInputs: state.lastInputs
@@ -196,7 +247,6 @@ export const usePodsStore = create<State & Actions>()(
         const newPods = [...cleanedPods, podWithStudent];
         set({
           pods: newPods,
-          viewWithPods: true,
           regroupConfirmNeeded: false,
           lastInputs: state.lastInputs
             ? { ...state.lastInputs, robotCount: newPods.length }
@@ -206,8 +256,8 @@ export const usePodsStore = create<State & Actions>()(
       loadFromHistory: (snapshot) => {
         set({
           pods: snapshot.pods,
-          viewWithPods: true,
-          sortMode: "grouped",
+          lockedStudentIds: snapshot.lockedStudentIds,
+          sortMode: "alphabetical",
           regroupConfirmNeeded: false,
           currentSeed: snapshot.seed,
           currentClassId: snapshot.classId,
@@ -222,10 +272,10 @@ export const usePodsStore = create<State & Actions>()(
     }),
     {
       name: "c360-pods-state",
-      version: 1,
+      version: 4,
       skipHydration: true,
       partialize: (state) => ({
-        pods: state.pods,
+        pods: state.pods.map((p) => ({ ...p, isLocked: false })),
         regroupConfirmNeeded: state.regroupConfirmNeeded,
         currentSeed: state.currentSeed,
         currentClassId: state.currentClassId,
@@ -241,7 +291,7 @@ export const usePodsStore = create<State & Actions>()(
           lastInputs: null,
           currentEntryId: null,
         };
-        if (version < 1) return fresh;
+        if (version < 4) return fresh;
         return (persistedState ?? fresh) as typeof fresh;
       },
     },

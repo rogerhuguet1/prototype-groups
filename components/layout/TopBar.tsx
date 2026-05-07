@@ -5,8 +5,9 @@ import { ClassSelector } from "./ClassSelector";
 import { PodRegroupButton } from "@/components/pods/PodRegroupButton";
 import { PodHistoryButton } from "@/components/pods/PodHistoryButton";
 import { PodProjectionButton } from "@/components/pods/PodProjectionButton";
+import { PodCreateGroupsButton } from "@/components/pods/PodCreateGroupsButton";
+import { PodEvaluateButton } from "@/components/pods/PodEvaluateButton";
 import { PodSaveSnapshotButton } from "@/components/pods/PodSaveSnapshotButton";
-import { PodToggleViewButton } from "@/components/pods/PodToggleViewButton";
 import { COURSE_LABEL, PROGRAM_LABEL } from "@/lib/data/units";
 import type { ClassRow } from "@/types/database";
 import type { Student } from "@/lib/pods/create-pods";
@@ -47,9 +48,10 @@ export function TopBar({
               onSelectClass={onSelectClass}
             />
           )}
-          <PodToggleViewButton students={students} classId={activeClassId} />
+          <PodCreateGroupsButton students={students} classId={activeClassId} />
           <PodRegroupButton />
           <PodSaveSnapshotButton />
+          <PodEvaluateButton />
           <PodProjectionButton />
           <PodHistoryButton />
           <button

@@ -199,3 +199,90 @@ describe("addStudentToPod", () => {
     expect(podB.students.map((s) => s.id)).toContain(studentInA.id);
   });
 });
+
+describe("bloqueos", () => {
+  it("rechaza mover alumno bloqueado individualmente", () => {
+    const { pods } = createPods({
+      students: makeStudents(6),
+      presentCount: 6,
+      robotCount: 2,
+      maxPerPod: 4,
+      random: noShuffle,
+    });
+    const result = moveStudent(pods, "s-001", "pod-2", {
+      lockedStudentIds: ["s-001"],
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("student-locked");
+  });
+
+  it("rechaza mover desde un POD bloqueado", () => {
+    const { pods } = createPods({
+      students: makeStudents(6),
+      presentCount: 6,
+      robotCount: 2,
+      maxPerPod: 4,
+      random: noShuffle,
+    });
+    const lockedPods = pods.map((p, i) =>
+      i === 0 ? { ...p, isLocked: true } : p,
+    );
+    const result = moveStudent(lockedPods, "s-001", "pod-2");
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("source-pod-locked");
+  });
+
+  it("rechaza mover hacia un POD bloqueado", () => {
+    const { pods } = createPods({
+      students: makeStudents(6),
+      presentCount: 6,
+      robotCount: 2,
+      maxPerPod: 4,
+      random: noShuffle,
+    });
+    const lockedPods = pods.map((p, i) =>
+      i === 1 ? { ...p, isLocked: true } : p,
+    );
+    const result = moveStudent(lockedPods, "s-001", "pod-2");
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("destination-pod-locked");
+  });
+
+  it("addStudentToPod a pod bloqueado → destination-pod-locked", () => {
+    const all = makeStudents(10);
+    const { pods } = createPods({
+      students: all,
+      presentCount: 6,
+      robotCount: 2,
+      maxPerPod: 4,
+      random: noShuffle,
+    });
+    const lockedPods = pods.map((p, i) =>
+      i === 0 ? { ...p, isLocked: true } : p,
+    );
+    const unassigned = all[7]!;
+    const result = addStudentToPod(lockedPods, unassigned, "pod-1");
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("destination-pod-locked");
+  });
+
+  it("removeStudentFromPod sobre alumno bloqueado → student-locked", () => {
+    const { pods } = createPods({
+      students: makeStudents(6),
+      presentCount: 6,
+      robotCount: 2,
+      maxPerPod: 4,
+      random: noShuffle,
+    });
+    const result = removeStudentFromPod(pods, "s-001", {
+      lockedStudentIds: ["s-001"],
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("student-locked");
+  });
+});

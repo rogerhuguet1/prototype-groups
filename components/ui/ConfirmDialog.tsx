@@ -8,7 +8,7 @@ type Props = {
   title: string;
   description?: string;
   confirmLabel: string;
-  cancelLabel: string;
+  cancelLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;
   variant?: "primary" | "danger";
@@ -32,9 +32,11 @@ export function ConfirmDialog({
       description={description}
     >
       <div className="flex justify-end gap-2 mt-2">
-        <Button variant="secondary" onClick={onCancel}>
-          {cancelLabel}
-        </Button>
+        {cancelLabel ? (
+          <Button variant="secondary" onClick={onCancel}>
+            {cancelLabel}
+          </Button>
+        ) : null}
         <Button variant={variant} onClick={onConfirm}>
           {confirmLabel}
         </Button>

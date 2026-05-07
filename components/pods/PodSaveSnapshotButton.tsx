@@ -7,7 +7,6 @@ import { usePodsStore } from "@/store/pods-store";
 import { useHistoryStore } from "@/store/history-store";
 
 export function PodSaveSnapshotButton() {
-  const viewWithPods = usePodsStore((s) => s.viewWithPods);
   const hasPods = usePodsStore((s) => s.pods.length > 0);
   const setCurrentEntryId = usePodsStore((s) => s.setCurrentEntryId);
   const addEntry = useHistoryStore((s) => s.addEntry);
@@ -15,7 +14,7 @@ export function PodSaveSnapshotButton() {
   const entries = useHistoryStore((s) => s.entries);
   const [justSaved, setJustSaved] = useState(false);
 
-  if (!viewWithPods || !hasPods) return null;
+  if (!hasPods) return null;
 
   const onSave = () => {
     const state = usePodsStore.getState();
@@ -40,6 +39,7 @@ export function PodSaveSnapshotButton() {
         seed,
         presentStudents,
         robotCount,
+        lockedStudentIds: state.lockedStudentIds,
       });
     } else {
       const entryId = crypto.randomUUID();
@@ -52,6 +52,9 @@ export function PodSaveSnapshotButton() {
         seed,
         pods: state.pods,
         isFavorite: false,
+        evaluations: [],
+        evaluatedAt: null,
+        lockedStudentIds: state.lockedStudentIds,
       });
       setCurrentEntryId(entryId);
     }

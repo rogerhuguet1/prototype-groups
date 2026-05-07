@@ -18,11 +18,12 @@ export function PodDroppableTbody({ pod, children }: Props) {
   const fromPodId = active?.data.current?.["fromPodId"] as string | undefined;
   const sourceIsThisPod = fromPodId === pod.id;
   const isFull = pod.students.length >= pod.maxCapacity;
-  const showFull = isOver && isFull && !sourceIsThisPod;
-  const showValid = isOver && !isFull && !sourceIsThisPod;
+  const isInvalid = pod.isLocked || isFull;
+  const showInvalid = isOver && isInvalid && !sourceIsThisPod;
+  const showValid = isOver && !isInvalid && !sourceIsThisPod;
 
   let style: CSSProperties | undefined;
-  if (showFull) {
+  if (showInvalid) {
     style = {
       boxShadow: "inset 0 0 0 2px rgb(244 63 94)",
       backgroundColor: "rgba(244, 63, 94, 0.04)",

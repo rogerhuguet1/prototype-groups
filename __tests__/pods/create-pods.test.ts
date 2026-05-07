@@ -422,6 +422,7 @@ describe("createEmptyPod", () => {
         color: POD_COLORS[i % POD_COLORS.length]!,
         students: [],
         maxCapacity: 4,
+        isLocked: false,
       }));
     expect(() => createEmptyPod({ existing })).toThrow(/Máximo 15 grupos/);
   });

@@ -78,7 +78,7 @@ export function PodBadgeWithDropdown({ student, pod }: Props) {
           <PodBadge pod={pod} withChevron />
         ) : (
           <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded border border-dashed border-slate-300 bg-white text-slate-500 hover:border-slate-400 hover:text-slate-700 whitespace-nowrap leading-none">
-            Sin grupo
+            Pendiente de asignar
             <ChevronDown className="size-3" aria-hidden />
           </span>
         )}

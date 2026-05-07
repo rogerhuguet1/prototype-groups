@@ -73,7 +73,7 @@ export function StudentRow({
               <PodBadge pod={pod} />
             ) : (
               <span className="inline-flex items-center text-[9px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 whitespace-nowrap">
-                Sin grupo
+                Pendiente de asignar
               </span>
             )
           ) : null}

@@ -14,6 +14,7 @@ function pod(id: string, studentIds: string[]): Pod {
     color: { hex: "#000000", name: "test", textOn: "white" },
     students: studentIds.map((sid) => ({ id: sid, full_name: sid })),
     maxCapacity: 4,
+    isLocked: false,
   };
 }
 
@@ -27,6 +28,9 @@ function entry(id: string, pods: Pod[]): HistoryEntry {
     seed: id,
     pods,
     isFavorite: false,
+    evaluations: [],
+    evaluatedAt: null,
+    lockedStudentIds: [],
   };
 }
 

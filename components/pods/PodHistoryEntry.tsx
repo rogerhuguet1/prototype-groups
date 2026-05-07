@@ -1,11 +1,34 @@
 "use client";
 
 import { useState } from "react";
-import { Star, Trash2, ChevronDown, ChevronRight, Upload } from "lucide-react";
+import {
+  Star,
+  Trash2,
+  ChevronDown,
+  ChevronRight,
+  Upload,
+  Lock,
+} from "lucide-react";
 import { useHistoryStore } from "@/store/history-store";
 import { usePodsStore } from "@/store/pods-store";
-import type { HistoryEntry } from "@/types/history";
+import type {
+  HistoryEntry,
+  PodEvaluation,
+  PodEvaluationRating,
+} from "@/types/history";
 import { displayName } from "@/lib/utils/sort-students";
+
+const RATING_BG: Record<PodEvaluationRating, string> = {
+  green: "bg-emerald-500",
+  amber: "bg-amber-400",
+  red: "bg-rose-500",
+};
+
+const RATING_LABEL: Record<PodEvaluationRating, string> = {
+  green: "Bien",
+  amber: "Regular",
+  red: "Mal",
+};
 
 const FORMATTER = new Intl.DateTimeFormat("es-ES", {
   day: "numeric",
@@ -18,6 +41,13 @@ type Props = {
   entry: HistoryEntry;
   onLoaded: () => void;
 };
+
+function evaluationFor(
+  evaluations: PodEvaluation[],
+  podId: string,
+): PodEvaluationRating | null {
+  return evaluations.find((e) => e.podId === podId)?.rating ?? null;
+}
 
 export function PodHistoryEntry({ entry, onLoaded }: Props) {
   const [expanded, setExpanded] = useState(false);
@@ -47,6 +77,7 @@ export function PodHistoryEntry({ entry, onLoaded }: Props) {
       presentCount: entry.presentStudents,
       robotCount: entry.robotCount,
       students: studentsFromSnapshot,
+      lockedStudentIds: entry.lockedStudentIds,
       entryId: entry.id,
     });
     onLoaded();
@@ -84,7 +115,7 @@ export function PodHistoryEntry({ entry, onLoaded }: Props) {
           />
         </button>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-semibold text-slate-800">
               {FORMATTER.format(date)}
             </span>
@@ -92,17 +123,54 @@ export function PodHistoryEntry({ entry, onLoaded }: Props) {
               {entry.pods.length} grupo{entry.pods.length === 1 ? "" : "s"} ·{" "}
               {totalAssigned} alumnos
             </span>
+            {(() => {
+              const lockedPods = entry.pods.filter((p) => p.isLocked).length;
+              const lockedStudents = entry.lockedStudentIds.length;
+              const total = lockedPods + lockedStudents;
+              if (total === 0) return null;
+              const parts: string[] = [];
+              if (lockedPods > 0)
+                parts.push(
+                  `${lockedPods} grupo${lockedPods === 1 ? "" : "s"}`,
+                );
+              if (lockedStudents > 0)
+                parts.push(
+                  `${lockedStudents} alumno${lockedStudents === 1 ? "" : "s"}`,
+                );
+              return (
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-600 bg-slate-100 rounded px-1.5 py-0.5"
+                  title={`Bloqueados al guardar: ${parts.join(" + ")}`}
+                >
+                  <Lock className="size-3" aria-hidden />
+                  {total}
+                </span>
+              );
+            })()}
           </div>
-          <div className="mt-1 flex items-center gap-1 flex-wrap">
-            {entry.pods.map((p) => (
-              <span
-                key={p.id}
-                className="text-[14px] leading-none"
-                title={p.emojiLabel}
-              >
-                {p.emoji}
-              </span>
-            ))}
+          <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+            {entry.pods.map((p) => {
+              const rating = evaluationFor(entry.evaluations, p.id);
+              return (
+                <span
+                  key={p.id}
+                  className="inline-flex items-center gap-1"
+                  title={
+                    rating
+                      ? `${p.emojiLabel} — ${RATING_LABEL[rating]}`
+                      : `${p.emojiLabel} — sin evaluar`
+                  }
+                >
+                  <span className="text-[14px] leading-none">{p.emoji}</span>
+                  <span
+                    className={`size-2 rounded-full ${
+                      rating ? RATING_BG[rating] : "bg-slate-300"
+                    }`}
+                    aria-hidden
+                  />
+                </span>
+              );
+            })}
           </div>
           <input
             type="text"
@@ -146,31 +214,41 @@ export function PodHistoryEntry({ entry, onLoaded }: Props) {
       </div>
       {expanded && (
         <div className="border-t border-slate-200 p-3 bg-slate-50 space-y-2">
-          {entry.pods.map((p) => (
-            <div key={p.id}>
-              <div className="flex items-center gap-2">
-                <span
-                  className="inline-flex items-center text-[11px] font-bold tracking-wide rounded px-1.5 py-0.5"
-                  style={{
-                    backgroundColor: p.color.hex,
-                    color: p.color.textOn === "white" ? "#fff" : "#0f172a",
-                  }}
-                >
-                  Grupo {p.emoji}
-                </span>
-                <span className="text-[11px] text-slate-500">
-                  {p.students.length} alumnos
-                </span>
+          {entry.pods.map((p) => {
+            const rating = evaluationFor(entry.evaluations, p.id);
+            return (
+              <div key={p.id}>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="inline-flex items-center text-[11px] font-bold tracking-wide rounded px-1.5 py-0.5"
+                    style={{
+                      backgroundColor: p.color.hex,
+                      color: p.color.textOn === "white" ? "#fff" : "#0f172a",
+                    }}
+                  >
+                    Grupo {p.emoji}
+                  </span>
+                  <span className="text-[11px] text-slate-500">
+                    {p.students.length} alumnos
+                  </span>
+                  {rating && (
+                    <span
+                      className={`size-2.5 rounded-full ${RATING_BG[rating]}`}
+                      aria-label={RATING_LABEL[rating]}
+                      title={RATING_LABEL[rating]}
+                    />
+                  )}
+                </div>
+                <ul className="mt-1 ml-1 space-y-0.5">
+                  {p.students.map((s) => (
+                    <li key={s.id} className="text-[11px] text-slate-700">
+                      {displayName(s.full_name)}
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <ul className="mt-1 ml-1 space-y-0.5">
-                {p.students.map((s) => (
-                  <li key={s.id} className="text-[11px] text-slate-700">
-                    {displayName(s.full_name)}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

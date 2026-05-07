@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { HistoryEntry } from "@/types/history";
+import type { HistoryEntry, PodEvaluation } from "@/types/history";
 
 type State = {
   entries: HistoryEntry[];
@@ -14,11 +14,17 @@ type Actions = {
     id: string,
     update: Pick<
       HistoryEntry,
-      "pods" | "timestamp" | "seed" | "presentStudents" | "robotCount"
+      | "pods"
+      | "timestamp"
+      | "seed"
+      | "presentStudents"
+      | "robotCount"
+      | "lockedStudentIds"
     >,
   ) => void;
   deleteEntry: (id: string) => void;
   toggleFavorite: (id: string) => void;
+  saveEvaluation: (id: string, evaluations: PodEvaluation[]) => void;
   setLabel: (id: string, label: string) => void;
   clearAll: () => void;
 };
@@ -31,9 +37,7 @@ function trimToCap(entries: HistoryEntry[]): HistoryEntry[] {
   const nonFavs = entries.filter((e) => !e.isFavorite);
   const slotsForNonFavs = Math.max(0, HISTORY_CAP - favs.length);
   const keptNonFavs = nonFavs.slice(0, slotsForNonFavs);
-  const keepIds = new Set(
-    [...favs, ...keptNonFavs].map((e) => e.id),
-  );
+  const keepIds = new Set([...favs, ...keptNonFavs].map((e) => e.id));
   return entries.filter((e) => keepIds.has(e.id));
 }
 
@@ -61,6 +65,19 @@ export const useHistoryStore = create<State & Actions>()(
             e.id === id ? { ...e, isFavorite: !e.isFavorite } : e,
           ),
         })),
+      saveEvaluation: (id, evaluations) =>
+        set((state) => ({
+          entries: state.entries.map((e) =>
+            e.id === id
+              ? {
+                  ...e,
+                  evaluations,
+                  evaluatedAt:
+                    evaluations.length === 0 ? null : new Date().toISOString(),
+                }
+              : e,
+          ),
+        })),
       setLabel: (id, label) =>
         set((state) => ({
           entries: state.entries.map((e) =>
@@ -71,13 +88,27 @@ export const useHistoryStore = create<State & Actions>()(
     }),
     {
       name: "c360-pods-history",
-      version: 1,
+      version: 3,
       skipHydration: true,
-      migrate: (_persistedState, version) => {
-        if (version < 1) {
-          return { entries: [] };
-        }
-        return _persistedState as Partial<State>;
+      migrate: (persistedState, version) => {
+        if (version < 1) return { entries: [] };
+        const prev = (persistedState ?? { entries: [] }) as { entries: unknown[] };
+        const entries = (prev.entries ?? []).map((raw) => {
+          const e = raw as HistoryEntry & { rating?: unknown };
+          const { rating: _drop, ...rest } = e;
+          const podsWithLock = (rest.pods ?? []).map((p) => ({
+            ...p,
+            isLocked: p.isLocked ?? false,
+          }));
+          return {
+            ...rest,
+            pods: podsWithLock,
+            evaluations: rest.evaluations ?? [],
+            evaluatedAt: rest.evaluatedAt ?? null,
+            lockedStudentIds: rest.lockedStudentIds ?? [],
+          };
+        });
+        return { entries };
       },
     },
   ),

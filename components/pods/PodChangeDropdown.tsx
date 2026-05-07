@@ -145,7 +145,7 @@ export function PodChangeDropdown({
                   : "text-slate-700 hover:bg-slate-50 focus:outline-none focus:bg-slate-50",
               )}
             >
-              Sin grupo
+              Pendiente de asignar
             </button>
             {canCreate && (
               <button

@@ -14,6 +14,7 @@ export type Pod = {
   color: PodColor;
   students: Student[];
   maxCapacity: number;
+  isLocked: boolean;
 };
 
 export type CreatePodsInput = {
@@ -99,6 +100,7 @@ export function createPods(input: CreatePodsInput): CreatePodsOutput {
       color,
       students: slice,
       maxCapacity: maxPerPod,
+      isLocked: false,
     });
   }
   return { pods, seed };
@@ -151,6 +153,7 @@ export function createEmptyPod(input: {
     color: color as PodColor,
     students: [],
     maxCapacity,
+    isLocked: false,
   };
 }
 
@@ -315,6 +318,7 @@ export function createPodsByLevel(
     color: colors[i] as PodColor,
     students: bucket,
     maxCapacity: maxPerPod,
+    isLocked: false,
   }));
 
   return { pods, seed };

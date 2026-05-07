@@ -729,9 +729,8 @@ El producto **ya no es un wizard de "Agrupar"**. La vista por defecto es la pant
 Vive en el TopBar. Reemplaza al borrado `PodGroupingButton`/`PodGroupingModal`.
 
 - Visible cuando `students.length > 0 && !viewWithPods`.
-- Click: llama `createPodsFromInput(students, robotCountFor(students.length))` + `addEntry(...)` + `setCurrentEntryId(...)`.
-- El store se encarga de poner `viewWithPods=true` y `sortMode="grouped"`.
-- Si ya había pods previos persistidos, se sobreescriben (cada click = nueva combinación aleatoria).
+- Si **no hay pods en el store**: click llama `createPodsFromInput(students, robotCountFor(students.length))` + `addEntry(...)` + `setCurrentEntryId(...)`. El store pone `viewWithPods=true` y `sortMode="grouped"`.
+- Si **ya hay pods en el store** (vista apagada y reactivada): click solo reactiva la vista (`setViewWithPods(true)` + `setSortMode("grouped")`). **No regenera la distribución.** Para una nueva combinación aleatoria está `Reagrupar`.
 
 ### 13.4 Menú `Reagrupar` (PodRegroupMenu)
 
@@ -779,7 +778,6 @@ Funciones de score auxiliares (`lib/pods/student-score.ts`):
 |---|---|---|
 | DnD entre tbodies | `moveStudent` | Solo sort `grouped` |
 | DnD desde "Sin asignar" | `addStudentToPod` | Solo sort `grouped` |
-| Botón `+` en cabecera | `addStudentToPod` (popover) | Solo sort `grouped` |
 | Botón `+ Crear nuevo grupo` al pie | `addEmptyPod` | Solo sort `grouped` |
 | Cabecera del bloque | `changeEmoji` | Solo sort `grouped` |
 | Icono `UserMinus` en fila (hover) | `removeStudentFromPod` | Solo sort `grouped` (alumnos en pod) |
@@ -802,8 +800,9 @@ Cualquier acción manual que modifique pods resetea `regroupConfirmNeeded` a `fa
 
 - Drawer lateral derecho (portal a `body`).
 - Favoritas arriba, resto por timestamp desc.
-- Cada entrada con: timestamp formateado en `es-ES`, contador `N grupos · M alumnos`, fila de emojis, label inline editable, ⭐ favorito, "Cargar", "Ver detalle" (expand-collapse), papelera.
+- Cada entrada con: timestamp formateado en `es-ES`, contador `N grupos · M alumnos`, fila de emojis, **semáforo de valoración (verde/ámbar/rojo)**, label inline editable, ⭐ favorito, "Cargar", "Ver detalle" (expand-collapse), papelera.
 - **Anillo azul** en la entrada activa (`currentEntryId === entry.id`).
+- **Semáforo (`HistoryRating`)**: tres radios (`good`, `mediocre`, `bad`) opcionales. Las entradas nuevas arrancan **sin valoración**; el profe elige clicando una luz. Click en la ya seleccionada deselecciona. `setRating(id, rating | undefined)` en `history-store`. Persiste con la entrada en `localStorage`.
 - Footer: "Borrar todo el historial" con `ConfirmDialog danger`.
 - Cap 100 entries con FIFO; favoritas protegidas (no se descartan aunque excedan el cap).
 
@@ -842,8 +841,6 @@ components/pods/
   PodChangeDropdown.tsx           ← restaurado
   PodHeaderTrigger.tsx
   PodEmojiPicker.tsx
-  PodAddStudentButton.tsx
-  PodAddStudentMenu.tsx
   PodControls.tsx                 ← oculto si !viewWithPods
   PodViewToggle.tsx
   PodSortControl.tsx
@@ -943,5 +940,286 @@ d949d2f  feat     persistencia en localStorage (pods + historial)
 
 ---
 
-*SUPERPROMPT.md v3+ (apéndice §13 mayo 2026) — Prototipo de Agrupación por Grupos (C360 / ROBOTIX). Estado real tras iteración con el profesor.*
+## 14. Estado actual (mayo 2026, post-iteración v4)
+
+> Apéndice operativo. Refleja la implementación de las mejoras pedidas en la spec v4 (eliminar checkbox "Vista con Grupos", auto-carga al iniciar, evaluación per-grupo y bloqueos con flujo "selecciona qué mantener antes de reagrupar"). Reemplaza la visión de §13 donde haya divergencia.
+
+### 14.1 Cambios de modelo respecto a v3+
+
+| Concepto | v3+ | v4 (actual) |
+|---|---|---|
+| `viewWithPods` | Estado en store + checkbox UI | **Eliminado.** Los badges aparecen automáticamente cuando `pods.length > 0` |
+| Botón "Grupos" | Toggle de vista | **Renombrado a "Agrupar"**, visible solo cuando `pods.length === 0`. Genera primera tanda |
+| Botón "Última agrupación" | Existía | **Eliminado.** Redundante con auto-carga |
+| Pantalla inicial con historial | Alfabética sin badges | Auto-carga última entrada y muestra alfabética con badges |
+| Rating del historial | 3 caritas/colores POR ENTRADA | **Reemplazado** por `evaluations: PodEvaluation[]` POR GRUPO + modal Evaluar sesión |
+| `Pod.isLocked` | n/a | Añadido al tipo. Se usa solo durante el modo selección de Reagrupar |
+| `lockedStudentIds` | n/a | Añadido al store y a `HistoryEntry` |
+| Reagrupar aleatorio | `createPods` directo + confirm | **Modo selección de bloqueos** (banner + candados) → `regroupWithLocks` |
+| Reagrupar por nivel | Confirm + `createPodsByLevel/Progress` | Igual (no respeta bloqueos por diseño) |
+| Persistencia | `pods.isLocked` y `lockedStudentIds` persistidos | **No se persisten.** `partialize` strippea `isLocked` y omite `lockedStudentIds`. Migración v4 |
+
+### 14.2 Auto-carga al iniciar
+
+`StoresHydrator` (en `Providers`):
+1. `await usePodsStore.persist.rehydrate()`.
+2. `await useHistoryStore.persist.rehydrate()`.
+3. Si `pods.length === 0 && entries.length > 0` → `loadFromHistory(entries[0])`.
+
+`loadFromHistory` y `createPodsFromInput` siempre dejan `sortMode: "alphabetical"` (los badges se ven, no se fuerza Por grupos).
+
+### 14.3 Evaluación per-grupo
+
+**Tipos** (`types/history.ts`):
+```ts
+export type PodEvaluationRating = "green" | "amber" | "red";
+export type PodEvaluation = { podId: string; rating: PodEvaluationRating };
+export type HistoryEntry = {
+  // ... resto
+  evaluations: PodEvaluation[];   // [] si no evaluada
+  evaluatedAt: string | null;
+  lockedStudentIds: string[];     // snapshot de los locks usados al crear/guardar
+};
+```
+
+**Acción store** (`history-store`):
+- `saveEvaluation(id, evaluations)`: actualiza `evaluations` + `evaluatedAt = new Date().toISOString()` (o `null` si lista vacía).
+- Migración v2→v3 rellena `evaluations: []`, `evaluatedAt: null` y descarta el campo `rating` antiguo. Migración v3→v3 (no bump) ya añade `lockedStudentIds: []` retroactivamente.
+- Versión actual del history-store: `3`.
+
+**UI**:
+- `PodEvaluateButton.tsx` (TopBar): visible cuando `hasPods && currentEntry` está en historial. Punto verde a la derecha del icono si la entrada activa ya está evaluada.
+- `PodEvaluateModal.tsx`: una fila por grupo con `Grupo {emoji}` + 3 botones grandes 😟 / 😐 / 😀 (`red`/`amber`/`green` izq → der). Pre-rellena con `entry.evaluations`. Click en el ya seleccionado deselecciona. `Saltar` cierra sin guardar; `Guardar` solo activo si hay al menos una evaluación.
+- `PodHistoryEntry`: cada emoji va seguido de un mini círculo (`size-2`) coloreado verde/ámbar/rojo si hay rating, gris si sin evaluar. En el detalle expandido el `Grupo {emoji}` también muestra un círculo `size-2.5`.
+
+### 14.4 Bloqueos: modelo y persistencia
+
+```ts
+// lib/pods/create-pods.ts
+type Pod = {
+  id: string; emoji: string; emojiLabel: string; color: PodColor;
+  students: Student[]; maxCapacity: number;
+  isLocked: boolean;          // default false al crear
+};
+```
+
+```ts
+// store/pods-store.ts
+type State = {
+  pods: Pod[];
+  lockedStudentIds: string[];
+  sortMode: SortMode;
+  sortModeBeforeSelection: SortMode | null;  // recordar para volver al salir
+  regroupSelecting: boolean;                 // NO se persiste
+  // ... resto
+};
+```
+
+- `partialize` strippea `pod.isLocked` antes de guardar (todos los pods se persisten con `isLocked: false`).
+- `lockedStudentIds`, `regroupSelecting` y `sortModeBeforeSelection` **no se persisten**.
+- Versión actual del pods-store: `4`. La migración descarta cualquier state previo.
+
+### 14.5 Función pura `regroupWithLocks`
+
+`lib/pods/regroup-with-locks.ts`. Sin dependencias de UI ni store.
+
+```ts
+export type RegroupWithLocksInput = {
+  currentPods: Pod[];
+  lockedStudentIds: string[];
+  allPresentStudents: Student[];
+  seed?: string;
+  random?: () => number;
+};
+export type RegroupWithLocksOutput = { pods: Pod[]; seed: string };
+
+export class RegroupLocksError extends Error {
+  freeCount: number;
+  slotCount: number;
+}
+
+export function regroupWithLocks(input): RegroupWithLocksOutput;
+```
+
+**Algoritmo**:
+1. Pods con `isLocked: true` → preservados verbatim (estudiantes, emoji, color, id).
+2. Pods sin lock → conserva solo alumnos presentes ∩ `lockedStudentIds`.
+3. Free students = (alumnos sueltos no bloqueados de pods no bloqueados) + (presentes sin asignar).
+4. `totalSlots = Σ (maxCapacity - locked) en pods no bloqueados`.
+5. Si `free.length > totalSlots` → `RegroupLocksError(free.length, totalSlots)`.
+6. Shuffle (seeded) + round-robin entre los pods no bloqueados.
+7. Conserva todos los emojis/colores/ids existentes.
+
+**Tests** (`__tests__/pods/regroup-with-locks.test.ts`, 8 casos):
+- Sin bloqueos preserva estructura.
+- Misma seed → reparto reproducible.
+- 2 grupos bloqueados → 8 fijos, 16 redistribuidos.
+- 5 alumnos sueltos bloqueados → cada uno en su grupo.
+- 5 grupos bloqueados (20) + 4 libres = válido.
+- Todo bloqueado (0 libres, 0 plazas) → válido (no error).
+- Libres > plazas → `RegroupLocksError`.
+- Capacidad respetada en todos los pods.
+
+### 14.6 `move-student` con bloqueos
+
+Nuevos `MoveError`:
+- `student-locked` — el alumno está en `lockedStudentIds`.
+- `source-pod-locked` — el pod de origen tiene `isLocked: true`.
+- `destination-pod-locked` — el pod destino tiene `isLocked: true`.
+
+Las tres funciones (`moveStudent`, `addStudentToPod`, `removeStudentFromPod`) aceptan ahora un `options: { lockedStudentIds?: string[] }` opcional. El store wrapea automáticamente con `state.lockedStudentIds`.
+
+5 tests adicionales en `move-student.test.ts` cubren todos los casos de bloqueo.
+
+### 14.7 Flujo Reagrupar con selección de bloqueos
+
+**Disparador**: `PodRegroupButton` con dropdown de 4 modos.
+- **Aleatoria** → `enterRegroupSelection()`. NO hay confirm dialog previo.
+- **Mixta / Por niveles / Por avance** → `ConfirmDialog` clásico → `createPodsByLevel/Progress`. Limpia locks. NO respetan bloqueos por diseño.
+
+**Modo selección** (`regroupSelecting === true`):
+- `enterRegroupSelection()`: limpia locks + guarda `sortModeBeforeSelection` + fuerza `sortMode = "grouped"`.
+- Aparece `PodRegroupSelectionBanner` (sticky azul arriba) con resumen + botones `Cancelar` y `Reagrupar respetando N`.
+- `PodSectionHeaderRow`: candado del grupo visible (clickeable).
+- `StudentRowDraggable`: candado por fila visible. Si el grupo está `isLocked`, cada fila muestra un candado coloreado automático **no clickeable** (con label "bloqueado por su grupo"). Si no, candado individual clickeable.
+- DnD desactivado (`useDraggable({ disabled: true })`).
+- `PodControls` (segmented Alfabético/Por grupos) oculto.
+- `PodRegroupButton` oculto.
+
+**Cancelar** (`exitRegroupSelection()`): limpia locks + restaura `sortMode` + sale del modo. Sin cambios en pods.
+
+**Confirmar** (`PodRegroupSelectionBanner.onConfirm`):
+1. `regroupWithLocks({ currentPods, lockedStudentIds, allPresentStudents })`.
+2. Si lanza `RegroupLocksError` → modal "No se puede reagrupar" + botón Entendido.
+3. Si OK → `set({ pods: result.pods, lockedStudentIds: [], regroupSelecting: false, sortMode: previousSort, ... })`. Strippea `isLocked` de los nuevos pods (ya que la pod-lock era ephemeral).
+4. `addEntry({ ..., lockedStudentIds: [...lockedAtConfirm] })` para que el historial recuerde qué se bloqueó al guardar.
+
+### 14.8 Pre-Reagrupar UX
+
+```
+Banner azul sticky arriba:
+┌────────────────────────────────────────────────────────────────┐
+│ ↻ Selecciona qué grupos o alumnos quieres mantener antes de   │
+│   reagrupar                                                    │
+│   Se mantendrán: 1 grupo (4 alumnos) + 1 alumno suelto.        │
+│                                                                │
+│                              [✕ Cancelar] [Reagrupar resp. 5] │
+└────────────────────────────────────────────────────────────────┘
+```
+
+- Si nada bloqueado: el botón dice "Reagrupar" y el resumen "No hay nada bloqueado: todos los alumnos rotarán."
+- En la cabecera de cada grupo aparece un candado del color del pod (cerrado/abierto). Lo mismo en cada fila.
+- Si el profe pulsa el candado del Grupo 🤖, todas las filas de ese grupo cambian a un candado del mismo color **no clickeable** (lo bloquea su grupo). Para excepciones: el profe puede desbloquear el grupo y bloquear individualmente.
+
+### 14.9 Indicador de bloqueos en historial
+
+`PodHistoryEntry` muestra junto al timestamp, si la entrada tenía bloqueos:
+- Chip `🔒 N` con tooltip `"Bloqueados al guardar: X grupos + Y alumnos"`.
+- Cuenta `lockedPods + lockedStudentIds.length` como total.
+
+### 14.10 Estructura de archivos (post-v4)
+
+```
+components/pods/
+  PodCreateGroupsButton.tsx       ← reemplaza PodToggleViewButton
+  PodLockButton.tsx               ← NUEVO (cabecera + filas, size sm/md, coloreable)
+  PodRegroupButton.tsx            ← random no muestra ConfirmDialog, entra en seleccion
+  PodRegroupSelectionBanner.tsx   ← NUEVO sticky banner azul
+  PodEvaluateButton.tsx           ← NUEVO (modal Evaluar sesión)
+  PodEvaluateModal.tsx            ← NUEVO (1 fila por grupo + 3 botones)
+  PodControls.tsx                 ← solo segmented Alfabético/Por grupos, oculto si regroupSelecting
+  PodHistoryEntry.tsx             ← chip 🔒 + mini-circulos de evaluation
+  PodHistoryButton.tsx            ← solo condicionado a hasPods + entries
+  PodSaveSnapshotButton.tsx       ← solo condicionado a hasPods
+  PodProjectionButton.tsx         ← solo condicionado a hasPods
+  PodBadgeWithDropdown.tsx        ← textos "Pendiente de asignar"
+  PodChangeDropdown.tsx           ← textos "Pendiente de asignar"
+  (BORRADOS: PodViewToggle, PodToggleViewButton, PodLastGroupingButton,
+             PodAddStudentButton, PodAddStudentMenu)
+
+components/students/
+  StudentTable.tsx                ← viewWithPods derivado, sin botón + en cabecera
+  StudentRowDraggable.tsx         ← candado solo en regroupSelecting, DnD off durante seleccion
+  StudentRow.tsx                  ← textos "Pendiente de asignar"
+  DragHandle.tsx                  ← prop disabled
+
+components/layout/
+  AppShell.tsx                    ← monta PodRegroupSelectionBanner antes del TopBar
+  TopBar.tsx                      ← orden: Agrupar, Reagrupar, Guardar, Evaluar sesión, Proyección, Historial, Descargar
+  StoresHydrator.tsx              ← auto-carga última entrada si pods vacío
+
+components/ui/
+  ConfirmDialog.tsx               ← cancelLabel ahora opcional (modal con solo OK)
+
+lib/pods/
+  create-pods.ts                  ← Pod.isLocked: false en cada constructor
+  move-student.ts                 ← MoveError + opciones lockedStudentIds
+  regroup-with-locks.ts           ← NUEVO (RegroupLocksError exportable)
+
+store/
+  pods-store.ts                   ← v4, regroupSelecting, enter/exitRegroupSelection,
+                                    togglePodLock, toggleStudentLock,
+                                    sin viewWithPods/setViewWithPods
+  history-store.ts                ← v3, saveEvaluation, sin setRating
+
+types/
+  history.ts                      ← PodEvaluation, PodEvaluationRating,
+                                    HistoryEntry { evaluations, evaluatedAt, lockedStudentIds }
+
+__tests__/pods/
+  regroup-with-locks.test.ts      ← NUEVO 8 casos
+  move-student.test.ts            ← +5 tests bloqueos
+  (resto sin cambios estructurales: 80/80 verde)
+```
+
+### 14.11 Diferencias respecto a la spec v4 (intencionales)
+
+| §v4 | Spec | Implementación actual | Razón |
+|---|---|---|---|
+| §5.2 | Modal Agrupar con `presentCount`/`robotCount` | ❌ borrado. Botón "Agrupar" directo (sin modal); robotCount = ceil(presentCount/3) | El profesor ya pidió en v3+ borrarlo |
+| §5.7 | Badges en alfabético solo informativos | ❌ revertido. `PodBadgeWithDropdown` editable | Petición explícita del profesor (turno previo) |
+| §5.8 | Candados visibles siempre en sort grouped | ❌ Solo durante `regroupSelecting` | Petición explícita del profesor: "que solo salgan los candados tras pulsar Reagrupar" |
+| §5.8 | Locks persistentes en sesión | ❌ Locks ephemeral por flujo Reagrupar | Consecuencia de la decisión anterior — UX simple |
+| §5.9 | Reagrupar pide confirmación | Sí para modos por nivel. Para aleatoria, el "modo selección" sustituye a la confirmación | Diferenciación por modo |
+| §5.10 | Botón Evaluar sesión + modal de 3 caritas/colores | ✅ implementado | — |
+| §6.4 | Cargar combinación restaura bloqueos | ⚠️ `loadFromHistory` recibe `lockedStudentIds` pero como están ephemeral, se persisten en la entrada pero no se vuelven a aplicar visualmente fuera del modo selección | Consistente con 14.4 |
+| §9 | `regroupWithLocks` puro + tests | ✅ implementado con 8 tests | — |
+
+### 14.12 Cómo arrancar
+
+```bash
+cd robotix_group_prototype
+npm install
+npm test          # 80/80 verde
+npm run dev       # http://localhost:3000
+```
+
+No hace falta vaciar localStorage manualmente:
+- pods-store v4 invalida cualquier state de versiones anteriores.
+- history-store v3 mantiene entradas viejas pero migra `rating` viejo → `evaluations: []`, y rellena `lockedStudentIds: []`.
+
+### 14.13 Tests (totales)
+
+```
+__tests__/pods/
+  create-pods.test.ts            22 tests
+  create-pods-by-level.test.ts   ?  tests
+  co-occurrence.test.ts          ?  tests
+  edit-pod.test.ts               5  tests
+  move-student.test.ts           18 tests (13 antiguos + 5 nuevos de bloqueos)
+  regroup-with-locks.test.ts     8  tests (NUEVO)
+
+Total: 80/80 verde.
+```
+
+### 14.14 Gaps conocidos
+
+- **Modos por nivel ignoran bloqueos**: `mixed`, `leveled`, `by-progress` siempre redistribuyen 100% (no usan `regroupWithLocks`). Si el profesor quiere bloquear con esos modos, necesitará una iteración futura.
+- **Locks ephemeral**: cualquier lock seteado durante el modo selección desaparece tras confirmar/cancelar. La entrada del historial sí guarda el snapshot (`lockedStudentIds`), pero al cargar esa entrada los locks no se reactivan visualmente porque el modo selección no está activo.
+- **Persistencia de pod.isLocked**: aunque internamente cualquier pod podría estar locked durante el modo selección, al persistir se fuerza a `false`. Si en el futuro se quisieran locks persistentes, basta con quitar el strip de `partialize`.
+- **Sin tests de UI / flujos integrados**: Modal Evaluar, banner Reagrupar, modo selección — solo validación manual.
+
+---
+
+*SUPERPROMPT.md v4 (apéndice §14 mayo 2026, post-iteración v4) — Prototipo de Agrupación por Grupos (C360 / ROBOTIX). Estado real tras la sesión de implementación de v4.*
 ````
