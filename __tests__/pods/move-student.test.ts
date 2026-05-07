@@ -17,7 +17,7 @@ const noShuffle = () => 0.999;
 
 describe("moveStudent", () => {
   it("mueve un alumno de POD A a POD B con espacio", () => {
-    const pods = createPods({
+    const { pods } = createPods({
       students: makeStudents(6),
       presentCount: 6,
       robotCount: 2,
@@ -35,7 +35,7 @@ describe("moveStudent", () => {
   });
 
   it("rechaza mover a un POD lleno", () => {
-    const pods = createPods({
+    const { pods } = createPods({
       students: makeStudents(8),
       presentCount: 8,
       robotCount: 2,
@@ -49,7 +49,7 @@ describe("moveStudent", () => {
   });
 
   it("mover al mismo POD es no-op", () => {
-    const pods = createPods({
+    const { pods } = createPods({
       students: makeStudents(6),
       presentCount: 6,
       robotCount: 2,
@@ -62,7 +62,7 @@ describe("moveStudent", () => {
   });
 
   it("rechaza alumno inexistente", () => {
-    const pods = createPods({
+    const { pods } = createPods({
       students: makeStudents(6),
       presentCount: 6,
       robotCount: 2,
@@ -75,7 +75,7 @@ describe("moveStudent", () => {
   });
 
   it("rechaza POD destino inexistente", () => {
-    const pods = createPods({
+    const { pods } = createPods({
       students: makeStudents(6),
       presentCount: 6,
       robotCount: 2,
@@ -88,7 +88,7 @@ describe("moveStudent", () => {
   });
 
   it("no muta los pods originales (devuelve copia)", () => {
-    const pods = createPods({
+    const { pods } = createPods({
       students: makeStudents(6),
       presentCount: 6,
       robotCount: 2,
@@ -103,7 +103,7 @@ describe("moveStudent", () => {
 
 describe("removeStudentFromPod", () => {
   it("saca al alumno de su grupo actual", () => {
-    const pods = createPods({
+    const { pods } = createPods({
       students: makeStudents(6),
       presentCount: 6,
       robotCount: 2,
@@ -120,7 +120,7 @@ describe("removeStudentFromPod", () => {
   });
 
   it("error si el alumno no esta en ningun grupo", () => {
-    const pods = createPods({
+    const { pods } = createPods({
       students: makeStudents(6),
       presentCount: 6,
       robotCount: 2,
@@ -133,7 +133,7 @@ describe("removeStudentFromPod", () => {
   });
 
   it("no muta los pods originales", () => {
-    const pods = createPods({
+    const { pods } = createPods({
       students: makeStudents(6),
       presentCount: 6,
       robotCount: 2,
@@ -148,7 +148,7 @@ describe("removeStudentFromPod", () => {
 describe("addStudentToPod", () => {
   it("añade un alumno no asignado al POD destino", () => {
     const all = makeStudents(10);
-    const pods = createPods({
+    const { pods } = createPods({
       students: all,
       presentCount: 6,
       robotCount: 2,
@@ -164,7 +164,7 @@ describe("addStudentToPod", () => {
 
   it("rechaza si el POD destino está lleno", () => {
     const all = makeStudents(10);
-    const pods = createPods({
+    const { pods } = createPods({
       students: all,
       presentCount: 8,
       robotCount: 2,
@@ -179,7 +179,7 @@ describe("addStudentToPod", () => {
   });
 
   it("si el alumno ya estaba en otro POD, lo mueve (delega en moveStudent)", () => {
-    const pods = createPods({
+    const { pods } = createPods({
       students: makeStudents(6),
       presentCount: 6,
       robotCount: 2,

@@ -61,7 +61,7 @@ const INITIAL: State = {
 export const usePodsStore = create<State & Actions>((set, get) => ({
   ...INITIAL,
   createPodsFromInput: ({ students, presentCount, robotCount }) => {
-    const pods = createPods({ students, presentCount, robotCount });
+    const { pods } = createPods({ students, presentCount, robotCount });
     set({ pods, viewWithPods: true, sortMode: "grouped" });
   },
   resetPods: () => set({ ...INITIAL }),

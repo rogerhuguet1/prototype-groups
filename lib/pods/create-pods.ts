@@ -1,5 +1,6 @@
 import { POD_COLORS, type PodColor } from "./pod-colors";
 import { MAX_PODS, POD_EMOJIS, type PodEmoji } from "./pod-emojis";
+import { generateSeed, randomFromSeed } from "./seeded-random";
 
 export type Student = {
   id: string;
@@ -21,7 +22,13 @@ export type CreatePodsInput = {
   robotCount: number;
   maxPerPod?: number;
   minPerPod?: number;
+  seed?: string;
   random?: () => number;
+};
+
+export type CreatePodsOutput = {
+  pods: Pod[];
+  seed: string;
 };
 
 export const DEFAULT_MAX_PER_POD = 4;
@@ -37,13 +44,12 @@ export function shuffleInPlace<T>(arr: T[], random: () => number): T[] {
   return arr;
 }
 
-export function createPods(input: CreatePodsInput): Pod[] {
+export function createPods(input: CreatePodsInput): CreatePodsOutput {
   const {
     students,
     presentCount,
     robotCount,
     maxPerPod = DEFAULT_MAX_PER_POD,
-    random = Math.random,
   } = input;
 
   if (!Number.isInteger(presentCount) || presentCount < 0) {
@@ -61,6 +67,9 @@ export function createPods(input: CreatePodsInput): Pod[] {
   if (robotCount > presentCount) {
     throw new Error("Hay más robots que alumnos");
   }
+
+  const seed = input.seed ?? generateSeed();
+  const random = input.random ?? randomFromSeed(seed);
 
   const capacity = robotCount * maxPerPod;
   const effectivePresent = Math.min(presentCount, capacity);
@@ -92,7 +101,7 @@ export function createPods(input: CreatePodsInput): Pod[] {
       maxCapacity: maxPerPod,
     });
   }
-  return pods;
+  return { pods, seed };
 }
 
 export function createEmptyPod(input: {

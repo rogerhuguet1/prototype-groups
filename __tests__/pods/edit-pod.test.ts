@@ -13,7 +13,7 @@ const noShuffle = () => 0.999;
 
 describe("changePodEmoji", () => {
   it("cambia el emoji y label del grupo destino", () => {
-    const pods = createPods({
+    const { pods } = createPods({
       students: makeStudents(8),
       presentCount: 8,
       robotCount: 2,
@@ -28,7 +28,7 @@ describe("changePodEmoji", () => {
   });
 
   it("error si el emoji ya esta en uso por otro grupo", () => {
-    const pods = createPods({
+    const { pods } = createPods({
       students: makeStudents(8),
       presentCount: 8,
       robotCount: 2,
@@ -42,7 +42,7 @@ describe("changePodEmoji", () => {
   });
 
   it("cambiar al mismo emoji es no-op", () => {
-    const pods = createPods({
+    const { pods } = createPods({
       students: makeStudents(8),
       presentCount: 8,
       robotCount: 2,
@@ -56,7 +56,7 @@ describe("changePodEmoji", () => {
   });
 
   it("error si el grupo no existe", () => {
-    const pods = createPods({
+    const { pods } = createPods({
       students: makeStudents(8),
       presentCount: 8,
       robotCount: 2,
@@ -69,7 +69,7 @@ describe("changePodEmoji", () => {
   });
 
   it("no muta los pods originales", () => {
-    const pods = createPods({
+    const { pods } = createPods({
       students: makeStudents(8),
       presentCount: 8,
       robotCount: 2,
