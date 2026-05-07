@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   createPodsByLevel,
+  createPodsByProgress,
   type Student,
 } from "@/lib/pods/create-pods";
 
@@ -147,5 +148,91 @@ describe("createPodsByLevel — comportamiento general", () => {
     });
     expect(new Set(pods.map((p) => p.emoji)).size).toBe(5);
     expect(new Set(pods.map((p) => p.color.hex)).size).toBe(5);
+  });
+});
+
+describe("createPodsByProgress", () => {
+  it("agrupa primero por avance en el curso (unidad alcanzada)", () => {
+    const students = makeStudents(9);
+    // alumnos 1-3 en unit 1, 4-6 en unit 2, 7-9 en unit 3
+    const progressFn = (id: string): number => {
+      const n = parseInt(id.slice(2), 10);
+      if (n <= 3) return 1;
+      if (n <= 6) return 2;
+      return 3;
+    };
+    const { pods } = createPodsByProgress({
+      students,
+      presentCount: 9,
+      robotCount: 3,
+      progressFn,
+      scoreFn: () => 0,
+    });
+    expect(pods).toHaveLength(3);
+    pods.forEach((pod) => {
+      const progresses = pod.students.map((s) => progressFn(s.id));
+      expect(new Set(progresses).size).toBe(1);
+    });
+    expect(progressFn(pods[0]!.students[0]!.id)).toBeGreaterThan(
+      progressFn(pods[2]!.students[0]!.id),
+    );
+  });
+
+  it("dentro del mismo nivel de progreso, usa score como tiebreaker", () => {
+    const students = makeStudents(6);
+    const progressFn = () => 1;
+    const scoreFn = (id: string) =>
+      parseInt(id.slice(2), 10);
+    const { pods } = createPodsByProgress({
+      students,
+      presentCount: 6,
+      robotCount: 2,
+      maxPerPod: 4,
+      progressFn,
+      scoreFn,
+    });
+    const firstScores = pods[0]!.students.map((s) => scoreFn(s.id));
+    const secondScores = pods[1]!.students.map((s) => scoreFn(s.id));
+    expect(Math.min(...firstScores)).toBeGreaterThan(
+      Math.max(...secondScores),
+    );
+  });
+
+  it("misma seed → output identico", () => {
+    const students = makeStudents(9);
+    const progressFn = (id: string): number => {
+      const n = parseInt(id.slice(2), 10);
+      return n <= 3 ? 1 : n <= 6 ? 2 : 3;
+    };
+    const seed = "seed-by-progress";
+    const a = createPodsByProgress({
+      students,
+      presentCount: 9,
+      robotCount: 3,
+      progressFn,
+      scoreFn: () => 0,
+      seed,
+    });
+    const b = createPodsByProgress({
+      students,
+      presentCount: 9,
+      robotCount: 3,
+      progressFn,
+      scoreFn: () => 0,
+      seed,
+    });
+    expect(JSON.stringify(a.pods)).toBe(JSON.stringify(b.pods));
+  });
+
+  it("error si robotCount > 15", () => {
+    expect(() =>
+      createPodsByProgress({
+        students: makeStudents(40),
+        presentCount: 30,
+        robotCount: 16,
+        progressFn: () => 0,
+        scoreFn: () => 0,
+      }),
+    ).toThrow(/Máximo 15 grupos/);
   });
 });

@@ -211,6 +211,32 @@ export type CreatePodsByLevelInput = {
   seed?: string;
 };
 
+export type CreatePodsByProgressInput = {
+  students: Student[];
+  presentCount: number;
+  robotCount: number;
+  progressFn: (studentId: string) => number;
+  scoreFn: (studentId: string) => number;
+  maxPerPod?: number;
+  seed?: string;
+};
+
+export function createPodsByProgress(
+  input: CreatePodsByProgressInput,
+): CreatePodsOutput {
+  const compositeScore = (id: string) =>
+    input.progressFn(id) * 1000 + input.scoreFn(id);
+  return createPodsByLevel({
+    students: input.students,
+    presentCount: input.presentCount,
+    robotCount: input.robotCount,
+    mode: "leveled",
+    scoreFn: compositeScore,
+    ...(input.maxPerPod !== undefined ? { maxPerPod: input.maxPerPod } : {}),
+    ...(input.seed !== undefined ? { seed: input.seed } : {}),
+  });
+}
+
 export function createPodsByLevel(
   input: CreatePodsByLevelInput,
 ): CreatePodsOutput {

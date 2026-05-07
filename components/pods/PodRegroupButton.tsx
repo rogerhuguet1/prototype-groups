@@ -10,8 +10,13 @@ import { useHistoryStore } from "@/store/history-store";
 import {
   createPods,
   createPodsByLevel,
+  createPodsByProgress,
 } from "@/lib/pods/create-pods";
-import { getStudentScore } from "@/lib/pods/student-score";
+import {
+  getStudentOverallScore,
+  getStudentProgress,
+  getStudentScore,
+} from "@/lib/pods/student-score";
 import { MAX_PODS } from "@/lib/pods/pod-emojis";
 
 function robotCountFor(presentCount: number): number {
@@ -19,12 +24,15 @@ function robotCountFor(presentCount: number): number {
 }
 
 const MODE_TITLES: Record<RegroupChoice, string> = {
+  "by-progress": "¿Reagrupar por avance en el curso?",
   random: "¿Reagrupar al azar?",
   mixed: "¿Reagrupar de forma mixta?",
   leveled: "¿Reagrupar por niveles?",
 };
 
 const MODE_DESCRIPTIONS: Record<RegroupChoice, string> = {
+  "by-progress":
+    "Junta a los alumnos que están en la misma unidad del curso, ordenándolos por nivel dentro. La combinación actual se guardará en el historial.",
   random:
     "Vas a generar una nueva combinación aleatoria. La actual se guardará en el historial.",
   mixed:
@@ -34,6 +42,7 @@ const MODE_DESCRIPTIONS: Record<RegroupChoice, string> = {
 };
 
 const MODE_LABELS: Record<RegroupChoice, string | undefined> = {
+  "by-progress": "Asignación por avance en el curso",
   random: undefined,
   mixed: "Asignación mixta (heterogénea)",
   leveled: "Asignación por niveles (homogénea)",
@@ -67,20 +76,30 @@ export function PodRegroupButton() {
 
     const robotCount = robotCountFor(lastInputs.presentCount);
 
-    const result =
-      mode === "random"
-        ? createPods({
-            students: lastInputs.students,
-            presentCount: lastInputs.presentCount,
-            robotCount,
-          })
-        : createPodsByLevel({
-            students: lastInputs.students,
-            presentCount: lastInputs.presentCount,
-            robotCount,
-            mode,
-            scoreFn: getStudentScore,
-          });
+    let result;
+    if (mode === "random") {
+      result = createPods({
+        students: lastInputs.students,
+        presentCount: lastInputs.presentCount,
+        robotCount,
+      });
+    } else if (mode === "by-progress") {
+      result = createPodsByProgress({
+        students: lastInputs.students,
+        presentCount: lastInputs.presentCount,
+        robotCount,
+        progressFn: getStudentProgress,
+        scoreFn: getStudentOverallScore,
+      });
+    } else {
+      result = createPodsByLevel({
+        students: lastInputs.students,
+        presentCount: lastInputs.presentCount,
+        robotCount,
+        mode,
+        scoreFn: getStudentScore,
+      });
+    }
 
     usePodsStore.setState({
       pods: result.pods,

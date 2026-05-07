@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Shuffle, Users, BarChart3 } from "lucide-react";
+import { Shuffle, Users, BarChart3, TrendingUp } from "lucide-react";
 import {
   computePopoverPosition,
   type Position,
@@ -10,7 +10,7 @@ import {
 import { isUnitOneComplete } from "@/lib/pods/student-score";
 import { usePodsStore } from "@/store/pods-store";
 
-export type RegroupChoice = "random" | "mixed" | "leveled";
+export type RegroupChoice = "by-progress" | "random" | "mixed" | "leveled";
 
 type Props = {
   triggerRect: DOMRect;
@@ -72,11 +72,23 @@ export function PodRegroupMenu({ triggerRect, onSelect, onClose }: Props) {
         visibility: position ? "visible" : "hidden",
         zIndex: 60,
       }}
-      className="w-72 rounded-md border border-slate-200 bg-white shadow-lg overflow-hidden"
+      className="w-80 rounded-md border border-slate-200 bg-white shadow-lg overflow-hidden"
     >
-      <div className="px-3 py-2 border-b border-slate-200 text-[10px] uppercase tracking-wide font-semibold text-slate-500">
-        ¿Cómo quieres reagrupar?
-      </div>
+      <SectionHeader>Según el progreso del curso</SectionHeader>
+      <ul className="py-1">
+        <MenuItem
+          icon={<TrendingUp className="size-4" aria-hidden />}
+          label="Por avance en el curso"
+          description={
+            unitOneDone
+              ? "Junta a los que están en la misma unidad. Dentro, ordena por nivel."
+              : "Disponible al completar la Unidad 1."
+          }
+          disabled={!unitOneDone}
+          onClick={() => onSelect("by-progress")}
+        />
+      </ul>
+      <SectionHeader>Sin tener en cuenta el progreso</SectionHeader>
       <ul className="py-1">
         <MenuItem
           icon={<Shuffle className="size-4" aria-hidden />}
@@ -109,6 +121,14 @@ export function PodRegroupMenu({ triggerRect, onSelect, onClose }: Props) {
       </ul>
     </div>,
     document.body,
+  );
+}
+
+function SectionHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="px-3 py-1.5 border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide font-semibold text-slate-500">
+      {children}
+    </div>
   );
 }
 
