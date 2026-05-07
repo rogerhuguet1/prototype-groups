@@ -9,7 +9,6 @@ import {
   type ProgressCell,
 } from "@/lib/utils/progress-cells";
 import { PodBadge } from "@/components/pods/PodBadge";
-import { PodBadgeWithDropdown } from "@/components/pods/PodBadgeWithDropdown";
 import type { FlatColumn } from "@/lib/data/units";
 import type { StudentRow as StudentRowType } from "@/types/database";
 import type { Pod } from "@/lib/pods/create-pods";
@@ -21,7 +20,6 @@ type Props = {
   columns: readonly FlatColumn[];
   pod?: Pod | undefined;
   showBadge?: boolean;
-  withChangeDropdown?: boolean;
   podColorBorder?: boolean;
   rowRef?: Ref<HTMLTableRowElement>;
   dragHandle?: ReactNode;
@@ -34,7 +32,6 @@ export function StudentRow({
   columns,
   pod,
   showBadge = false,
-  withChangeDropdown = false,
   podColorBorder = false,
   rowRef,
   dragHandle,
@@ -62,15 +59,16 @@ export function StudentRow({
         <div className="flex items-center gap-2">
           {dragHandle}
           {showBadge ? (
-            withChangeDropdown ? (
-              <PodBadgeWithDropdown
-                student={{ id: student.id, full_name: student.full_name }}
-                pod={pod ?? null}
+            pod ? (
+              <PodBadge
+                pod={pod}
+                title={`Grupo del ${pod.emojiLabel} — para mover alumnos, ve a vista Por grupos`}
               />
-            ) : pod ? (
-              <PodBadge pod={pod} />
             ) : (
-              <span className="inline-flex items-center text-[9px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 whitespace-nowrap">
+              <span
+                className="inline-flex items-center text-[9px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 whitespace-nowrap select-none"
+                title="Este alumno no está asignado a ningún grupo"
+              >
                 Sin grupo
               </span>
             )

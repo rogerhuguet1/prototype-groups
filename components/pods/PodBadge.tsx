@@ -10,6 +10,7 @@ type Props = {
   prefix?: string;
   withChevron?: boolean;
   className?: string;
+  title?: string;
 };
 
 export function PodBadge({
@@ -18,13 +19,14 @@ export function PodBadge({
   prefix,
   withChevron = false,
   className,
+  title,
 }: Props) {
   const textColor = pod.color.textOn === "white" ? "#ffffff" : "#0f172a";
   const sizeCls =
     size === "sm" ? "text-[11px] px-1.5 py-0.5 gap-1" : "text-xs px-2.5 py-1 gap-1.5";
   return (
     <span
-      title={`Grupo del ${pod.emojiLabel}`}
+      title={title ?? `Grupo del ${pod.emojiLabel}`}
       className={cn(
         "inline-flex items-center rounded font-bold tracking-wide whitespace-nowrap shrink-0 leading-none",
         sizeCls,
