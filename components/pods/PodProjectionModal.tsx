@@ -12,6 +12,13 @@ type Props = {
   onClose: () => void;
 };
 
+type SizeStyle = {
+  emoji: string;
+  title: string;
+  name: string;
+  pad: string;
+};
+
 function colsFor(n: number): number {
   if (n <= 1) return 1;
   if (n <= 2) return 2;
@@ -19,6 +26,31 @@ function colsFor(n: number): number {
   if (n <= 9) return 3;
   if (n <= 12) return 4;
   return 5;
+}
+
+function sizeFor(n: number): SizeStyle {
+  if (n <= 4) {
+    return {
+      emoji: "text-7xl md:text-8xl",
+      title: "text-2xl md:text-3xl",
+      name: "text-lg md:text-xl",
+      pad: "p-6",
+    };
+  }
+  if (n <= 9) {
+    return {
+      emoji: "text-5xl md:text-6xl",
+      title: "text-lg md:text-xl",
+      name: "text-base md:text-lg",
+      pad: "p-4",
+    };
+  }
+  return {
+    emoji: "text-4xl md:text-5xl",
+    title: "text-sm md:text-base",
+    name: "text-xs md:text-sm",
+    pad: "p-3",
+  };
 }
 
 export function PodProjectionModal({ open, onClose }: Props) {
@@ -57,13 +89,14 @@ export function PodProjectionModal({ open, onClose }: Props) {
 
   const visiblePods = pods.filter((p) => p.students.length > 0);
   const cols = colsFor(visiblePods.length);
+  const size = sizeFor(visiblePods.length);
 
   return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-label="Modo proyección de grupos"
-      className={`fixed inset-0 z-[100] bg-slate-900/85 backdrop-blur-sm flex items-stretch justify-center transition-opacity duration-200 motion-reduce:transition-none ${
+      className={`fixed inset-0 z-[100] bg-slate-900/85 backdrop-blur-sm overflow-y-auto transition-opacity duration-200 motion-reduce:transition-none ${
         entered ? "opacity-100" : "opacity-0"
       }`}
       onClick={onClose}
@@ -72,19 +105,19 @@ export function PodProjectionModal({ open, onClose }: Props) {
         type="button"
         onClick={onClose}
         aria-label="Cerrar modo proyección"
-        className="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white"
+        className="fixed top-4 right-4 z-[110] p-2 rounded-full bg-white/10 hover:bg-white/20 text-white"
       >
         <X className="size-6" aria-hidden />
       </button>
       <div
-        className={`m-8 flex-1 grid gap-6 transition-transform duration-250 motion-reduce:transition-none ${
+        className={`min-h-screen p-6 md:p-8 grid gap-4 md:gap-6 auto-rows-fr transition-transform duration-250 motion-reduce:transition-none ${
           entered ? "scale-100" : "scale-95"
         }`}
         style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
         onClick={(e) => e.stopPropagation()}
       >
         {visiblePods.map((pod) => (
-          <ProjectionCard key={pod.id} pod={pod} />
+          <ProjectionCard key={pod.id} pod={pod} size={size} />
         ))}
       </div>
     </div>,
@@ -92,18 +125,16 @@ export function PodProjectionModal({ open, onClose }: Props) {
   );
 }
 
-function ProjectionCard({ pod }: { pod: Pod }) {
+function ProjectionCard({ pod, size }: { pod: Pod; size: SizeStyle }) {
   const sorted = sortByLastName(pod.students);
   return (
     <div
-      className="rounded-2xl bg-white flex flex-col items-center justify-start p-6 text-center shadow-2xl"
+      className={`rounded-2xl bg-white flex flex-col items-center justify-start text-center shadow-2xl ${size.pad}`}
       style={{ border: `4px solid ${pod.color.hex}` }}
     >
-      <div className="text-6xl md:text-7xl lg:text-8xl leading-none mb-2">
-        {pod.emoji}
-      </div>
+      <div className={`leading-none mb-2 ${size.emoji}`}>{pod.emoji}</div>
       <div
-        className="text-xl md:text-2xl lg:text-3xl font-bold mb-3 px-3 py-1 rounded-full"
+        className={`font-bold mb-3 px-3 py-1 rounded-full ${size.title}`}
         style={{
           backgroundColor: pod.color.hex,
           color: pod.color.textOn === "white" ? "#ffffff" : "#0f172a",
@@ -111,7 +142,9 @@ function ProjectionCard({ pod }: { pod: Pod }) {
       >
         Grupo {pod.emoji}
       </div>
-      <ul className="space-y-1 text-base md:text-lg lg:text-xl font-semibold text-slate-800">
+      <ul
+        className={`space-y-1 font-semibold text-slate-800 ${size.name}`}
+      >
         {sorted.map((s) => (
           <li key={s.id}>{displayName(s.full_name)}</li>
         ))}
