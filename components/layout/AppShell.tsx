@@ -8,7 +8,6 @@ import { TopBar } from "./TopBar";
 import { ScoreLegend } from "@/components/students/ScoreLegend";
 import { StudentTable } from "@/components/students/StudentTable";
 import { PodControls } from "@/components/pods/PodControls";
-import { AutoInitialGrouping } from "@/components/pods/AutoInitialGrouping";
 
 export function AppShell() {
   const classesQuery = useClasses();
@@ -38,8 +37,8 @@ export function AppShell() {
           classes={classes}
           activeClassId={classId}
           onSelectClass={setClassId}
+          students={students}
         />
-        <AutoInitialGrouping students={students} classId={classId} />
         <ScoreLegend updatedAt="6/05/2026 12:00" />
         <PodControls />
         <section className="flex-1 overflow-auto">

@@ -9,17 +9,20 @@ import { PodSaveSnapshotButton } from "@/components/pods/PodSaveSnapshotButton";
 import { PodToggleViewButton } from "@/components/pods/PodToggleViewButton";
 import { COURSE_LABEL, PROGRAM_LABEL } from "@/lib/data/units";
 import type { ClassRow } from "@/types/database";
+import type { Student } from "@/lib/pods/create-pods";
 
 type Props = {
   classes: ClassRow[];
   activeClassId: string | null;
   onSelectClass: (id: string) => void;
+  students: Student[];
 };
 
 export function TopBar({
   classes,
   activeClassId,
   onSelectClass,
+  students,
 }: Props) {
   return (
     <header className="bg-white">
@@ -44,7 +47,7 @@ export function TopBar({
               onSelectClass={onSelectClass}
             />
           )}
-          <PodToggleViewButton />
+          <PodToggleViewButton students={students} classId={activeClassId} />
           <PodRegroupButton />
           <PodSaveSnapshotButton />
           <PodProjectionButton />
