@@ -25,3 +25,21 @@ select,
 input {
   font: inherit;
 }
+
+.c360-actions button {
+  min-height: 32px;
+  max-width: 190px;
+  white-space: nowrap;
+}
+
+.c360-actions button span,
+.c360-actions button {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@supports not (text-wrap: balance) {
+  .text-balance {
+    text-wrap: normal;
+  }
+}

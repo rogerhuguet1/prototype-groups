@@ -14,8 +14,8 @@ const ITEMS = [
 export function ScoreLegend({ updatedAt }: { updatedAt: string }) {
   return (
     <div className="bg-white">
-      <div className="mx-[20px] border-t border-[#e0e2e5] pt-[35px] pb-[27px]">
-        <ul className="flex flex-wrap items-center gap-[28px]">
+      <div className="mx-[20px] border-t border-[#e0e2e5] pt-[28px] pb-[20px]">
+        <ul className="flex flex-wrap items-center gap-x-[24px] gap-y-2">
           {ITEMS.map((item) => {
             if ("band" in item) {
               const styles = BAND_STYLES[item.band];

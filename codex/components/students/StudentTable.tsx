@@ -72,8 +72,25 @@ export function StudentTable({ students }: Props) {
 
   return (
     <div className="bg-white border-l border-t border-[#dce3e8]">
-      <div className="max-h-[calc(100vh-278px)] min-h-[500px] overflow-auto">
-        <table className="min-w-[1740px] w-max table-fixed border-separate border-spacing-0 text-xs">
+      <div className="max-h-[calc(100vh-332px)] min-h-[460px] overflow-auto rounded-sm">
+        <table className="w-max table-fixed border-separate border-spacing-0 text-xs">
+          <colgroup>
+            <col className="w-[236px]" />
+            {FLAT_COLUMNS.map((column) => (
+              <col
+                key={column.activity.key}
+                className={
+                  column.activity.key === "intro"
+                    ? "w-[96px]"
+                    : column.activity.key.includes("demo")
+                      ? "w-[68px]"
+                      : column.activity.key.includes("promedio")
+                        ? "w-[48px]"
+                        : "w-[42px]"
+                }
+              />
+            ))}
+          </colgroup>
           <TableHeader />
           {isGrouped ? (
             <DndStudentBodies
@@ -114,7 +131,7 @@ function TableHeader() {
         <th
           rowSpan={2}
           scope="col"
-          className="sticky left-0 z-20 min-w-[232px] bg-[#0b7fbd] px-3 py-2 text-center align-middle text-[13px] font-bold text-white border-b border-r border-[#dce3e8]"
+          className="sticky left-0 top-0 z-30 w-[236px] bg-[#0b7fbd] px-3 py-2 text-center align-middle text-[13px] font-bold text-white border-b border-r border-[#dce3e8]"
         >
           Alumno
         </th>
@@ -123,9 +140,11 @@ function TableHeader() {
             key={unit.number}
             colSpan={unit.activities.length}
             scope="colgroup"
-            className="h-[108px] bg-[#0b7fbd] px-2 py-2 text-center align-middle text-[13px] font-bold leading-[1.35] text-white border-b border-r border-[#dce3e8]"
+            className="sticky top-0 z-20 h-[108px] bg-[#0b7fbd] px-2 py-2 text-center align-middle text-[13px] font-bold leading-[1.32] text-white border-b border-r border-[#dce3e8]"
           >
-            {unit.code} - {unit.title}
+            <span className="mx-auto block max-w-[210px] text-balance">
+              {unit.code} - {unit.title}
+            </span>
           </th>
         ))}
       </tr>
@@ -136,15 +155,11 @@ function TableHeader() {
             <th
               key={c.activity.key}
               scope="col"
-              className={`relative h-[212px] bg-white px-0 py-0 align-bottom text-left font-medium text-[#1f2429] border-b border-r border-[#dce3e8] ${
+              className={`sticky top-[108px] z-20 h-[184px] overflow-hidden bg-white px-0 py-0 align-bottom text-left font-medium text-[#1f2429] border-b border-r border-[#dce3e8] ${
                 isUnitStart ? "border-l border-[#dce3e8]" : ""
               }`}
-              style={{
-                minWidth: c.activity.key.includes("demo") ? 60 : 34,
-                width: c.activity.key.includes("demo") ? 60 : 34,
-              }}
             >
-              <div className="absolute bottom-5 left-1/2 block max-w-[190px] origin-center -translate-x-1/2 -rotate-90 whitespace-nowrap text-[12px] leading-none text-[#1f2429]">
+              <div className="absolute bottom-4 left-1/2 block max-w-[158px] origin-center -translate-x-1/2 -rotate-90 overflow-hidden text-ellipsis whitespace-nowrap text-[12px] leading-none text-[#1f2429]">
                 {c.activity.label}
               </div>
             </th>

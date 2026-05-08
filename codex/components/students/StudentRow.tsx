@@ -52,7 +52,7 @@ export function StudentRow({
     >
       <td
         className={cn(
-          "px-[6px] py-0 sticky left-0 z-10 border-b border-r border-[#dce3e8] min-w-[232px] h-9",
+          "px-[6px] py-0 sticky left-0 z-10 border-b border-r border-[#dce3e8] w-[236px] h-9",
           stripe,
         )}
         style={
@@ -61,7 +61,7 @@ export function StudentRow({
             : undefined
         }
       >
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           {dragHandle}
           {showBadge ? (
             withChangeDropdown ? (
@@ -80,7 +80,7 @@ export function StudentRow({
           <a
             href="#"
             onClick={(e) => e.preventDefault()}
-            className="truncate text-[13px] font-normal tracking-tight text-[#006fc9] underline hover:text-blue-900"
+            className="min-w-0 truncate text-[13px] font-normal tracking-tight text-[#006fc9] underline hover:text-blue-900"
           >
             {name}
           </a>
