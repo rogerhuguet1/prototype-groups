@@ -155,11 +155,11 @@ function TableHeader() {
             <th
               key={c.activity.key}
               scope="col"
-              className={`relative h-[248px] overflow-visible bg-white px-0 py-0 align-bottom text-left font-medium text-[#1f2429] border-b border-r border-[#dce3e8] ${
+              className={`relative h-[248px] overflow-hidden bg-white px-0 py-0 align-bottom text-left font-medium text-[#1f2429] border-b border-r border-[#dce3e8] ${
                 isUnitStart ? "border-l border-[#dce3e8]" : ""
               }`}
             >
-              <div className="absolute bottom-7 left-1/2 block w-[220px] origin-center -translate-x-1/2 -rotate-90 whitespace-nowrap text-left text-[12px] leading-none text-[#1f2429]">
+              <div className="absolute bottom-[110px] left-1/2 block w-[220px] origin-center -translate-x-1/2 -rotate-90 whitespace-nowrap text-left text-[12px] leading-none text-[#1f2429]">
                 {c.activity.label}
               </div>
             </th>
