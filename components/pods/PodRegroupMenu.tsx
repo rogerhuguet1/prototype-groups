@@ -98,7 +98,7 @@ export function PodRegroupMenu({ triggerRect, onSelect, onClose }: Props) {
         />
         <MenuItem
           icon={<Users className="size-4" aria-hidden />}
-          label="Mixta — equilibrada por nivel"
+          label="Compensada — equilibrada por nivel"
           description={
             unitOneDone
               ? "Cada grupo de 3 mezcla niveles altos, medios y bajos para que se apoyen."

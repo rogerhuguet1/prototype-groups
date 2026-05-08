@@ -13,6 +13,21 @@ type Props = {
   title?: string;
 };
 
+const SIZES = {
+  sm: {
+    circle: 22,
+    emoji: "text-[15px]",
+    gap: "gap-1.5",
+    text: "text-[11px]",
+  },
+  md: {
+    circle: 28,
+    emoji: "text-[19px]",
+    gap: "gap-2",
+    text: "text-xs",
+  },
+} as const;
+
 export function PodBadge({
   pod,
   size = "sm",
@@ -21,23 +36,41 @@ export function PodBadge({
   className,
   title,
 }: Props) {
-  const textColor = pod.color.textOn === "white" ? "#ffffff" : "#0f172a";
-  const sizeCls =
-    size === "sm" ? "text-[11px] px-1.5 py-0.5 gap-1" : "text-xs px-2.5 py-1 gap-1.5";
+  const s = SIZES[size];
   return (
     <span
       title={title ?? `Grupo del ${pod.emojiLabel}`}
       className={cn(
-        "inline-flex items-center rounded font-bold tracking-wide whitespace-nowrap shrink-0 leading-none",
-        sizeCls,
+        "inline-flex items-center whitespace-nowrap shrink-0 leading-none",
+        s.gap,
         className,
       )}
-      style={{ backgroundColor: pod.color.hex, color: textColor }}
     >
-      {prefix ? <span>{prefix}</span> : null}
-      <span className="text-[13px] leading-none">{pod.emoji}</span>
+      {prefix ? (
+        <span className={cn("font-bold tracking-wide text-slate-800", s.text)}>
+          {prefix}
+        </span>
+      ) : null}
+      <span
+        className="inline-flex items-center justify-center rounded-full bg-white shrink-0"
+        style={{
+          width: s.circle,
+          height: s.circle,
+          borderColor: pod.color.hex,
+          borderWidth: 2,
+          borderStyle: "solid",
+          boxShadow: `0 0 0 1px ${pod.color.hex}30`,
+        }}
+      >
+        <span
+          className={cn("leading-none", s.emoji)}
+          style={{ filter: "saturate(1.1)" }}
+        >
+          {pod.emoji}
+        </span>
+      </span>
       {withChevron ? (
-        <ChevronDown className="size-3 shrink-0" aria-hidden />
+        <ChevronDown className="size-3 shrink-0 text-slate-500" aria-hidden />
       ) : null}
     </span>
   );

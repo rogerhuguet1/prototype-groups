@@ -25,7 +25,7 @@ function robotCountFor(presentCount: number): number {
 const MODE_TITLES: Record<RegroupChoice, string> = {
   "by-progress": "¿Reagrupar por avance en el curso?",
   random: "¿Reagrupar al azar?",
-  mixed: "¿Reagrupar de forma mixta?",
+  mixed: "¿Reagrupar de forma compensada?",
   leveled: "¿Reagrupar por niveles?",
 };
 
@@ -43,7 +43,7 @@ const MODE_DESCRIPTIONS: Record<RegroupChoice, string> = {
 const MODE_LABELS: Record<RegroupChoice, string | undefined> = {
   "by-progress": "Asignación por avance en el curso",
   random: undefined,
-  mixed: "Asignación mixta (heterogénea)",
+  mixed: "Asignación compensada (heterogénea)",
   leveled: "Asignación por niveles (homogénea)",
 };
 
