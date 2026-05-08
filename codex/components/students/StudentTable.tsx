@@ -72,8 +72,8 @@ export function StudentTable({ students }: Props) {
 
   return (
     <div className="bg-white border-l border-t border-[#dce3e8]">
-      <div className="max-h-[calc(100vh-332px)] min-h-[460px] overflow-auto rounded-sm">
-        <table className="w-max table-fixed border-separate border-spacing-0 text-xs">
+      <div className="overflow-x-auto overflow-y-visible rounded-sm">
+        <table className="min-w-[1960px] table-fixed border-separate border-spacing-0 text-xs">
           <colgroup>
             <col className="w-[236px]" />
             {FLAT_COLUMNS.map((column) => (
@@ -81,12 +81,12 @@ export function StudentTable({ students }: Props) {
                 key={column.activity.key}
                 className={
                   column.activity.key === "intro"
-                    ? "w-[96px]"
+                    ? "w-[104px]"
                     : column.activity.key.includes("demo")
-                      ? "w-[68px]"
+                      ? "w-[76px]"
                       : column.activity.key.includes("promedio")
-                        ? "w-[48px]"
-                        : "w-[42px]"
+                        ? "w-[58px]"
+                        : "w-[48px]"
                 }
               />
             ))}
@@ -131,7 +131,7 @@ function TableHeader() {
         <th
           rowSpan={2}
           scope="col"
-          className="sticky left-0 top-0 z-30 w-[236px] bg-[#0b7fbd] px-3 py-2 text-center align-middle text-[13px] font-bold text-white border-b border-r border-[#dce3e8]"
+          className="w-[236px] bg-[#0b7fbd] px-3 py-2 text-center align-middle text-[13px] font-bold text-white border-b border-r border-[#dce3e8]"
         >
           Alumno
         </th>
@@ -140,7 +140,7 @@ function TableHeader() {
             key={unit.number}
             colSpan={unit.activities.length}
             scope="colgroup"
-            className="sticky top-0 z-20 h-[108px] bg-[#0b7fbd] px-2 py-2 text-center align-middle text-[13px] font-bold leading-[1.32] text-white border-b border-r border-[#dce3e8]"
+            className="h-[108px] bg-[#0b7fbd] px-2 py-2 text-center align-middle text-[13px] font-bold leading-[1.32] text-white border-b border-r border-[#dce3e8]"
           >
             <span className="mx-auto block max-w-[210px] text-balance">
               {unit.code} - {unit.title}
@@ -155,11 +155,11 @@ function TableHeader() {
             <th
               key={c.activity.key}
               scope="col"
-              className={`sticky top-[108px] z-20 h-[184px] overflow-hidden bg-white px-0 py-0 align-bottom text-left font-medium text-[#1f2429] border-b border-r border-[#dce3e8] ${
+              className={`relative h-[248px] overflow-visible bg-white px-0 py-0 align-bottom text-left font-medium text-[#1f2429] border-b border-r border-[#dce3e8] ${
                 isUnitStart ? "border-l border-[#dce3e8]" : ""
               }`}
             >
-              <div className="absolute bottom-4 left-1/2 block max-w-[158px] origin-center -translate-x-1/2 -rotate-90 overflow-hidden text-ellipsis whitespace-nowrap text-[12px] leading-none text-[#1f2429]">
+              <div className="absolute bottom-7 left-1/2 block w-[220px] origin-center -translate-x-1/2 -rotate-90 whitespace-nowrap text-left text-[12px] leading-none text-[#1f2429]">
                 {c.activity.label}
               </div>
             </th>
@@ -295,7 +295,7 @@ function DndStudentBodies({
         })}
         <tbody>
           <tr>
-            <td colSpan={TOTAL_COLUMNS} className="p-0 sticky left-0 z-10">
+            <td colSpan={TOTAL_COLUMNS} className="p-0">
               <button
                 type="button"
                 onClick={onAddEmptyPod}
@@ -318,7 +318,7 @@ function DndStudentBodies({
             <tr>
               <td
                 colSpan={TOTAL_COLUMNS}
-                className="px-4 py-2 sticky left-0 z-10 text-xs font-semibold text-slate-700 bg-slate-100 border-t-2 border-slate-300"
+                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 border-t-2 border-slate-300"
               >
                 Pendientes de asignar ({sortedUnassigned.length}) — arrastra al grupo
               </td>
@@ -364,7 +364,7 @@ function PodSectionHeaderRow({ pod }: { pod: Pod }) {
     <tr>
       <td
         colSpan={TOTAL_COLUMNS}
-        className="px-0 py-0 sticky left-0 z-10"
+        className="px-0 py-0"
         style={{ borderTop: `2px solid ${pod.color.hex}` }}
       >
         <div

@@ -55,7 +55,7 @@ export function AppShell() {
         />
         <ScoreLegend updatedAt="6/05/2026" />
         <PodControls />
-        <section className="flex-1 overflow-auto px-[20px] pb-8">
+        <section className="flex-1 overflow-y-auto overflow-x-hidden px-[20px] pb-8">
           {classesQuery.isLoading ? (
             <div className="px-6 py-4 text-sm text-slate-500">
               Cargando cursos...

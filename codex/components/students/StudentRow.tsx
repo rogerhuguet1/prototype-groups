@@ -52,7 +52,7 @@ export function StudentRow({
     >
       <td
         className={cn(
-          "px-[6px] py-0 sticky left-0 z-10 border-b border-r border-[#dce3e8] w-[236px] h-9",
+          "px-[6px] py-0 border-b border-r border-[#dce3e8] w-[236px] h-9",
           stripe,
         )}
         style={
