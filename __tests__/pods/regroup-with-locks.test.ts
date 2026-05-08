@@ -87,37 +87,26 @@ describe("regroupWithLocks", () => {
       maxPerPod: 4,
       seed: "init",
     }).pods;
-    const lockedPods = [initial[0]!, initial[1]!].map((p) => ({
-      ...p,
-      isLocked: true,
-    }));
-    const startPods = [...lockedPods, ...initial.slice(2)];
-    const lockedStudentIdsInPods = new Set(
-      lockedPods.flatMap((p) => p.students.map((s) => s.id)),
+    const lockedPods = [initial[0]!, initial[1]!];
+    const lockedStudentIdsInPods = lockedPods.flatMap((p) =>
+      p.students.map((s) => s.id),
     );
 
     const result = regroupWithLocks({
-      currentPods: startPods,
-      lockedStudentIds: [],
+      currentPods: initial,
+      lockedStudentIds: lockedStudentIdsInPods,
       allPresentStudents: students,
       seed: "regroup",
     });
 
-    expect(result.pods[0]!.isLocked).toBe(true);
-    expect(result.pods[1]!.isLocked).toBe(true);
-    expect(result.pods[0]!.students.map((s) => s.id)).toEqual(
-      lockedPods[0]!.students.map((s) => s.id),
+    expect(result.pods[0]!.students.map((s) => s.id).sort()).toEqual(
+      lockedPods[0]!.students.map((s) => s.id).sort(),
     );
-    expect(result.pods[1]!.students.map((s) => s.id)).toEqual(
-      lockedPods[1]!.students.map((s) => s.id),
+    expect(result.pods[1]!.students.map((s) => s.id).sort()).toEqual(
+      lockedPods[1]!.students.map((s) => s.id).sort(),
     );
     expect(totalAssigned(result.pods)).toBe(24);
     expect(studentIdsIn(result.pods).size).toBe(24);
-    const inLockedAfter = new Set([
-      ...result.pods[0]!.students.map((s) => s.id),
-      ...result.pods[1]!.students.map((s) => s.id),
-    ]);
-    expect(inLockedAfter).toEqual(lockedStudentIdsInPods);
   });
 
   it("5 alumnos bloqueados sueltos: cada uno se mantiene en su grupo", () => {
@@ -167,13 +156,13 @@ describe("regroupWithLocks", () => {
       maxPerPod: 4,
       seed: "init",
     }).pods;
-    const startPods = initial.map((p, i) =>
-      i < 5 ? { ...p, isLocked: true } : p,
-    );
+    const lockedIds = initial
+      .slice(0, 5)
+      .flatMap((p) => p.students.map((s) => s.id));
 
     const result = regroupWithLocks({
-      currentPods: startPods,
-      lockedStudentIds: [],
+      currentPods: initial,
+      lockedStudentIds: lockedIds,
       allPresentStudents: students,
       seed: "regroup",
     });
@@ -192,14 +181,14 @@ describe("regroupWithLocks", () => {
       seed: "init",
     }).pods;
     const lastPod = initial[5]!;
-    const lockedStudentIds = lastPod.students.map((s) => s.id);
-    const startPods = initial.map((p, i) =>
-      i < 5 ? { ...p, isLocked: true } : p,
-    );
+    const allLockedIds = [
+      ...initial.slice(0, 5).flatMap((p) => p.students.map((s) => s.id)),
+      ...lastPod.students.map((s) => s.id),
+    ];
 
     const result = regroupWithLocks({
-      currentPods: startPods,
-      lockedStudentIds,
+      currentPods: initial,
+      lockedStudentIds: allLockedIds,
       allPresentStudents: students,
       seed: "regroup",
     });
@@ -219,21 +208,52 @@ describe("regroupWithLocks", () => {
       maxPerPod: 2,
       seed: "init",
     }).pods;
-    const startPods = initial.map((p, i) =>
-      i === 0 ? { ...p, isLocked: true } : p,
-    );
+    const lockedIds = initial[0]!.students.map((s) => s.id);
 
     expect(() =>
       regroupWithLocks({
-        currentPods: startPods,
-        lockedStudentIds: [],
+        currentPods: initial,
+        lockedStudentIds: lockedIds,
         allPresentStudents: [...baseStudents, extraStudent],
         seed: "regroup",
       }),
     ).toThrow(RegroupLocksError);
   });
 
-  it("respeta capacidad: ningún grupo no bloqueado pasa de maxCapacity", () => {
+  it("excepción individual en pod 'todo bloqueado': el alumno excepto va al pool libre", () => {
+    const students = makeStudents(24);
+    const initial = createPods({
+      students,
+      presentCount: 24,
+      robotCount: 6,
+      maxPerPod: 4,
+      seed: "init",
+    }).pods;
+    const pod0 = initial[0]!;
+    const exceptedId = pod0.students[0]!.id;
+    const lockedIds = initial.flatMap((p) =>
+      p.students.map((s) => s.id),
+    ).filter((id) => id !== exceptedId);
+
+    const result = regroupWithLocks({
+      currentPods: initial,
+      lockedStudentIds: lockedIds,
+      allPresentStudents: students,
+      seed: "regroup",
+    });
+
+    expect(totalAssigned(result.pods)).toBe(24);
+    expect(studentIdsIn(result.pods).size).toBe(24);
+    const finalPod0 = result.pods.find((p) => p.id === pod0.id)!;
+    const otherFixed = pod0.students
+      .filter((s) => s.id !== exceptedId)
+      .map((s) => s.id);
+    for (const sid of otherFixed) {
+      expect(finalPod0.students.some((s) => s.id === sid)).toBe(true);
+    }
+  });
+
+  it("respeta capacidad: ningún grupo pasa de maxCapacity", () => {
     const students = makeStudents(24);
     const initial = createPods({
       students,

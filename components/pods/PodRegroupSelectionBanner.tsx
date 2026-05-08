@@ -1,6 +1,6 @@
 "use client";
 
-import { Shuffle, X } from "lucide-react";
+import { Shuffle, Check, Trash2 } from "lucide-react";
 import { Button } from "../ui/Button";
 import { usePodsStore } from "@/store/pods-store";
 import { useHistoryStore } from "@/store/history-store";
@@ -10,24 +10,24 @@ import { ConfirmDialog } from "../ui/ConfirmDialog";
 
 export function PodRegroupSelectionBanner() {
   const regroupSelecting = usePodsStore((s) => s.regroupSelecting);
-  const lockedPodCount = usePodsStore(
-    (s) => s.pods.filter((p) => p.isLocked).length,
-  );
-  const lockedStudentCount = usePodsStore(
-    (s) => s.lockedStudentIds.length,
-  );
-  const lockedInLockedPods = usePodsStore((s) =>
-    s.pods.reduce((acc, p) => (p.isLocked ? acc + p.students.length : acc), 0),
-  );
+  const lockedStudentIds = usePodsStore((s) => s.lockedStudentIds);
+  const podsWithLockedCount = usePodsStore((s) => {
+    const set = new Set(s.lockedStudentIds);
+    return s.pods.filter((p) => p.students.some((st) => set.has(st.id)))
+      .length;
+  });
   const exitRegroupSelection = usePodsStore((s) => s.exitRegroupSelection);
+  const clearAllLocks = usePodsStore((s) => s.clearAllLocks);
   const setCurrentEntryId = usePodsStore((s) => s.setCurrentEntryId);
   const addEntry = useHistoryStore((s) => s.addEntry);
 
   const [error, setError] = useState<string | null>(null);
+  const [iterationCount, setIterationCount] = useState(0);
 
   if (!regroupSelecting) return null;
 
-  const totalLocked = lockedInLockedPods + lockedStudentCount;
+  const totalLocked = lockedStudentIds.length;
+  const hasAnyLock = totalLocked > 0;
 
   const onConfirm = () => {
     const state = usePodsStore.getState();
@@ -47,17 +47,12 @@ export function PodRegroupSelectionBanner() {
         allPresentStudents: presentStudents,
       });
       const snapshotLocked = [...state.lockedStudentIds];
-      const snapshotPods = result.pods.map((p) => ({ ...p, isLocked: false }));
 
       usePodsStore.setState({
-        pods: snapshotPods,
-        lockedStudentIds: [],
-        regroupSelecting: false,
-        sortMode: state.sortModeBeforeSelection ?? state.sortMode,
-        sortModeBeforeSelection: null,
+        pods: result.pods,
         regroupConfirmNeeded: false,
         currentSeed: result.seed,
-        lastInputs: { ...lastInputs, robotCount: snapshotPods.length },
+        lastInputs: { ...lastInputs, robotCount: result.pods.length },
       });
 
       const entryId = crypto.randomUUID();
@@ -66,15 +61,16 @@ export function PodRegroupSelectionBanner() {
         timestamp: new Date().toISOString(),
         classId: state.currentClassId,
         presentStudents: lastInputs.presentCount,
-        robotCount: snapshotPods.length,
+        robotCount: result.pods.length,
         seed: result.seed,
-        pods: snapshotPods,
+        pods: result.pods.map((p) => ({ ...p, isLocked: false })),
         isFavorite: false,
         evaluations: [],
         evaluatedAt: null,
         lockedStudentIds: snapshotLocked,
       });
       setCurrentEntryId(entryId);
+      setIterationCount((n) => n + 1);
     } catch (e) {
       if (e instanceof RegroupLocksError) {
         setError(e.message);
@@ -84,23 +80,27 @@ export function PodRegroupSelectionBanner() {
     }
   };
 
+  const onExit = () => {
+    setIterationCount(0);
+    exitRegroupSelection();
+  };
+
   const summary = (() => {
-    const parts: string[] = [];
-    if (lockedPodCount > 0) {
-      parts.push(
-        `${lockedPodCount} grupo${lockedPodCount === 1 ? "" : "s"} (${lockedInLockedPods} alumno${lockedInLockedPods === 1 ? "" : "s"})`,
-      );
+    if (totalLocked === 0) {
+      if (iterationCount === 0) {
+        return "No hay nada bloqueado: todos los alumnos rotarán al reagrupar.";
+      }
+      return "Sin bloqueos. Marca de nuevo lo que quieras conservar y reagrupa otra vez, o pulsa Salir.";
     }
-    if (lockedStudentCount > 0) {
-      parts.push(
-        `${lockedStudentCount} alumno${lockedStudentCount === 1 ? "" : "s"} suelto${lockedStudentCount === 1 ? "" : "s"}`,
-      );
-    }
-    if (parts.length === 0) {
-      return "No hay nada bloqueado: todos los alumnos rotarán.";
-    }
-    return `Se mantendrán: ${parts.join(" + ")}.`;
+    const sufA = totalLocked === 1 ? "" : "s";
+    const sufG = podsWithLockedCount === 1 ? "" : "s";
+    return `Se mantendrán ${totalLocked} alumno${sufA} bloqueado${sufA} (en ${podsWithLockedCount} grupo${sufG}).`;
   })();
+
+  const headline =
+    iterationCount === 0
+      ? "Selecciona qué grupos o alumnos quieres mantener antes de reagrupar"
+      : `Reagrupado ${iterationCount}× — sigue iterando o pulsa Salir cuando estés contento`;
 
   return (
     <>
@@ -108,19 +108,28 @@ export function PodRegroupSelectionBanner() {
         <div className="flex items-center gap-3 px-6 py-2">
           <Shuffle className="size-4 shrink-0" aria-hidden />
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold">
-              Selecciona qué grupos o alumnos quieres mantener antes de reagrupar
-            </p>
+            <p className="text-sm font-semibold">{headline}</p>
             <p className="text-[11px] text-blue-100 mt-0.5">{summary}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {hasAnyLock && (
+              <button
+                type="button"
+                onClick={clearAllLocks}
+                className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider px-3 py-1.5 rounded text-white hover:bg-white/10"
+                title="Quitar todos los bloqueos"
+              >
+                <Trash2 className="size-3.5" aria-hidden />
+                Quitar todos los bloqueos
+              </button>
+            )}
             <button
               type="button"
-              onClick={exitRegroupSelection}
+              onClick={onExit}
               className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider px-3 py-1.5 rounded text-white hover:bg-white/10"
             >
-              <X className="size-3.5" aria-hidden />
-              Cancelar
+              <Check className="size-3.5" aria-hidden />
+              Salir
             </button>
             <Button
               variant="primary"

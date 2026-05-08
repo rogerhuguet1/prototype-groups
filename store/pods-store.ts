@@ -69,6 +69,7 @@ type Actions = {
   toggleStudentLock: (studentId: string) => void;
   enterRegroupSelection: () => void;
   exitRegroupSelection: () => void;
+  clearAllLocks: () => void;
   addEmptyPod: () => void;
   createPodAndAssignStudent: (
     student: Student,
@@ -144,36 +145,39 @@ export const usePodsStore = create<State & Actions>()(
         set({ regroupConfirmNeeded: value }),
       setCurrentEntryId: (id) => set({ currentEntryId: id }),
       moveStudent: (studentId, toPodId) => {
-        const state = get();
-        const result = moveStudentLogic(state.pods, studentId, toPodId, {
-          lockedStudentIds: state.lockedStudentIds,
-        });
+        const result = moveStudentLogic(get().pods, studentId, toPodId);
         if (result.ok) set({ pods: result.pods, regroupConfirmNeeded: false });
         return result;
       },
       addStudentToPod: (student, toPodId) => {
-        const state = get();
-        const result = addStudentLogic(state.pods, student, toPodId, {
-          lockedStudentIds: state.lockedStudentIds,
-        });
+        const result = addStudentLogic(get().pods, student, toPodId);
         if (result.ok) set({ pods: result.pods, regroupConfirmNeeded: false });
         return result;
       },
       removeStudentFromPod: (studentId) => {
-        const state = get();
-        const result = removeStudentLogic(state.pods, studentId, {
-          lockedStudentIds: state.lockedStudentIds,
-        });
+        const result = removeStudentLogic(get().pods, studentId);
         if (result.ok) set({ pods: result.pods, regroupConfirmNeeded: false });
         return result;
       },
       togglePodLock: (podId) => {
-        set((state) => ({
-          pods: state.pods.map((p) =>
-            p.id === podId ? { ...p, isLocked: !p.isLocked } : p,
-          ),
-          regroupConfirmNeeded: false,
-        }));
+        set((state) => {
+          const pod = state.pods.find((p) => p.id === podId);
+          if (!pod) return {};
+          const willLock = !pod.isLocked;
+          const podStudentIds = new Set(pod.students.map((s) => s.id));
+          const nextLocked = willLock
+            ? Array.from(
+                new Set([...state.lockedStudentIds, ...podStudentIds]),
+              )
+            : state.lockedStudentIds.filter((id) => !podStudentIds.has(id));
+          return {
+            pods: state.pods.map((p) =>
+              p.id === podId ? { ...p, isLocked: willLock } : p,
+            ),
+            lockedStudentIds: nextLocked,
+            regroupConfirmNeeded: false,
+          };
+        });
       },
       toggleStudentLock: (studentId) => {
         set((state) => {
@@ -191,8 +195,6 @@ export const usePodsStore = create<State & Actions>()(
           regroupSelecting: true,
           sortModeBeforeSelection: state.sortMode,
           sortMode: "grouped",
-          lockedStudentIds: [],
-          pods: state.pods.map((p) => ({ ...p, isLocked: false })),
         }));
       },
       exitRegroupSelection: () => {
@@ -200,6 +202,10 @@ export const usePodsStore = create<State & Actions>()(
           regroupSelecting: false,
           sortMode: state.sortModeBeforeSelection ?? state.sortMode,
           sortModeBeforeSelection: null,
+        }));
+      },
+      clearAllLocks: () => {
+        set((state) => ({
           lockedStudentIds: [],
           pods: state.pods.map((p) => ({ ...p, isLocked: false })),
         }));
@@ -272,10 +278,11 @@ export const usePodsStore = create<State & Actions>()(
     }),
     {
       name: "c360-pods-state",
-      version: 4,
+      version: 5,
       skipHydration: true,
       partialize: (state) => ({
-        pods: state.pods.map((p) => ({ ...p, isLocked: false })),
+        pods: state.pods,
+        lockedStudentIds: state.lockedStudentIds,
         regroupConfirmNeeded: state.regroupConfirmNeeded,
         currentSeed: state.currentSeed,
         currentClassId: state.currentClassId,
@@ -285,6 +292,7 @@ export const usePodsStore = create<State & Actions>()(
       migrate: (persistedState, version) => {
         const fresh = {
           pods: [] as Pod[],
+          lockedStudentIds: [] as string[],
           regroupConfirmNeeded: false,
           currentSeed: null,
           currentClassId: null,
@@ -292,6 +300,14 @@ export const usePodsStore = create<State & Actions>()(
           currentEntryId: null,
         };
         if (version < 4) return fresh;
+        if (version < 5) {
+          const prev = (persistedState ?? fresh) as Partial<typeof fresh>;
+          return {
+            ...fresh,
+            ...prev,
+            lockedStudentIds: prev.lockedStudentIds ?? [],
+          };
+        }
         return (persistedState ?? fresh) as typeof fresh;
       },
     },

@@ -30,9 +30,7 @@ export function StudentRowDraggable({
   const toggleStudentLock = usePodsStore((s) => s.toggleStudentLock);
   const regroupSelecting = usePodsStore((s) => s.regroupSelecting);
 
-  const podLocked = pod?.isLocked === true;
-  const visuallyLocked = isStudentLocked || podLocked;
-  const dndDisabled = visuallyLocked || regroupSelecting;
+  const dndDisabled = regroupSelecting;
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `student:${student.id}`,
@@ -46,34 +44,19 @@ export function StudentRowDraggable({
 
   const showLockUi = regroupSelecting && pod !== null;
 
-  let lockButton: React.ReactNode = null;
-  if (showLockUi) {
-    if (podLocked) {
-      lockButton = (
-        <PodLockButton
-          size="sm"
-          locked
-          onToggle={() => undefined}
-          label={`${student.full_name} bloqueado por su grupo`}
-          colorHex={pod.color.hex}
-        />
-      );
-    } else {
-      lockButton = (
-        <PodLockButton
-          size="sm"
-          locked={isStudentLocked}
-          onToggle={() => toggleStudentLock(student.id)}
-          label={
-            isStudentLocked
-              ? `Desbloquear a ${student.full_name}`
-              : `Bloquear a ${student.full_name} en este grupo`
-          }
-          colorHex={pod.color.hex}
-        />
-      );
-    }
-  }
+  const lockButton: React.ReactNode = showLockUi ? (
+    <PodLockButton
+      size="sm"
+      locked={isStudentLocked}
+      onToggle={() => toggleStudentLock(student.id)}
+      label={
+        isStudentLocked
+          ? `Desbloquear a ${student.full_name}`
+          : `Bloquear a ${student.full_name} en este grupo`
+      }
+      colorHex={pod!.color.hex}
+    />
+  ) : null;
 
   return (
     <StudentRow
@@ -84,7 +67,7 @@ export function StudentRowDraggable({
       podColorBorder={Boolean(pod)}
       rowRef={setNodeRef}
       isDragging={isDragging}
-      onRemoveFromPod={visuallyLocked ? undefined : onRemoveFromPod}
+      onRemoveFromPod={regroupSelecting ? undefined : onRemoveFromPod}
       dragHandle={
         <span className="inline-flex items-center gap-0.5">
           {lockButton}

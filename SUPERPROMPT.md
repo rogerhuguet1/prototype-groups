@@ -1221,5 +1221,179 @@ Total: 80/80 verde.
 
 ---
 
-*SUPERPROMPT.md v4 (apéndice §14 mayo 2026, post-iteración v4) — Prototipo de Agrupación por Grupos (C360 / ROBOTIX). Estado real tras la sesión de implementación de v4.*
+## 15. Estado actual (mayo 2026, post-iteración v4.1)
+
+> Apéndice operativo. Resume los ajustes pedidos por el profesor el 2026-05-08 sobre la v4: flujo iterativo en el banner, bloqueos persistentes, modelo unificado de locks y excepciones individuales en grupos bloqueados. Reemplaza §14.4–§14.7 donde haya divergencia y deja §14.14 obsoleta.
+
+### 15.1 Cambios respecto a v4 inicial
+
+| Concepto | v4 inicial | v4.1 (actual) |
+|---|---|---|
+| Flujo del banner | Confirmar → sale del modo selección | **Iterativo**: confirmar → reagrupa y se queda en selección. Botón izquierdo `Salir` (siempre) sale. |
+| Persistencia de locks | Ephemeral (se limpiaban al salir) | **Persistentes** entre iteraciones y entre sesiones (en `localStorage`) |
+| Modelo de locks | `pod.isLocked` y `lockedStudentIds` independientes en el algoritmo | **Unificado**: solo `lockedStudentIds` manda. `pod.isLocked` queda como flag visual + atajo bulk |
+| Click candado individual con grupo bloqueado | No clickeable (`onToggle` vacío, etiqueta "bloqueado por su grupo") | **Siempre clickeable**: deselecciona ese alumno aunque el grupo siga bloqueado |
+| Click candado del grupo | Solo togglea `pod.isLocked` | Togglea `pod.isLocked` **+ añade/quita en bulk** todos los alumnos del pod a `lockedStudentIds` |
+| DnD fuera del modo selección | Disabled si pod o alumno bloqueado | Funciona normalmente. `move-student.ts` ya no comprueba locks. |
+| Botón "Quitar todos los bloqueos" | n/a | Nuevo en el banner, visible si hay algún lock |
+
+### 15.2 Modelo unificado de locks
+
+**Verdad única**: `lockedStudentIds: string[]` en `pods-store`.
+
+`pod.isLocked: boolean` se mantiene en el modelo `Pod` pero solo cumple dos funciones:
+1. Indicador visual para la cabecera del grupo (candado cerrado/abierto en `PodSectionHeaderRow`).
+2. Memoria de la "intención del profe": al pulsar el candado del grupo, recuerda que querías bloquear el pod entero — útil para que la cabecera siga marcada aunque hayas eximido a alguien individualmente.
+
+`regroupWithLocks` ignora `pod.isLocked`. Solo usa `lockedStudentIds`:
+- Cada pod conserva los alumnos que estén en `lockedStudentIds`.
+- El resto va al pool libre.
+- Pool libre se distribuye round-robin entre los slots disponibles.
+
+Resultado: si bloqueas el grupo (todos sus alumnos en `lockedStudentIds`), se mantiene tal cual. Si excepcionas a uno (lo quitas de `lockedStudentIds`), el pod conserva los otros 3 + el alumno excepto cae al pool libre.
+
+### 15.3 Acciones del store (cambios)
+
+```ts
+togglePodLock(podId): void
+  // willLock = !pod.isLocked
+  // pod.isLocked = willLock
+  // si willLock: lockedStudentIds += pod.students.map(s.id) (deduplicado)
+  // si !willLock: lockedStudentIds -= pod.students.map(s.id)
+
+toggleStudentLock(studentId): void
+  // togglea studentId en lockedStudentIds. Nunca toca pod.isLocked.
+
+clearAllLocks(): void  // NUEVA
+  // lockedStudentIds = []
+  // pods.forEach(p => p.isLocked = false)
+
+enterRegroupSelection(): void  // simplificada
+  // regroupSelecting = true
+  // sortModeBeforeSelection = sortMode
+  // sortMode = "grouped"
+  // (NO toca locks)
+
+exitRegroupSelection(): void  // simplificada
+  // regroupSelecting = false
+  // sortMode = sortModeBeforeSelection ?? sortMode
+  // sortModeBeforeSelection = null
+  // (NO toca locks)
+```
+
+`createPodsFromInput` (Agrupar de cero) sigue limpiando `lockedStudentIds: []`.
+
+### 15.4 Persistencia (`pods-store` v5)
+
+```ts
+partialize: (state) => ({
+  pods: state.pods,                      // ahora con isLocked
+  lockedStudentIds: state.lockedStudentIds,
+  regroupConfirmNeeded: state.regroupConfirmNeeded,
+  currentSeed, currentClassId, lastInputs, currentEntryId,
+}),
+migrate: (state, version) => {
+  if (version < 4) return fresh
+  if (version < 5) return { ...fresh, ...state, lockedStudentIds: state.lockedStudentIds ?? [] }
+  return state
+}
+```
+
+Cierras el navegador, vuelves al día siguiente, abres `Reagrupar`: los candados de la sesión anterior siguen ahí. `Quitar todos los bloqueos` en el banner los limpia de un click.
+
+### 15.5 Banner de selección (`PodRegroupSelectionBanner`)
+
+Layout:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ ↻ Selecciona qué grupos o alumnos quieres mantener antes de reagrupar  │
+│   Se mantendrán 5 alumnos bloqueados (en 2 grupos).                    │
+│                                                                         │
+│            [🗑 Quitar todos los bloqueos] [✓ Salir] [↻ Reagrupar resp 5]│
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+Tras la primera iteración el headline cambia a "Reagrupado N× — sigue iterando o pulsa Salir cuando estés contento".
+
+`onConfirm`:
+1. `regroupWithLocks(...)` → `result.pods` mantiene `pod.isLocked` para los grupos bloqueados.
+2. `setState({ pods: result.pods, ... })` — locks **no se limpian**.
+3. `addEntry({ ..., pods: result.pods.map(p => ({ ...p, isLocked: false })), lockedStudentIds: [...currentLocks] })` — el snapshot persiste con locks `false` (no son intención post-confirm) y guarda los `lockedStudentIds` que se aplicaron.
+4. `iterationCount++`. Banner sigue visible.
+
+`onExit`: resetea `iterationCount = 0` y llama `exitRegroupSelection()`. Locks NO se limpian.
+
+`Quitar todos los bloqueos`: solo visible si `lockedStudentIds.length > 0`. Llama `clearAllLocks()`.
+
+### 15.6 UI de candados
+
+`PodSectionHeaderRow` (cabecera de grupo):
+- Candado visible solo si `regroupSelecting`.
+- Estado visual = `pod.isLocked`.
+- Click → `togglePodLock(pod.id)` → bulk lock/unlock de los alumnos.
+
+`StudentRowDraggable` (fila de alumno):
+- Candado visible solo si `regroupSelecting && pod !== null`.
+- Estado visual = `lockedStudentIds.includes(student.id)`.
+- **Siempre clickeable**, independiente de `pod.isLocked`.
+- Click → `toggleStudentLock(student.id)`.
+- DnD desactivado mientras `regroupSelecting`. Fuera de selección, DnD ignora locks.
+
+### 15.7 `move-student.ts` desacoplado
+
+Ya no hay `student-locked` / `source-pod-locked` / `destination-pod-locked` en `MoveError`. Las funciones `moveStudent`, `addStudentToPod`, `removeStudentFromPod` no aceptan `options.lockedStudentIds`. Los locks son completamente dormantes fuera de `regroupWithLocks`.
+
+Test reducido en `move-student.test.ts`:
+```ts
+describe("bloqueos (locks dormantes en move-student)", () => {
+  it("move-student ignora pod.isLocked", () => {...});
+});
+```
+
+### 15.8 Tests (`regroup-with-locks.test.ts`)
+
+Reescritos para el modelo unificado (los antiguos seteaban `pod.isLocked: true` con `lockedStudentIds: []`; ahora pasan los IDs explícitos):
+
+- Sin bloqueos → todos rotan.
+- Misma seed → reparto reproducible.
+- 2 grupos bloqueados (8 alumnos) → 16 redistribuidos.
+- 5 alumnos sueltos bloqueados → cada uno en su grupo.
+- 5 grupos bloqueados → 4 libres / 4 plazas → ok.
+- Todo bloqueado → no error.
+- **Excepción individual en pod 'todo bloqueado'**: el alumno excepto va al pool libre, los otros 3 se mantienen. *(NUEVO)*
+- Libres > plazas → `RegroupLocksError`.
+- Capacidad respetada en todos los pods.
+
+Total tests del repo: **77/77 verde**.
+
+### 15.9 Diferencias respecto a la spec v4 (actualizadas)
+
+| §v4 | Spec | Implementación v4.1 | Razón |
+|---|---|---|---|
+| §5.8 | Candados visibles siempre en sort grouped | Solo durante `regroupSelecting` | Petición previa del profesor |
+| §5.8 | Locks ephemeral por flujo | **Persistentes** entre iteraciones y sesiones | Petición 2026-05-08 |
+| §5.8.1 | Excepción individual en grupo bloqueado posible | ✅ implementado vía modelo unificado | — |
+| §5.8.4 | Algoritmo distingue pods bloqueados de individuales | Solo `lockedStudentIds`. Pod bloqueado = todos sus alumnos en la lista | Equivalencia funcional |
+| §5.9 | Reagrupar pide confirmación | Aleatoria → modo selección iterativo (sustituye al confirm). Por nivel → confirm clásico. | Diferenciación por modo |
+
+### 15.10 Cómo arrancar
+
+```bash
+cd robotix_group_prototype
+npm install
+npm test          # 77/77 verde
+npm run dev       # http://localhost:3001 (o 3000 si está libre)
+```
+
+`pods-store` v5 — al cargar una versión vieja del store se descarta. `history-store` v3 sin cambios.
+
+### 15.11 Gaps que siguen abiertos
+
+- Modos por nivel (`mixed`, `leveled`, `by-progress`) ignoran bloqueos. `regroupWithLocks` solo se invoca para "Aleatoria".
+- Sin tests de UI integrados (modal Evaluar, banner, candados).
+
+---
+
+*SUPERPROMPT.md v4.1 (apéndice §15 mayo 2026, iteración del 2026-05-08) — Prototipo de Agrupación por Grupos (C360 / ROBOTIX). Estado real tras la jornada de bloqueos persistentes y modelo unificado.*
 ````

@@ -47,9 +47,6 @@ export function regroupWithLocks(
   }
 
   const newPods: Pod[] = currentPods.map((pod) => {
-    if (pod.isLocked) {
-      return { ...pod, students: [...pod.students] };
-    }
     const kept = pod.students.filter(
       (s) => lockedSet.has(s.id) && presentSet.has(s.id),
     );
@@ -58,7 +55,6 @@ export function regroupWithLocks(
 
   const free: Student[] = [];
   for (const pod of currentPods) {
-    if (pod.isLocked) continue;
     for (const s of pod.students) {
       if (lockedSet.has(s.id)) continue;
       if (!presentSet.has(s.id)) continue;
@@ -71,8 +67,7 @@ export function regroupWithLocks(
     }
   }
 
-  const targetPods = newPods.filter((p) => !p.isLocked);
-  const totalSlots = targetPods.reduce(
+  const totalSlots = newPods.reduce(
     (acc, p) => acc + (p.maxCapacity - p.students.length),
     0,
   );
@@ -87,7 +82,7 @@ export function regroupWithLocks(
   let safety = 0;
   while (i < free.length && safety++ < 10_000) {
     let placedThisRound = false;
-    for (const pod of targetPods) {
+    for (const pod of newPods) {
       if (i >= free.length) break;
       if (pod.students.length < pod.maxCapacity) {
         pod.students.push(free[i] as Student);
