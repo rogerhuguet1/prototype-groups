@@ -83,11 +83,12 @@ describe("createPods — casos del SUPERPROMPT §5", () => {
     ]);
   });
 
-  it("1 alumno / 1 robot → 1 grupo de 1", () => {
+  it("1 alumno / 1 robot → 1 grupo de 1 (con minPerPod: 1)", () => {
     const { pods } = createPods({
       students: makeStudents(1),
       presentCount: 1,
       robotCount: 1,
+      minPerPod: 1,
     });
     expect(pods).toHaveLength(1);
     expect(pods[0]?.students).toHaveLength(1);
@@ -210,6 +211,7 @@ describe("createPods — comportamiento adicional", () => {
       students: makeStudents(15),
       presentCount: 15,
       robotCount: 15,
+      minPerPod: 1,
     });
     const colors = pods.map((p) => p.color.hex);
     expect(new Set(colors).size).toBe(15);
@@ -239,34 +241,45 @@ describe("createPods — comportamiento adicional", () => {
     ).toThrow(/No hay tantos alumnos/);
   });
 
-  it("si presentCount excede robotCount * maxPerPod (default 4), el resto queda sin asignar", () => {
-    const { pods } = createPods({
-      students: makeStudents(30),
-      presentCount: 30,
-      robotCount: 3,
-    });
-    expect(pods).toHaveLength(3);
-    pods.forEach((p) => expect(p.students.length).toBeLessThanOrEqual(4));
-    const totalAssigned = pods.reduce(
-      (acc, p) => acc + p.students.length,
-      0,
-    );
-    expect(totalAssigned).toBe(12);
+  it("si presentCount excede robotCount * maxPerPod (default 4) → error duro", () => {
+    expect(() =>
+      createPods({
+        students: makeStudents(30),
+        presentCount: 30,
+        robotCount: 3,
+      }),
+    ).toThrow(/No se puede distribuir 30 alumnos en 3 grupos respetando min 2 y max 4/);
   });
 
-  it("excedentes con maxPerPod custom tambien se respeta el cap", () => {
+  it("si presentCount excede robotCount * maxPerPod custom → error duro", () => {
+    expect(() =>
+      createPods({
+        students: makeStudents(30),
+        presentCount: 30,
+        robotCount: 4,
+        maxPerPod: 5,
+      }),
+    ).toThrow(/No se puede distribuir 30 alumnos en 4 grupos respetando min 2 y max 5/);
+  });
+
+  it("si presentCount < robotCount * minPerPod (default 2) → error duro", () => {
+    expect(() =>
+      createPods({
+        students: makeStudents(3),
+        presentCount: 3,
+        robotCount: 2,
+      }),
+    ).toThrow(/No se puede distribuir 3 alumnos en 2 grupos respetando min 2 y max 4/);
+  });
+
+  it("18 alumnos / 9 robots → 9 grupos de 2 (min 2 lo permite)", () => {
     const { pods } = createPods({
-      students: makeStudents(30),
-      presentCount: 30,
-      robotCount: 4,
-      maxPerPod: 5,
+      students: makeStudents(18),
+      presentCount: 18,
+      robotCount: 9,
     });
-    pods.forEach((p) => expect(p.students.length).toBeLessThanOrEqual(5));
-    const totalAssigned = pods.reduce(
-      (acc, p) => acc + p.students.length,
-      0,
-    );
-    expect(totalAssigned).toBe(20);
+    expect(pods).toHaveLength(9);
+    expect(pods.map((p) => p.students.length)).toEqual([2, 2, 2, 2, 2, 2, 2, 2, 2]);
   });
 
   it("respeta maxPerPod cuando se pasa explicitamente", () => {

@@ -29,6 +29,15 @@ export type CreatePodsInput = {
   random?: () => number;
 };
 
+export function distributionErrorMessage(
+  presentCount: number,
+  robotCount: number,
+  minPerPod: number,
+  maxPerPod: number,
+): string {
+  return `No se puede distribuir ${presentCount} alumnos en ${robotCount} grupos respetando min ${minPerPod} y max ${maxPerPod}.`;
+}
+
 export type CreatePodsOutput = {
   pods: Pod[];
   seed: string;
@@ -53,6 +62,7 @@ export function createPods(input: CreatePodsInput): CreatePodsOutput {
     presentCount,
     robotCount,
     maxPerPod = DEFAULT_MAX_PER_POD,
+    minPerPod = DEFAULT_MIN_PER_POD,
   } = input;
 
   if (!Number.isInteger(presentCount) || presentCount < 0) {
@@ -70,22 +80,24 @@ export function createPods(input: CreatePodsInput): CreatePodsOutput {
   if (robotCount > presentCount) {
     throw new Error("Hay más robots que alumnos");
   }
+  if (
+    presentCount < robotCount * minPerPod ||
+    presentCount > robotCount * maxPerPod
+  ) {
+    throw new Error(
+      distributionErrorMessage(presentCount, robotCount, minPerPod, maxPerPod),
+    );
+  }
 
   const seed = input.seed ?? generateSeed();
   const random = input.random ?? randomFromSeed(seed);
 
-  const capacity = robotCount * maxPerPod;
-  const effectivePresent = Math.min(presentCount, capacity);
-
-  const present = shuffleInPlace(
-    students.slice(0, presentCount),
-    random,
-  ).slice(0, effectivePresent);
+  const present = shuffleInPlace(students.slice(0, presentCount), random);
   const emojis = shuffleInPlace([...POD_EMOJIS], random).slice(0, robotCount);
   const colors = pickUniqueColors(robotCount, [], random);
 
-  const base = Math.floor(effectivePresent / robotCount);
-  const extra = effectivePresent % robotCount;
+  const base = Math.floor(presentCount / robotCount);
+  const extra = presentCount % robotCount;
 
   const pods: Pod[] = [];
   let cursor = 0;
@@ -213,6 +225,7 @@ export type CreatePodsByLevelInput = {
   mode: RegroupMode;
   scoreFn: (studentId: string) => number;
   maxPerPod?: number;
+  minPerPod?: number;
   seed?: string;
   lockedStudentIds?: string[];
   currentPods?: Pod[];
@@ -225,6 +238,7 @@ export type CreatePodsByProgressInput = {
   progressFn: (studentId: string) => number;
   scoreFn: (studentId: string) => number;
   maxPerPod?: number;
+  minPerPod?: number;
   seed?: string;
   lockedStudentIds?: string[];
   currentPods?: Pod[];
@@ -242,6 +256,7 @@ export function createPodsByProgress(
     mode: "leveled",
     scoreFn: compositeScore,
     ...(input.maxPerPod !== undefined ? { maxPerPod: input.maxPerPod } : {}),
+    ...(input.minPerPod !== undefined ? { minPerPod: input.minPerPod } : {}),
     ...(input.seed !== undefined ? { seed: input.seed } : {}),
     ...(input.lockedStudentIds !== undefined
       ? { lockedStudentIds: input.lockedStudentIds }
@@ -262,6 +277,7 @@ export function createPodsByLevel(
     mode,
     scoreFn,
     maxPerPod = DEFAULT_MAX_PER_POD,
+    minPerPod = DEFAULT_MIN_PER_POD,
     lockedStudentIds = [],
     currentPods = [],
   } = input;
@@ -280,6 +296,14 @@ export function createPodsByLevel(
   }
   if (robotCount > presentCount) {
     throw new Error("Hay más robots que alumnos");
+  }
+  if (
+    presentCount < robotCount * minPerPod ||
+    presentCount > robotCount * maxPerPod
+  ) {
+    throw new Error(
+      distributionErrorMessage(presentCount, robotCount, minPerPod, maxPerPod),
+    );
   }
 
   const seed = input.seed ?? generateSeed();
@@ -309,14 +333,13 @@ export function createPodsByLevel(
   }
 
   const freeStudents = pool.filter((s) => !lockedKept.has(s.id));
-  const capacity = robotCount * maxPerPod;
   const lockedTotal = Array.from(lockedKept).length;
-  const freeCapacity = capacity - lockedTotal;
-  const effectiveFree = Math.min(freeStudents.length, freeCapacity);
+  // validacion presentCount in [min*robot, max*robot] ya asegura que cabe sin cap.
+  const effectiveFree = freeStudents.length;
 
-  const sortedFree = [...freeStudents]
-    .sort((a, b) => scoreFn(b.id) - scoreFn(a.id))
-    .slice(0, effectiveFree);
+  const sortedFree = [...freeStudents].sort(
+    (a, b) => scoreFn(b.id) - scoreFn(a.id),
+  );
 
   const emojis = shuffleInPlace([...POD_EMOJIS], random).slice(0, robotCount);
   const colors = pickUniqueColors(robotCount, [], random);
