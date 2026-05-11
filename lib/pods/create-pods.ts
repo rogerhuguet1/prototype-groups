@@ -7,6 +7,8 @@ export type Student = {
   full_name: string;
 };
 
+export type PodEvaluation = "green" | "amber" | "red" | null;
+
 export type Pod = {
   id: string;
   emoji: string;
@@ -14,7 +16,7 @@ export type Pod = {
   color: PodColor;
   students: Student[];
   maxCapacity: number;
-  isLocked: boolean;
+  evaluation: PodEvaluation;
 };
 
 export type CreatePodsInput = {
@@ -100,7 +102,7 @@ export function createPods(input: CreatePodsInput): CreatePodsOutput {
       color,
       students: slice,
       maxCapacity: maxPerPod,
-      isLocked: false,
+      evaluation: null,
     });
   }
   return { pods, seed };
@@ -153,7 +155,7 @@ export function createEmptyPod(input: {
     color: color as PodColor,
     students: [],
     maxCapacity,
-    isLocked: false,
+    evaluation: null,
   };
 }
 
@@ -212,6 +214,8 @@ export type CreatePodsByLevelInput = {
   scoreFn: (studentId: string) => number;
   maxPerPod?: number;
   seed?: string;
+  lockedStudentIds?: string[];
+  currentPods?: Pod[];
 };
 
 export type CreatePodsByProgressInput = {
@@ -222,6 +226,8 @@ export type CreatePodsByProgressInput = {
   scoreFn: (studentId: string) => number;
   maxPerPod?: number;
   seed?: string;
+  lockedStudentIds?: string[];
+  currentPods?: Pod[];
 };
 
 export function createPodsByProgress(
@@ -237,6 +243,12 @@ export function createPodsByProgress(
     scoreFn: compositeScore,
     ...(input.maxPerPod !== undefined ? { maxPerPod: input.maxPerPod } : {}),
     ...(input.seed !== undefined ? { seed: input.seed } : {}),
+    ...(input.lockedStudentIds !== undefined
+      ? { lockedStudentIds: input.lockedStudentIds }
+      : {}),
+    ...(input.currentPods !== undefined
+      ? { currentPods: input.currentPods }
+      : {}),
   });
 }
 
@@ -250,6 +262,8 @@ export function createPodsByLevel(
     mode,
     scoreFn,
     maxPerPod = DEFAULT_MAX_PER_POD,
+    lockedStudentIds = [],
+    currentPods = [],
   } = input;
 
   if (!Number.isInteger(presentCount) || presentCount < 0) {
@@ -271,13 +285,38 @@ export function createPodsByLevel(
   const seed = input.seed ?? generateSeed();
   const random = randomFromSeed(seed);
 
-  const capacity = robotCount * maxPerPod;
-  const effectivePresent = Math.min(presentCount, capacity);
-
+  const lockedSet = new Set(lockedStudentIds);
   const pool = students.slice(0, presentCount);
-  const sorted = [...pool]
+  const presentSet = new Set(pool.map((s) => s.id));
+  const presentMap = new Map(pool.map((s) => [s.id, s]));
+
+  // Locked students that survive: must be present AND have a current pod whose
+  // id falls in pod-1..pod-{robotCount}. Anything else returns to the free pool.
+  const lockedByPodIndex: Student[][] = Array.from(
+    { length: robotCount },
+    () => [],
+  );
+  const lockedKept = new Set<string>();
+  for (const pod of currentPods) {
+    const idx = parseInt(pod.id.slice(4), 10) - 1;
+    if (!Number.isInteger(idx) || idx < 0 || idx >= robotCount) continue;
+    for (const s of pod.students) {
+      if (!lockedSet.has(s.id)) continue;
+      if (!presentSet.has(s.id)) continue;
+      lockedByPodIndex[idx]!.push(presentMap.get(s.id) as Student);
+      lockedKept.add(s.id);
+    }
+  }
+
+  const freeStudents = pool.filter((s) => !lockedKept.has(s.id));
+  const capacity = robotCount * maxPerPod;
+  const lockedTotal = Array.from(lockedKept).length;
+  const freeCapacity = capacity - lockedTotal;
+  const effectiveFree = Math.min(freeStudents.length, freeCapacity);
+
+  const sortedFree = [...freeStudents]
     .sort((a, b) => scoreFn(b.id) - scoreFn(a.id))
-    .slice(0, effectivePresent);
+    .slice(0, effectiveFree);
 
   const emojis = shuffleInPlace([...POD_EMOJIS], random).slice(0, robotCount);
   const colors = pickUniqueColors(robotCount, [], random);
@@ -287,20 +326,66 @@ export function createPodsByLevel(
     () => [],
   );
 
+  const freeSlots: number[] = Array.from(
+    { length: robotCount },
+    (_, i) => maxPerPod - lockedByPodIndex[i]!.length,
+  );
+
   if (mode === "leveled") {
-    const base = Math.floor(effectivePresent / robotCount);
-    const extra = effectivePresent % robotCount;
+    // Tamano objetivo balanceado sobre TODOS los presentes (locked + free),
+    // luego se descuenta lo que ya esta lockeado en cada pod para saber cuantos
+    // free van a cada uno. Si un pod queda saturado por locks, el resto rota.
+    const present = effectiveFree + lockedTotal;
+    const base = Math.floor(present / robotCount);
+    const extra = present % robotCount;
+    const targetSize = Array.from(
+      { length: robotCount },
+      (_, i) => Math.min(maxPerPod, base + (i < extra ? 1 : 0)),
+    );
+    const freeQuota = targetSize.map((t, i) =>
+      Math.max(0, Math.min(freeSlots[i]!, t - lockedByPodIndex[i]!.length)),
+    );
+    let assigned = freeQuota.reduce((acc, n) => acc + n, 0);
+    // overflow positivo = quedan free sin asignar; redistribuir a pods con espacio.
+    let overflow = effectiveFree - assigned;
+    for (let i = 0; i < robotCount && overflow > 0; i++) {
+      const room = freeSlots[i]! - freeQuota[i]!;
+      if (room <= 0) continue;
+      const take = Math.min(room, overflow);
+      freeQuota[i] = freeQuota[i]! + take;
+      overflow -= take;
+      assigned += take;
+    }
     let cursor = 0;
     for (let i = 0; i < robotCount; i++) {
-      const size = base + (i < extra ? 1 : 0);
-      buckets[i] = sorted.slice(cursor, cursor + size);
-      cursor += size;
+      const take = freeQuota[i]!;
+      buckets[i] = sortedFree.slice(cursor, cursor + take);
+      cursor += take;
     }
   } else {
+    // mixed: zigzag (boustrophedon) skipping buckets that ran out of freeSlots.
+    const remainingSlots = [...freeSlots];
     let pos = 0;
     let dir: 1 | -1 = 1;
-    for (let i = 0; i < sorted.length; i++) {
-      (buckets[pos] as Student[]).push(sorted[i] as Student);
+    for (let i = 0; i < sortedFree.length; i++) {
+      // advance pos to the next bucket with available slots
+      let safety = 0;
+      while (remainingSlots[pos]! <= 0 && safety++ < robotCount * 2) {
+        if (dir === 1) {
+          if (pos === robotCount - 1) {
+            dir = -1;
+            pos -= 1;
+          } else pos += 1;
+        } else {
+          if (pos === 0) {
+            dir = 1;
+            pos += 1;
+          } else pos -= 1;
+        }
+      }
+      if (remainingSlots[pos]! <= 0) break; // no slots left anywhere
+      (buckets[pos] as Student[]).push(sortedFree[i] as Student);
+      remainingSlots[pos] = remainingSlots[pos]! - 1;
       if (dir === 1) {
         if (pos === robotCount - 1) dir = -1;
         else pos += 1;
@@ -311,14 +396,21 @@ export function createPodsByLevel(
     }
   }
 
-  const pods: Pod[] = buckets.map((bucket, i) => ({
+  // Prepend locked students (preserved from their original pod) to each bucket
+  // so they keep priority in the resulting order.
+  const finalBuckets = buckets.map((bucket, i) => [
+    ...lockedByPodIndex[i]!,
+    ...bucket,
+  ]);
+
+  const pods: Pod[] = finalBuckets.map((bucket, i) => ({
     id: `pod-${i + 1}`,
     emoji: (emojis[i] as PodEmoji).emoji,
     emojiLabel: (emojis[i] as PodEmoji).label,
     color: colors[i] as PodColor,
     students: bucket,
     maxCapacity: maxPerPod,
-    isLocked: false,
+    evaluation: null,
   }));
 
   return { pods, seed };

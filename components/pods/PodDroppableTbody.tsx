@@ -18,9 +18,8 @@ export function PodDroppableTbody({ pod, children }: Props) {
   const fromPodId = active?.data.current?.["fromPodId"] as string | undefined;
   const sourceIsThisPod = fromPodId === pod.id;
   const isFull = pod.students.length >= pod.maxCapacity;
-  const isInvalid = pod.isLocked || isFull;
-  const showInvalid = isOver && isInvalid && !sourceIsThisPod;
-  const showValid = isOver && !isInvalid && !sourceIsThisPod;
+  const showInvalid = isOver && isFull && !sourceIsThisPod;
+  const showValid = isOver && !isFull && !sourceIsThisPod;
 
   let style: CSSProperties | undefined;
   if (showInvalid) {

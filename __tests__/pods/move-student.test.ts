@@ -200,19 +200,3 @@ describe("addStudentToPod", () => {
   });
 });
 
-describe("bloqueos (locks dormantes en move-student)", () => {
-  it("move-student ignora pod.isLocked: los locks solo aplican en regroupWithLocks", () => {
-    const { pods } = createPods({
-      students: makeStudents(6),
-      presentCount: 6,
-      robotCount: 2,
-      maxPerPod: 4,
-      random: noShuffle,
-    });
-    const lockedPods = pods.map((p, i) =>
-      i === 0 ? { ...p, isLocked: true } : p,
-    );
-    const result = moveStudent(lockedPods, "s-001", "pod-2");
-    expect(result.ok).toBe(true);
-  });
-});

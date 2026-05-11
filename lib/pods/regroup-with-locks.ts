@@ -50,7 +50,7 @@ export function regroupWithLocks(
     const kept = pod.students.filter(
       (s) => lockedSet.has(s.id) && presentSet.has(s.id),
     );
-    return { ...pod, students: kept };
+    return { ...pod, students: kept, evaluation: null };
   });
 
   const free: Student[] = [];

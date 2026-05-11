@@ -272,4 +272,28 @@ describe("regroupWithLocks", () => {
       expect(pod.students.length).toBeLessThanOrEqual(pod.maxCapacity);
     }
   });
+
+  it("resetea evaluation a null en todos los pods devueltos", () => {
+    const students = makeStudents(12);
+    const initial = createPods({
+      students,
+      presentCount: 12,
+      robotCount: 3,
+      maxPerPod: 4,
+      seed: "init",
+    }).pods;
+    const initialWithEval = initial.map((p, i) => ({
+      ...p,
+      evaluation: (["green", "amber", "red"] as const)[i] ?? null,
+    }));
+    const result = regroupWithLocks({
+      currentPods: initialWithEval,
+      lockedStudentIds: [],
+      allPresentStudents: students,
+      seed: "regroup",
+    });
+    for (const pod of result.pods) {
+      expect(pod.evaluation).toBeNull();
+    }
+  });
 });

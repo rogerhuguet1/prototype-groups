@@ -236,3 +236,128 @@ describe("createPodsByProgress", () => {
     ).toThrow(/Máximo 15 grupos/);
   });
 });
+
+describe("createPodsByLevel — respeta lockedStudentIds + currentPods", () => {
+  it("leveled: alumno bloqueado en pod-1 se mantiene en pod-1", () => {
+    const students = makeStudents(8);
+    const initial = createPodsByLevel({
+      students,
+      presentCount: 8,
+      robotCount: 2,
+      mode: "leveled",
+      scoreFn: linearScore,
+      maxPerPod: 4,
+      seed: "init",
+    }).pods;
+    // Bloqueamos al alumno con menor score (s-001) y forzamos a que esté en pod-1.
+    const lockedId = "s-001";
+    const seededPods = initial.map((p) => ({
+      ...p,
+      students:
+        p.id === "pod-1"
+          ? [{ id: lockedId, full_name: "Alumno 1" }, ...p.students.filter((s) => s.id !== lockedId)]
+          : p.students.filter((s) => s.id !== lockedId),
+    }));
+
+    const result = createPodsByLevel({
+      students,
+      presentCount: 8,
+      robotCount: 2,
+      mode: "leveled",
+      scoreFn: linearScore,
+      maxPerPod: 4,
+      seed: "regroup",
+      lockedStudentIds: [lockedId],
+      currentPods: seededPods,
+    });
+
+    const pod1 = result.pods.find((p) => p.id === "pod-1")!;
+    expect(pod1.students.some((s) => s.id === lockedId)).toBe(true);
+    expect(result.pods.flatMap((p) => p.students.map((s) => s.id)).sort()).toEqual(
+      students.map((s) => s.id).sort(),
+    );
+  });
+
+  it("mixed: alumnos bloqueados se quedan, los free se reparten en zigzag", () => {
+    const students = makeStudents(8);
+    const initial = createPodsByLevel({
+      students,
+      presentCount: 8,
+      robotCount: 2,
+      mode: "mixed",
+      scoreFn: linearScore,
+      maxPerPod: 4,
+      seed: "init",
+    }).pods;
+    const lockedId = "s-005";
+    const seededPods = initial.map((p) => ({
+      ...p,
+      students:
+        p.id === "pod-2"
+          ? [{ id: lockedId, full_name: "Alumno 5" }, ...p.students.filter((s) => s.id !== lockedId)]
+          : p.students.filter((s) => s.id !== lockedId),
+    }));
+
+    const result = createPodsByLevel({
+      students,
+      presentCount: 8,
+      robotCount: 2,
+      mode: "mixed",
+      scoreFn: linearScore,
+      maxPerPod: 4,
+      seed: "regroup",
+      lockedStudentIds: [lockedId],
+      currentPods: seededPods,
+    });
+
+    const pod2 = result.pods.find((p) => p.id === "pod-2")!;
+    expect(pod2.students.some((s) => s.id === lockedId)).toBe(true);
+    expect(result.pods.flatMap((p) => p.students.map((s) => s.id)).sort()).toEqual(
+      students.map((s) => s.id).sort(),
+    );
+  });
+
+  it("respeta capacidad: nunca excede maxPerPod incluso con locks", () => {
+    const students = makeStudents(8);
+    const initial = createPodsByLevel({
+      students,
+      presentCount: 8,
+      robotCount: 2,
+      mode: "leveled",
+      scoreFn: linearScore,
+      maxPerPod: 4,
+      seed: "init",
+    }).pods;
+    // Bloqueamos a 4 alumnos del pod-1 (lleno).
+    const lockedIds = initial.find((p) => p.id === "pod-1")!.students.map((s) => s.id);
+    const result = createPodsByLevel({
+      students,
+      presentCount: 8,
+      robotCount: 2,
+      mode: "leveled",
+      scoreFn: linearScore,
+      maxPerPod: 4,
+      seed: "regroup",
+      lockedStudentIds: lockedIds,
+      currentPods: initial,
+    });
+    for (const pod of result.pods) {
+      expect(pod.students.length).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it("pods generados tienen evaluation: null", () => {
+    const students = makeStudents(8);
+    const { pods } = createPodsByLevel({
+      students,
+      presentCount: 8,
+      robotCount: 2,
+      mode: "leveled",
+      scoreFn: linearScore,
+      maxPerPod: 4,
+    });
+    for (const pod of pods) {
+      expect(pod.evaluation).toBeNull();
+    }
+  });
+});

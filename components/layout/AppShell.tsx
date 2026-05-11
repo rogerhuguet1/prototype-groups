@@ -8,7 +8,6 @@ import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { ScoreLegend } from "@/components/students/ScoreLegend";
 import { StudentTable } from "@/components/students/StudentTable";
-import { PodRegroupSelectionBanner } from "@/components/pods/PodRegroupSelectionBanner";
 
 export function AppShell() {
   const classesQuery = useClasses();
@@ -39,12 +38,10 @@ export function AppShell() {
           onSelectClass={setClassId}
         />
         <main className="flex-1 flex flex-col min-w-0 bg-c360-bg">
-          <PodRegroupSelectionBanner />
           <TopBar
             classes={classes}
             activeClassId={classId}
             onSelectClass={setClassId}
-            students={students}
           />
           <ScoreLegend updatedAt="6/05/2026 12:00" />
           <section className="flex-1 overflow-auto">

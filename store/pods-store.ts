@@ -5,8 +5,12 @@ import { persist } from "zustand/middleware";
 import {
   createEmptyPod,
   createPods,
+  createPodsByLevel,
+  createPodsByProgress,
   DEFAULT_MAX_PER_POD,
   type Pod,
+  type PodEvaluation,
+  type RegroupMode,
   type Student,
 } from "@/lib/pods/create-pods";
 import {
@@ -19,54 +23,37 @@ import {
   changePodEmoji as changeEmojiLogic,
   type ChangeEmojiResult,
 } from "@/lib/pods/edit-pod";
+import { regroupWithLocks } from "@/lib/pods/regroup-with-locks";
 
 export type SortMode = "alphabetical" | "grouped";
 
-export type LastInputs = {
-  students: Student[];
-  presentCount: number;
-  robotCount: number;
-};
+export type GroupingMode = "random" | RegroupMode | "by-progress";
 
 type State = {
   pods: Pod[];
   lockedStudentIds: string[];
   sortMode: SortMode;
-  sortModeBeforeSelection: SortMode | null;
-  regroupSelecting: boolean;
-  currentSeed: string | null;
-  currentClassId: string | null;
-  lastInputs: LastInputs | null;
-  currentEntryId: string | null;
+  lastRobotCount: number | null;
 };
 
-export type CreatePodsResult = {
-  pods: Pod[];
-  seed: string;
+type CreateOrRegroupInput = {
+  mode: GroupingMode;
+  presentStudents: Student[];
+  robotCount: number;
+  scoreFn?: (studentId: string) => number;
+  progressFn?: (studentId: string) => number;
 };
-
-export type RegroupResult =
-  | { ok: true; pods: Pod[]; seed: string }
-  | { ok: false; reason: "no-previous-inputs" };
 
 type Actions = {
-  createPodsFromInput: (input: {
-    students: Student[];
-    presentCount: number;
-    robotCount: number;
-    classId: string | null;
-  }) => CreatePodsResult;
-  regroup: () => RegroupResult;
+  createOrRegroup: (input: CreateOrRegroupInput) => void;
   resetPods: () => void;
   setSortMode: (mode: SortMode) => void;
-  setCurrentEntryId: (id: string | null) => void;
+  setLastRobotCount: (n: number | null) => void;
+  setPodEvaluation: (podId: string, rating: PodEvaluation) => void;
   moveStudent: (studentId: string, toPodId: string) => MoveStudentResult;
   addStudentToPod: (student: Student, toPodId: string) => MoveStudentResult;
   removeStudentFromPod: (studentId: string) => MoveStudentResult;
   toggleStudentLock: (studentId: string) => void;
-  enterRegroupSelection: () => void;
-  exitRegroupSelection: () => void;
-  clearAllLocks: () => void;
   addEmptyPod: () => void;
   createPodAndAssignStudent: (
     student: Student,
@@ -84,48 +71,83 @@ const INITIAL: State = {
   pods: [],
   lockedStudentIds: [],
   sortMode: "alphabetical",
-  sortModeBeforeSelection: null,
-  regroupSelecting: false,
-  currentSeed: null,
-  currentClassId: null,
-  lastInputs: null,
-  currentEntryId: null,
+  lastRobotCount: null,
 };
 
 export const usePodsStore = create<State & Actions>()(
   persist(
     (set, get) => ({
       ...INITIAL,
-      createPodsFromInput: ({ students, presentCount, robotCount, classId }) => {
-        const result = createPods({ students, presentCount, robotCount });
+      createOrRegroup: ({ mode, presentStudents, robotCount, scoreFn, progressFn }) => {
+        const state = get();
+        const hasPods = state.pods.length > 0;
+
+        let result: { pods: Pod[] };
+
+        if (mode === "random") {
+          if (hasPods) {
+            // mantiene emojis/colores y respeta candados
+            result = regroupWithLocks({
+              currentPods: state.pods,
+              lockedStudentIds: state.lockedStudentIds,
+              allPresentStudents: presentStudents,
+            });
+          } else {
+            result = createPods({
+              students: presentStudents,
+              presentCount: presentStudents.length,
+              robotCount,
+            });
+          }
+        } else if (mode === "by-progress") {
+          if (!progressFn || !scoreFn) {
+            throw new Error(
+              "createOrRegroup: by-progress requiere progressFn y scoreFn",
+            );
+          }
+          result = createPodsByProgress({
+            students: presentStudents,
+            presentCount: presentStudents.length,
+            robotCount,
+            progressFn,
+            scoreFn,
+            lockedStudentIds: state.lockedStudentIds,
+            currentPods: state.pods,
+          });
+        } else {
+          // "mixed" | "leveled"
+          if (!scoreFn) {
+            throw new Error(
+              "createOrRegroup: modos por nivel requieren scoreFn",
+            );
+          }
+          result = createPodsByLevel({
+            students: presentStudents,
+            presentCount: presentStudents.length,
+            robotCount,
+            mode,
+            scoreFn,
+            lockedStudentIds: state.lockedStudentIds,
+            currentPods: state.pods,
+          });
+        }
+
         set({
           pods: result.pods,
-          lockedStudentIds: [],
-          sortMode: "alphabetical",
-          currentSeed: result.seed,
-          currentClassId: classId,
-          lastInputs: { students, presentCount, robotCount },
+          sortMode: "grouped",
+          lastRobotCount: robotCount,
         });
-        return { pods: result.pods, seed: result.seed };
-      },
-      regroup: () => {
-        const { lastInputs } = get();
-        if (!lastInputs) return { ok: false, reason: "no-previous-inputs" };
-        const result = createPods({
-          students: lastInputs.students,
-          presentCount: lastInputs.presentCount,
-          robotCount: lastInputs.robotCount,
-        });
-        set({
-          pods: result.pods,
-          sortMode: "alphabetical",
-          currentSeed: result.seed,
-        });
-        return { ok: true, pods: result.pods, seed: result.seed };
       },
       resetPods: () => set({ ...INITIAL }),
       setSortMode: (mode) => set({ sortMode: mode }),
-      setCurrentEntryId: (id) => set({ currentEntryId: id }),
+      setLastRobotCount: (n) => set({ lastRobotCount: n }),
+      setPodEvaluation: (podId, rating) => {
+        set((state) => ({
+          pods: state.pods.map((p) =>
+            p.id === podId ? { ...p, evaluation: rating } : p,
+          ),
+        }));
+      },
       moveStudent: (studentId, toPodId) => {
         const result = moveStudentLogic(get().pods, studentId, toPodId);
         if (result.ok) set({ pods: result.pods });
@@ -151,26 +173,6 @@ export const usePodsStore = create<State & Actions>()(
           };
         });
       },
-      enterRegroupSelection: () => {
-        set((state) => ({
-          regroupSelecting: true,
-          sortModeBeforeSelection: state.sortMode,
-          sortMode: "grouped",
-        }));
-      },
-      exitRegroupSelection: () => {
-        set((state) => ({
-          regroupSelecting: false,
-          sortMode: state.sortModeBeforeSelection ?? state.sortMode,
-          sortModeBeforeSelection: null,
-        }));
-      },
-      clearAllLocks: () => {
-        set((state) => ({
-          lockedStudentIds: [],
-          pods: state.pods.map((p) => ({ ...p, isLocked: false })),
-        }));
-      },
       changeEmoji: (podId, emoji, emojiLabel) => {
         const result = changeEmojiLogic(get().pods, podId, emoji, emojiLabel);
         if (result.ok) set({ pods: result.pods });
@@ -188,9 +190,6 @@ export const usePodsStore = create<State & Actions>()(
         set({
           pods: newPods,
           sortMode: "grouped",
-          lastInputs: state.lastInputs
-            ? { ...state.lastInputs, robotCount: newPods.length }
-            : state.lastInputs,
         });
       },
       createPodAndAssignStudent: (student, emoji, emojiLabel) => {
@@ -210,46 +209,25 @@ export const usePodsStore = create<State & Actions>()(
           ...newPod,
           students: [{ id: student.id, full_name: student.full_name }],
         };
-        const newPods = [...cleanedPods, podWithStudent];
         set({
-          pods: newPods,
-          lastInputs: state.lastInputs
-            ? { ...state.lastInputs, robotCount: newPods.length }
-            : state.lastInputs,
+          pods: [...cleanedPods, podWithStudent],
         });
       },
     }),
     {
       name: "c360-pods-state",
-      version: 5,
+      version: 6,
       skipHydration: true,
-      partialize: (state) => ({
-        pods: state.pods,
-        lockedStudentIds: state.lockedStudentIds,
-        currentSeed: state.currentSeed,
-        currentClassId: state.currentClassId,
-        lastInputs: state.lastInputs,
-        currentEntryId: state.currentEntryId,
+      partialize: (state): Pick<State, "pods" | "lastRobotCount"> => ({
+        // v5 spec: solo persistimos composicion (sin evaluation) y lastRobotCount.
+        pods: state.pods.map((p) => ({ ...p, evaluation: null as PodEvaluation })),
+        lastRobotCount: state.lastRobotCount,
       }),
       migrate: (persistedState, version) => {
-        const fresh = {
-          pods: [] as Pod[],
-          lockedStudentIds: [] as string[],
-          currentSeed: null,
-          currentClassId: null,
-          lastInputs: null,
-          currentEntryId: null,
-        };
-        if (version < 4) return fresh;
-        if (version < 5) {
-          const prev = (persistedState ?? fresh) as Partial<typeof fresh>;
-          return {
-            ...fresh,
-            ...prev,
-            lockedStudentIds: prev.lockedStudentIds ?? [],
-          };
-        }
-        return (persistedState ?? fresh) as typeof fresh;
+        // cualquier version < 6 se descarta porque el esquema cambio
+        // (Pod.isLocked -> Pod.evaluation, fuera history-driven keys).
+        if (version < 6) return { ...INITIAL };
+        return persistedState as State;
       },
     },
   ),

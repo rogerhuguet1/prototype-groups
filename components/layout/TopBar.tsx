@@ -1,25 +1,20 @@
 "use client";
 
 import { ClassSelector } from "./ClassSelector";
-import { PodRegroupButton } from "@/components/pods/PodRegroupButton";
 import { PodProjectionButton } from "@/components/pods/PodProjectionButton";
-import { PodCreateGroupsButton } from "@/components/pods/PodCreateGroupsButton";
 import { COURSE_LABEL, PROGRAM_LABEL } from "@/lib/data/units";
 import type { ClassRow } from "@/types/database";
-import type { Student } from "@/lib/pods/create-pods";
 
 type Props = {
   classes: ClassRow[];
   activeClassId: string | null;
   onSelectClass: (id: string) => void;
-  students: Student[];
 };
 
 export function TopBar({
   classes,
   activeClassId,
   onSelectClass,
-  students,
 }: Props) {
   return (
     <header className="bg-c360-bg border-b border-c360-divider">
@@ -48,8 +43,6 @@ export function TopBar({
         </div>
       </div>
       <div className="flex items-center justify-end gap-3 px-8 pb-4">
-        <PodCreateGroupsButton students={students} classId={activeClassId} />
-        <PodRegroupButton />
         <PodProjectionButton />
         <button
           type="button"
