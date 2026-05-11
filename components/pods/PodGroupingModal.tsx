@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -34,11 +34,17 @@ export function PodGroupingModal({ open, onClose, students }: Props) {
   );
   const [error, setError] = useState<string | null>(null);
 
+  // Reset only on the transition closed -> open. Avoid resetting when
+  // lastRobotCount or students.length change while the modal is open (those
+  // updates would otherwise overwrite values the user is editing).
+  const wasOpenRef = useRef(open);
   useEffect(() => {
-    if (!open) return;
-    setPresentCount(students.length);
-    setRobotCount(defaultRobotCount(students.length, lastRobotCount));
-    setError(null);
+    if (open && !wasOpenRef.current) {
+      setPresentCount(students.length);
+      setRobotCount(defaultRobotCount(students.length, lastRobotCount));
+      setError(null);
+    }
+    wasOpenRef.current = open;
   }, [open, students.length, lastRobotCount]);
 
   const onConfirm = () => {

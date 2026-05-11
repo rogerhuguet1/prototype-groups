@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ArrowLeft, Shuffle, ChevronDown } from "lucide-react";
+import { ArrowLeft, Shuffle, ChevronDown, LayoutGrid } from "lucide-react";
 import { Button } from "../ui/Button";
 import { PodGroupingModal } from "./PodGroupingModal";
 import { PodRegroupModeDropdown } from "./PodRegroupModeDropdown";
@@ -29,6 +29,7 @@ export function PodMainButton({ students }: Props) {
   const setSortMode = usePodsStore((s) => s.setSortMode);
   const lastRobotCount = usePodsStore((s) => s.lastRobotCount);
   const createOrRegroup = usePodsStore((s) => s.createOrRegroup);
+  const hasPods = usePodsStore((s) => s.pods.length > 0);
 
   const [modalOpen, setModalOpen] = useState(false);
   const dropdownTriggerRef = useRef<HTMLButtonElement>(null);
@@ -37,10 +38,11 @@ export function PodMainButton({ students }: Props) {
 
   if (students.length === 0) return null;
 
+  // === Modo grouped: flecha back + dropdown Reagrupar ===
   if (sortMode === "grouped") {
     const onPickMode = (mode: GroupingMode) => {
       setDropdownRect(null);
-      const presentStudents = students.slice(0, students.length).map((s) => ({
+      const presentStudents = students.map((s) => ({
         id: s.id,
         full_name: s.full_name,
       }));
@@ -117,6 +119,41 @@ export function PodMainButton({ students }: Props) {
     );
   }
 
+  // === Modo alphabetical ===
+  if (hasPods) {
+    // Ya hay pods de una sesion previa o de una agrupacion anterior. No volvemos
+    // a preguntar; el profe pulsa 'Ver grupos' y entra directo. Aun asi dejamos
+    // un secundario 'Agrupar de nuevo' por si quiere cambiar counts.
+    return (
+      <>
+        <Button
+          variant="ghost"
+          onClick={() => setModalOpen(true)}
+          className="text-[11px] font-bold uppercase tracking-wider px-3 py-2"
+          title="Volver a agrupar cambiando alumnos o robots"
+        >
+          <Shuffle className="size-3.5" aria-hidden />
+          Agrupar de nuevo
+        </Button>
+        <Button
+          variant="secondary"
+          onClick={() => setSortMode("grouped")}
+          className="text-[11px] font-bold uppercase tracking-wider px-3 py-2"
+          title="Ver la vista por grupos"
+        >
+          <LayoutGrid className="size-3.5" aria-hidden />
+          Ver grupos
+        </Button>
+        <PodGroupingModal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          students={students}
+        />
+      </>
+    );
+  }
+
+  // Sin pods aun: primer agrupamiento via modal.
   return (
     <>
       <Button
