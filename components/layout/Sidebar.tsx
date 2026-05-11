@@ -29,12 +29,8 @@ export function Sidebar(_props: Props) {
   });
 
   return (
-    <aside className="w-56 shrink-0 bg-[#1f2937] text-slate-100 flex flex-col">
-      <div className="px-4 py-4 border-b border-white/10">
-        <p className="text-sm font-bold tracking-wider text-white">ROBOTIX</p>
-      </div>
-
-      <nav className="flex-1 overflow-y-auto py-2">
+    <aside className="w-60 shrink-0 bg-c360-bg-muted text-c360-text border-r border-c360-divider flex flex-col">
+      <nav className="flex-1 overflow-y-auto py-4">
         {COURSES.map((label) => (
           <CourseSection
             key={label}
@@ -63,16 +59,16 @@ function CourseSection({
   onToggle: () => void;
 }) {
   return (
-    <div>
+    <div className="mb-1">
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center gap-1 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white/90 hover:text-white"
+        className="w-full flex items-center gap-1.5 px-4 py-2 text-base font-bold text-c360-text hover:bg-c360-blue/5"
       >
         {expanded ? (
-          <ChevronDown className="size-3" aria-hidden />
+          <ChevronDown className="size-4" aria-hidden />
         ) : (
-          <ChevronRight className="size-3" aria-hidden />
+          <ChevronRight className="size-4" aria-hidden />
         )}
         <span>{label}</span>
       </button>
@@ -86,12 +82,19 @@ function CourseSection({
                   href="#"
                   onClick={(e) => e.preventDefault()}
                   className={cn(
-                    "flex items-center px-6 py-1.5 text-[12px]",
+                    "flex items-center gap-3 pl-8 pr-4 py-2.5 text-[15px] min-h-10",
                     isActive
-                      ? "bg-cyan-300/90 text-slate-900 font-semibold"
-                      : "text-slate-300 hover:text-white hover:bg-white/5",
+                      ? "font-bold text-c360-blue"
+                      : "font-medium text-c360-text hover:bg-c360-blue/5",
                   )}
                 >
+                  <span
+                    className={cn(
+                      "inline-block size-2 rounded-full",
+                      isActive ? "bg-c360-blue" : "bg-c360-text-disabled/60",
+                    )}
+                    aria-hidden
+                  />
                   {subLabel}
                 </a>
               </li>

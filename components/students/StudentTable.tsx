@@ -114,7 +114,7 @@ function TableHeader() {
         <th
           rowSpan={2}
           scope="col"
-          className="text-left font-bold text-[11px] text-slate-700 px-3 py-2 sticky left-0 z-20 bg-[#e8eef1] border-b border-slate-300 align-middle min-w-[240px]"
+          className="text-left font-bold text-sm text-white px-4 py-3 sticky left-0 z-20 bg-c360-blue align-middle min-w-[240px] border-b-2 border-white"
         >
           Alumno
         </th>
@@ -123,12 +123,12 @@ function TableHeader() {
             key={unit.number}
             colSpan={unit.activities.length}
             scope="colgroup"
-            className="text-center font-semibold text-slate-700 px-2 py-2 bg-[#e8eef1] border-l border-slate-300 border-b border-slate-300"
+            className="text-center font-bold text-white px-2 py-3 bg-c360-blue border-r-2 border-white"
           >
-            <div className="text-[10px] leading-tight font-semibold text-slate-700">
+            <div className="text-[13px] leading-tight font-bold text-white">
               {unit.code} - Unidad {unit.number}:
             </div>
-            <div className="text-[10px] leading-tight text-slate-700">
+            <div className="text-[13px] leading-tight font-bold text-white">
               {unit.title}
             </div>
           </th>
@@ -141,12 +141,18 @@ function TableHeader() {
             <th
               key={c.activity.key}
               scope="col"
-              className={`align-bottom text-left font-normal text-slate-600 px-0 py-1 bg-[#f0f4f6] border-b border-slate-300 ${
-                isUnitStart ? "border-l border-slate-300" : ""
+              className={`align-bottom text-center font-medium text-c360-text px-1 py-2 bg-white border-b border-c360-divider border-l ${
+                isUnitStart ? "border-l-c360-border" : "border-l-c360-divider"
               }`}
-              style={{ minWidth: 36, height: 92 }}
+              style={{ minWidth: 36, minHeight: 160 }}
             >
-              <div className="origin-bottom-left rotate-[-55deg] translate-x-[18px] -translate-y-1 whitespace-nowrap text-[10px] text-slate-600">
+              <div
+                className="mx-auto whitespace-nowrap text-[13px] font-medium text-c360-text"
+                style={{
+                  writingMode: "vertical-rl",
+                  transform: "rotate(180deg)",
+                }}
+              >
                 {c.activity.label}
               </div>
             </th>

@@ -1395,5 +1395,112 @@ npm run dev       # http://localhost:3001 (o 3000 si está libre)
 
 ---
 
-*SUPERPROMPT.md v4.1 (apéndice §15 mayo 2026, iteración del 2026-05-08) — Prototipo de Agrupación por Grupos (C360 / ROBOTIX). Estado real tras la jornada de bloqueos persistentes y modelo unificado.*
+## 16. Estado actual (mayo 2026, iteración 2026-05-11)
+
+> Apéndice operativo. Recoge los cambios de la jornada del 11 de mayo: aplicación completa del design system C360 sobre el layout existente, reorganización de la documentación de skills y desacoplo total del DnD respecto al modo Reagrupar. Reemplaza §13.10 y §14.6 donde haya divergencia visual.
+
+### 16.1 Design system C360 aplicado pixel-por-pixel
+
+Hasta v4.1 los tokens vivían como `brand-*` (azules genéricos de Tailwind) y los semáforos como `bg-red-500`/`bg-green-600`. Esta iteración aplica los tokens definitivos del C360 SuperNova Yellow en `app/globals.css` dentro de `@theme`:
+
+**Tokens de marca (`c360-*`)**:
+- `c360-blue` `#1B6FB8`, `c360-blue-dark` `#155A95`, `c360-blue-light` `#2E86C1`
+- `c360-bg` `#FFFFFF`, `c360-bg-muted` `#F7F8FA`, `c360-surface` `#FFFFFF`
+- `c360-divider` `#E5E7EB`, `c360-border` `#D1D5DB`
+- `c360-text` `#1F2937`, `c360-text-muted` `#6B7280`, `c360-text-link` `#1B6FB8`, `c360-text-disabled` `#9CA3AF`
+
+**Tokens semáforo (`grade-*`)** — sustituyen a los `red-500/orange-500/yellow-400/lime-500/green-600` antiguos:
+- `grade-fail` `#D32F2F` (insuficiente)
+- `grade-pass` `#F57C00` (suficiente)
+- `grade-good` `#C8E6C9` (bien, texto oscuro)
+- `grade-great` `#66BB6A` (notable)
+- `grade-excellent` `#2E7D32` (excelente)
+- `grade-completed` `#E5E7EB`, `grade-empty` `#F3F4F6`
+
+**`font-sans`** ahora forzado a `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif` desde el `@theme` y aplicado a `html, body`.
+
+### 16.2 Cambios de layout (chrome de la app)
+
+| Capa | v4.1 | v4.2 (actual) |
+|---|---|---|
+| Cabecera superior | n/a — la marca ROBOTIX vivía dentro de la sidebar oscura | **Nueva header bar `h-14` full-width**: `bg-c360-blue` con `ROBOTIX` izquierda + `CircleUser` (`lucide-react`) derecha. 56px de alto, separa visualmente shell de contenido. |
+| Sidebar | `w-56 bg-[#1f2937]` (oscura) + ítem activo `bg-cyan-300/90` | `w-60 bg-c360-bg-muted` (clara) `border-r border-c360-divider`. Ítem activo: texto `c360-blue` bold + bullet azul `size-2 rounded-full`. Tipografía `text-[15px]` con `min-h-10` para acomodar el touch target. |
+| TopBar (h1) | `text-[22px] text-[#0f4c5c]` con "Mi alumnado: " en negrita parcial | `text-[28px] tracking-tight text-c360-text` único bloque. Acciones bajan a una **segunda fila** propia con `justify-end`, separadas con `pb-4`. |
+| TopBar (descargar) | Botón teal `bg-[#0e7c66]` rectangular | Botón píldora `bg-c360-blue` UPPERCASE `rounded-full` (matchea el primario). |
+| Padding del main | `px-6` | `px-8` (múltiplos de 4) |
+
+`AppShell.tsx` se reestructuró como `<div column>` → `<header h-14>` + `<div row flex-1>` (sidebar + main).
+
+### 16.3 Cambios en componentes
+
+- **`Button` (`components/ui/Button.tsx`)** — variantes:
+  - `primary`: `bg-c360-blue` `uppercase tracking-wider` `rounded-full` con `font-bold`.
+  - `secondary`: `bg-white text-c360-blue border-[1.5px] border-c360-blue` con hover invertido a azul sólido.
+  - `danger`: `bg-grade-fail` (antes `rose-600`).
+  - `ghost`: `text-c360-text` con hover `c360-blue/5`.
+  - Tamaños: `sm` `px-4 py-1.5`, `md` `px-6 py-2.5`. Forma global `rounded-full font-bold`.
+
+- **`ScoreLegend`** — chips antes coloreados al fondo con texto pequeño dentro pasan a **chip color + texto al lado**: `inline-flex items-center gap-2`, cuadrado `size-4 rounded-[3px]` con el `bg` del semáforo + label `text-[13px] text-c360-text`. Gap entre items 24px (`gap-6`). Padding `px-8`.
+
+- **`StudentTable` (`TableHeader`)**:
+  - Header nivel 1 (Alumno + Unidades): fondo `bg-c360-blue`, texto **blanco bold** `text-sm`/`text-[13px]`. Separadores entre unidades `border-r-2 border-white`.
+  - Header nivel 2 (actividades): texto rotado **perpendicular** con `writing-mode: vertical-rl` + `transform: rotate(180deg)` (en vez del `rotate(-55deg)` anterior). `minHeight: 160px`, `minWidth: 36`. Sin máximo de ancho → crece con etiquetas largas.
+  - Separadores: `border-l border-c360-divider` por defecto, `border-l-c360-border` en el inicio de cada unidad.
+
+- **`StudentRow`** — celdas de actividad ahora siempre con `border-l`; color `c360-border` en el inicio de unidad, `c360-divider` en el resto.
+
+- **`StudentRowDraggable`** — **revierte el `disabled` de `useDraggable`**. El DnD ya **no se desactiva durante `regroupSelecting`** (era una regresión contra §10 de SKILLS_PROTOTYPE_GROUPS — el handle quedaba inutilizable en modo selección). El handle siempre arrastra; los candados y el banner conviven con el DnD activo.
+
+- **`progress-cells.ts`** — `BAND_STYLES` reescrito para usar `bg-grade-*` y `text-c360-text` (en `bien`). Sin cambios de lógica.
+
+### 16.4 Reorganización de docs / skills
+
+- **`SKILLS.md`** (369 líneas, obsoleto) → **eliminado**.
+- **`SKILLS_PROTOTYPE_GROUPS.md`** — nuevo manual de convenciones consolidado del proyecto (este archivo es el que se auto-carga). Cubre §1 rol, §5 reglas duras, §6 estilo C360, §7 lógica PODs, §8 Supabase, §9 React/Next, §10 DnD, §11 workflow, §12 QA, §13 comunicación, §14 antipatrones, §15 estado.
+- **`CLAUDE.md`** — archivo de proyecto que importa skills:
+  - Auto-carga `@SKILLS_PROTOTYPE_GROUPS.md` (siempre necesario).
+  - **NO auto-carga `@SUPERPROMPT.md`** — ~1400 líneas saturaban el contexto. Se lee bajo demanda con `Read` cuando se necesita consultar §12-§16.
+- **`.claude/skills/c360-design-system/SKILL.md`** — skill detallada del design system C360 (tokens CSS completos, dimensiones de tabla, ⚠️ marks). Cargable bajo demanda vía Skill tool. Reemplaza el antiguo `SKILL (1).md` huérfano en la raíz.
+
+### 16.5 Archivos tocados en esta iteración
+
+```
+M  app/globals.css                              ← tokens c360-* y grade-* en @theme + font-sans
+M  components/layout/AppShell.tsx               ← header azul 56px + reestructura column/row
+M  components/layout/Sidebar.tsx                ← sidebar clara w-60 + bullet azul en ítem activo
+M  components/layout/TopBar.tsx                 ← h1 nuevo + acciones en 2ª fila + botón pildora
+M  components/students/ScoreLegend.tsx          ← chips color+texto, gap-6, padding px-8
+M  components/students/StudentRow.tsx           ← borders c360-divider/c360-border
+M  components/students/StudentRowDraggable.tsx  ← DnD ya no se desactiva en regroupSelecting
+M  components/students/StudentTable.tsx         ← headers azules, actividades writing-mode vertical-rl
+M  components/ui/Button.tsx                     ← variantes c360 pildora UPPERCASE
+M  lib/utils/progress-cells.ts                  ← BAND_STYLES usa tokens grade-*
+
+D  SKILLS.md                                    ← reemplazado por SKILLS_PROTOTYPE_GROUPS.md
+A  SKILLS_PROTOTYPE_GROUPS.md                   ← manual de convenciones consolidado
+A  CLAUDE.md                                    ← import @SKILLS_PROTOTYPE_GROUPS.md (sin SUPERPROMPT)
+A  .claude/skills/c360-design-system/SKILL.md   ← skill design system, cargable bajo demanda
+```
+
+### 16.6 Verificación
+
+- `npm run typecheck` → 0 errores.
+- `npm test` → 77/77 verde (sin cambios en `lib/pods/*`).
+- `npm run dev` → carga limpia, header azul visible, sidebar clara, leyenda con chips, tabla con headers azules y actividades verticales. DnD funcional en modo selección.
+
+### 16.7 Lecciones
+
+1. **DnD ≠ modo UI**. El profesor debe poder arrastrar incluso durante el modo selección de Reagrupar. El `disabled: regroupSelecting` que se había metido en `useDraggable` era una regresión contra §10 de las reglas duras. Eliminado.
+2. **Auto-cargar el SUPERPROMPT en cada turno tiene coste**. Pasar de @SUPERPROMPT.md auto-import a Read bajo demanda libera ~1400 líneas de contexto por mensaje. SKILLS_PROTOTYPE_GROUPS.md mantiene las convenciones operativas (~700 líneas).
+3. **Los tokens de paleta deben ser semánticos**. Migrar `red-500`/`green-600` → `grade-fail`/`grade-excellent` permite cambiar la identidad C360 sin tocar componentes.
+
+### 16.8 Pendientes / gaps
+
+- `svelte/` directory en la raíz (untracked, solo `node_modules` + `package-lock.json`). Probablemente debe ir a `.gitignore` o eliminarse.
+- `robotix pfp.webp` (untracked). Asset huérfano sin uso confirmado.
+- Modos por nivel de Reagrupar siguen ignorando bloqueos (gap heredado de §15.11).
+
+---
+
+*SUPERPROMPT.md v4.2 (apéndice §16 mayo 2026, iteración del 2026-05-11) — Prototipo de Agrupación por Grupos (C360 / ROBOTIX). Estado real tras aplicar el design system C360 al chrome completo + reorganizar docs de skills.*
 ````

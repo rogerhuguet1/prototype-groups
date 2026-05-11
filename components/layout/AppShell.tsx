@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { CircleUser } from "lucide-react";
 import { useClasses } from "@/hooks/useClasses";
 import { useStudents } from "@/hooks/useStudents";
 import { Sidebar } from "./Sidebar";
@@ -27,41 +28,47 @@ export function AppShell() {
   const students = studentsQuery.data ?? [];
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar
-        classes={classes}
-        activeClassId={classId}
-        onSelectClass={setClassId}
-      />
-      <main className="flex-1 flex flex-col min-w-0 bg-white">
-        <PodRegroupSelectionBanner />
-        <TopBar
+    <div className="min-h-screen flex flex-col bg-c360-bg">
+      <header className="h-14 shrink-0 bg-c360-blue flex items-center justify-between px-4 text-white">
+        <p className="text-base font-bold tracking-wide">ROBOTIX</p>
+        <CircleUser className="size-7" aria-hidden />
+      </header>
+      <div className="flex flex-1 min-h-0">
+        <Sidebar
           classes={classes}
           activeClassId={classId}
           onSelectClass={setClassId}
-          students={students}
         />
-        <ScoreLegend updatedAt="6/05/2026 12:00" />
-        <PodControls />
-        <section className="flex-1 overflow-auto">
-          {classesQuery.isLoading ? (
-            <div className="px-6 py-4 text-slate-500 text-sm">
-              Cargando cursos…
-            </div>
-          ) : studentsQuery.isLoading ? (
-            <div className="px-6 py-4 text-slate-500 text-sm">
-              Cargando alumnos…
-            </div>
-          ) : studentsQuery.error ? (
-            <div className="m-6 rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-              Error al cargar alumnos:{" "}
-              {(studentsQuery.error as Error).message}
-            </div>
-          ) : (
-            <StudentTable students={students} />
-          )}
-        </section>
-      </main>
+        <main className="flex-1 flex flex-col min-w-0 bg-c360-bg">
+          <PodRegroupSelectionBanner />
+          <TopBar
+            classes={classes}
+            activeClassId={classId}
+            onSelectClass={setClassId}
+            students={students}
+          />
+          <ScoreLegend updatedAt="6/05/2026 12:00" />
+          <PodControls />
+          <section className="flex-1 overflow-auto">
+            {classesQuery.isLoading ? (
+              <div className="px-8 py-4 text-c360-text-muted text-sm">
+                Cargando cursos…
+              </div>
+            ) : studentsQuery.isLoading ? (
+              <div className="px-8 py-4 text-c360-text-muted text-sm">
+                Cargando alumnos…
+              </div>
+            ) : studentsQuery.error ? (
+              <div className="m-8 rounded-md border border-grade-fail/40 bg-grade-fail/10 p-4 text-sm text-grade-fail">
+                Error al cargar alumnos:{" "}
+                {(studentsQuery.error as Error).message}
+              </div>
+            ) : (
+              <StudentTable students={students} />
+            )}
+          </section>
+        </main>
+      </div>
     </div>
   );
 }

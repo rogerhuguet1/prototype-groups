@@ -12,21 +12,24 @@ const ITEMS = [
 
 export function ScoreLegend({ updatedAt }: { updatedAt: string }) {
   return (
-    <div className="bg-white">
-      <div className="px-6 pb-2">
-        <ul className="flex flex-wrap items-center gap-1.5">
+    <div className="bg-c360-bg">
+      <div className="px-8 pb-2">
+        <ul className="flex flex-wrap items-center gap-6">
           {ITEMS.map((item) => {
             if ("band" in item) {
               const styles = BAND_STYLES[item.band];
               return (
                 <li
                   key={item.key}
-                  className={cn(
-                    "inline-flex items-center px-2 py-[3px] rounded text-[10px] font-semibold leading-none",
-                    styles.bg,
-                    styles.text,
-                  )}
+                  className="inline-flex items-center gap-2 text-[13px] font-medium text-c360-text"
                 >
+                  <span
+                    className={cn(
+                      "inline-block size-4 rounded-[3px]",
+                      styles.bg,
+                    )}
+                    aria-hidden
+                  />
                   {BAND_LABELS[item.band]}
                 </li>
               );
@@ -34,16 +37,20 @@ export function ScoreLegend({ updatedAt }: { updatedAt: string }) {
             return (
               <li
                 key={item.key}
-                className="inline-flex items-center px-2 py-[3px] rounded text-[10px] font-semibold leading-none bg-slate-300 text-slate-700"
+                className="inline-flex items-center gap-2 text-[13px] font-medium text-c360-text"
               >
+                <span
+                  className="inline-block size-4 rounded-[3px] bg-grade-completed"
+                  aria-hidden
+                />
                 {item.label}
               </li>
             );
           })}
         </ul>
       </div>
-      <div className="px-6 pb-3">
-        <p className="text-[10px] italic text-slate-500">
+      <div className="px-8 pb-4">
+        <p className="text-xs italic text-c360-text-muted">
           Última actualización {updatedAt}. Próximas actualizaciones de la
           tabla los domingos a las 23:59.
         </p>

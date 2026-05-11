@@ -105,8 +105,8 @@ export function StudentRow({
           <td
             key={c.activity.key}
             className={cn(
-              "px-1 py-1 text-center border-b border-slate-200",
-              isUnitStart && "border-l border-slate-200",
+              "px-1 py-1 text-center border-b border-c360-divider border-l",
+              isUnitStart ? "border-l-c360-border" : "border-l-c360-divider",
             )}
           >
             <ProgressCellView cell={cell} />

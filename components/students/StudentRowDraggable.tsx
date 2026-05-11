@@ -30,11 +30,8 @@ export function StudentRowDraggable({
   const toggleStudentLock = usePodsStore((s) => s.toggleStudentLock);
   const regroupSelecting = usePodsStore((s) => s.regroupSelecting);
 
-  const dndDisabled = regroupSelecting;
-
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `student:${student.id}`,
-    disabled: dndDisabled,
     data: {
       type: "student",
       studentId: student.id,
@@ -72,13 +69,10 @@ export function StudentRowDraggable({
         <span className="inline-flex items-center gap-0.5">
           {lockButton}
           <DragHandle
-            disabled={dndDisabled}
             label={
-              dndDisabled
-                ? `${student.full_name} no se puede arrastrar ahora`
-                : pod
-                  ? `Arrastrar a otro grupo: ${student.full_name}`
-                  : `Arrastrar a un grupo: ${student.full_name}`
+              pod
+                ? `Arrastrar a otro grupo: ${student.full_name}`
+                : `Arrastrar a un grupo: ${student.full_name}`
             }
             {...attributes}
             {...listeners}
