@@ -11,7 +11,6 @@ import {
   getStudentProgress,
   getStudentScore,
 } from "@/lib/pods/student-score";
-import { MAX_PODS } from "@/lib/pods/pod-emojis";
 import type { Student } from "@/lib/pods/create-pods";
 import type { GroupingMode } from "@/lib/pods/grouping-schema";
 
@@ -19,17 +18,12 @@ type Props = {
   students: Student[];
 };
 
-function defaultRobotCount(presentCount: number, last: number | null): number {
-  if (last !== null && last >= 1 && last <= MAX_PODS) return last;
-  return Math.min(MAX_PODS, Math.max(1, Math.ceil(presentCount / 4)));
-}
-
 export function PodMainButton({ students }: Props) {
   const sortMode = usePodsStore((s) => s.sortMode);
   const setSortMode = usePodsStore((s) => s.setSortMode);
-  const lastRobotCount = usePodsStore((s) => s.lastRobotCount);
   const createOrRegroup = usePodsStore((s) => s.createOrRegroup);
-  const hasPods = usePodsStore((s) => s.pods.length > 0);
+  const podCount = usePodsStore((s) => s.pods.length);
+  const hasPods = podCount > 0;
 
   const [modalOpen, setModalOpen] = useState(false);
   const dropdownTriggerRef = useRef<HTMLButtonElement>(null);
@@ -46,7 +40,9 @@ export function PodMainButton({ students }: Props) {
         id: s.id,
         full_name: s.full_name,
       }));
-      const robotCount = defaultRobotCount(students.length, lastRobotCount);
+      // Mantener el numero de grupos actual al reagrupar. Si el profe puso 10
+      // robots al crear, sigue habiendo 10 grupos en cada reagrupacion.
+      const robotCount = podCount;
       try {
         const args: Parameters<typeof createOrRegroup>[0] = {
           mode,
@@ -121,35 +117,20 @@ export function PodMainButton({ students }: Props) {
 
   // === Modo alphabetical ===
   if (hasPods) {
-    // Ya hay pods de una sesion previa o de una agrupacion anterior. No volvemos
-    // a preguntar; el profe pulsa 'Ver grupos' y entra directo. Aun asi dejamos
-    // un secundario 'Agrupar de nuevo' por si quiere cambiar counts.
+    // Ya hay pods (sesion anterior o tras volver desde grouped). Un solo boton
+    // 'Ver grupos' que cambia a grouped sin re-preguntar. El profe no quiere
+    // que se le pregunte de nuevo: si necesita modificar counts, recarga la
+    // pagina o resetea.
     return (
-      <>
-        <Button
-          variant="ghost"
-          onClick={() => setModalOpen(true)}
-          className="text-[11px] font-bold uppercase tracking-wider px-3 py-2"
-          title="Volver a agrupar cambiando alumnos o robots"
-        >
-          <Shuffle className="size-3.5" aria-hidden />
-          Agrupar de nuevo
-        </Button>
-        <Button
-          variant="secondary"
-          onClick={() => setSortMode("grouped")}
-          className="text-[11px] font-bold uppercase tracking-wider px-3 py-2"
-          title="Ver la vista por grupos"
-        >
-          <LayoutGrid className="size-3.5" aria-hidden />
-          Ver grupos
-        </Button>
-        <PodGroupingModal
-          open={modalOpen}
-          onClose={() => setModalOpen(false)}
-          students={students}
-        />
-      </>
+      <Button
+        variant="secondary"
+        onClick={() => setSortMode("grouped")}
+        className="text-[11px] font-bold uppercase tracking-wider px-3 py-2"
+        title="Ver la vista por grupos"
+      >
+        <LayoutGrid className="size-3.5" aria-hidden />
+        Ver grupos
+      </Button>
     );
   }
 

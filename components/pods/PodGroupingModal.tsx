@@ -13,8 +13,7 @@ import {
 import { MAX_PODS } from "@/lib/pods/pod-emojis";
 import { groupingSchema } from "@/lib/pods/grouping-schema";
 
-function defaultRobotCount(presentCount: number, last: number | null): number {
-  if (last !== null && last >= 1 && last <= MAX_PODS) return last;
+function suggestedRobotCount(presentCount: number): number {
   return Math.min(MAX_PODS, Math.max(1, Math.ceil(presentCount / 4)));
 }
 
@@ -25,27 +24,27 @@ type Props = {
 };
 
 export function PodGroupingModal({ open, onClose, students }: Props) {
-  const lastRobotCount = usePodsStore((s) => s.lastRobotCount);
   const createOrRegroup = usePodsStore((s) => s.createOrRegroup);
 
   const [presentCount, setPresentCount] = useState<number>(students.length);
   const [robotCount, setRobotCount] = useState<number>(
-    defaultRobotCount(students.length, lastRobotCount),
+    suggestedRobotCount(students.length),
   );
   const [error, setError] = useState<string | null>(null);
 
-  // Reset only on the transition closed -> open. Avoid resetting when
-  // lastRobotCount or students.length change while the modal is open (those
-  // updates would otherwise overwrite values the user is editing).
+  // Reset only on the transition closed -> open. The defaults are derived from
+  // students.length only; lastRobotCount is irrelevant here because the modal
+  // is only shown on the first time (sin pods). Reagrupaciones posteriores no
+  // pasan por aqui.
   const wasOpenRef = useRef(open);
   useEffect(() => {
     if (open && !wasOpenRef.current) {
       setPresentCount(students.length);
-      setRobotCount(defaultRobotCount(students.length, lastRobotCount));
+      setRobotCount(suggestedRobotCount(students.length));
       setError(null);
     }
     wasOpenRef.current = open;
-  }, [open, students.length, lastRobotCount]);
+  }, [open, students.length]);
 
   const onConfirm = () => {
     const parsed = groupingSchema.safeParse({
@@ -75,14 +74,13 @@ export function PodGroupingModal({ open, onClose, students }: Props) {
       open={open}
       onClose={onClose}
       title="Agrupar"
-      description={`Cada grupo tendrá entre ${DEFAULT_MIN_PER_POD} y ${DEFAULT_MAX_PER_POD} alumnos. Después podrás reagrupar con otros criterios.`}
+      description={`Cada grupo tendrá entre ${DEFAULT_MIN_PER_POD} y ${DEFAULT_MAX_PER_POD} alumnos.`}
     >
       <div className="space-y-4">
         <Input
           label="Alumnos presentes hoy"
           type="number"
           min={1}
-          max={students.length}
           value={presentCount}
           onChange={(e) => {
             const n = Number(e.target.value);
@@ -94,7 +92,6 @@ export function PodGroupingModal({ open, onClose, students }: Props) {
           label="Robots disponibles"
           type="number"
           min={1}
-          max={MAX_PODS}
           value={robotCount}
           onChange={(e) => {
             const n = Number(e.target.value);
