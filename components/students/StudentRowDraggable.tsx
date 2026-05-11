@@ -1,8 +1,11 @@
 "use client";
 
 import { useDraggable } from "@dnd-kit/core";
+import { Lock, Unlock } from "lucide-react";
 import { StudentRow } from "./StudentRow";
 import { DragHandle } from "./DragHandle";
+import { usePodsStore } from "@/store/pods-store";
+import { cn } from "@/lib/utils/cn";
 import type { Pod } from "@/lib/pods/create-pods";
 import type { StudentRow as StudentRowType } from "@/types/database";
 import type { FlatColumn } from "@/lib/data/units";
@@ -22,6 +25,11 @@ export function StudentRowDraggable({
   pod,
   onRemoveFromPod,
 }: Props) {
+  const isLocked = usePodsStore((s) =>
+    s.lockedStudentIds.includes(student.id),
+  );
+  const toggleStudentLock = usePodsStore((s) => s.toggleStudentLock);
+
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `student:${student.id}`,
     data: {
@@ -42,15 +50,46 @@ export function StudentRowDraggable({
       isDragging={isDragging}
       onRemoveFromPod={onRemoveFromPod}
       dragHandle={
-        <DragHandle
-          label={
-            pod
-              ? `Arrastrar a otro grupo: ${student.full_name}`
-              : `Arrastrar a un grupo: ${student.full_name}`
-          }
-          {...attributes}
-          {...listeners}
-        />
+        <span className="inline-flex items-center gap-0.5">
+          {pod && (
+            <button
+              type="button"
+              onClick={() => toggleStudentLock(student.id)}
+              title={
+                isLocked
+                  ? `Desbloquear a ${student.full_name}`
+                  : `Bloquear a ${student.full_name} para que no se reagrupe`
+              }
+              aria-label={
+                isLocked
+                  ? `Desbloquear a ${student.full_name}`
+                  : `Bloquear a ${student.full_name}`
+              }
+              aria-pressed={isLocked}
+              className={cn(
+                "size-6 inline-flex items-center justify-center rounded focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors",
+                isLocked
+                  ? "text-amber-700 bg-amber-100 hover:bg-amber-200"
+                  : "text-slate-400 hover:bg-slate-100 hover:text-slate-700",
+              )}
+            >
+              {isLocked ? (
+                <Lock className="size-3.5" aria-hidden />
+              ) : (
+                <Unlock className="size-3.5" aria-hidden />
+              )}
+            </button>
+          )}
+          <DragHandle
+            label={
+              pod
+                ? `Arrastrar a otro grupo: ${student.full_name}`
+                : `Arrastrar a un grupo: ${student.full_name}`
+            }
+            {...attributes}
+            {...listeners}
+          />
+        </span>
       }
     />
   );

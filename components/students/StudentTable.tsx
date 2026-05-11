@@ -22,6 +22,7 @@ import { Plus } from "lucide-react";
 import { PodBadge } from "@/components/pods/PodBadge";
 import { PodDroppableTbody } from "@/components/pods/PodDroppableTbody";
 import { PodHeaderTrigger } from "@/components/pods/PodHeaderTrigger";
+import { PodEvaluationRadio } from "@/components/pods/PodEvaluationRadio";
 import { MOVE_ERROR_MESSAGES } from "@/lib/pods/move-student";
 import { MAX_PODS } from "@/lib/pods/pod-emojis";
 import type { StudentRow as StudentRowType } from "@/types/database";
@@ -362,6 +363,7 @@ function PodSectionHeaderRow({ pod }: { pod: Pod }) {
           style={{ backgroundColor: `${pod.color.hex}1a` }}
         >
           <PodHeaderTrigger pod={pod} />
+          <PodEvaluationRadio podId={pod.id} current={pod.evaluation} />
           <span className="text-xs font-semibold text-slate-700">
             {pod.students.length} de {pod.maxCapacity} alumnos
           </span>
