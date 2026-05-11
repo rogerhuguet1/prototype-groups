@@ -77,23 +77,26 @@ Publishable/anon key, pública por diseño (RLS protege los datos).
 
 ## 5. Comportamiento detallado (v5)
 
-### 5.1 Carga inicial
+### 5.1 Carga inicial y barra de acciones
 
-- **Sin pods persistidos**: vista alfabética sin badges. Botón "Reagrupar" arriba a la derecha.
-- **Con pods persistidos**: vista alfabética con badges informativos en cada fila (a qué grupo pertenecía). Botón "Reagrupar" disponible.
+`PodMainButton` tiene tres estados según `pods.length` y `sortMode`:
 
-En ambos casos `lockedStudentIds=[]`, cada `pod.evaluation = null` y `sortMode = 'alphabetical'` (no se persisten).
+| Estado | Botón(es) | Acción |
+|---|---|---|
+| `pods.length === 0` + `alphabetical` | 1 botón **"Agrupar"** (Shuffle) | Abre `PodGroupingModal` (única vez en que aparece el modal). |
+| `pods.length > 0` + `alphabetical` | 1 botón **"Ver grupos"** (LayoutGrid) | `setSortMode('grouped')`. **Sin modal, sin preguntas.** |
+| `sortMode === 'grouped'` | Flecha back (`ArrowLeft`) + **"Reagrupar ▼"** (Shuffle + ChevronDown) | Flecha vuelve a alphabetical. Dropdown ofrece 4 modos. |
 
-### 5.2 Botón "Agrupar" (modo alphabetical)
+Al cargar la página, `sortMode='alphabetical'`, `lockedStudentIds=[]` y todos los `pod.evaluation = null` (no se persisten). Solo persisten `pods` (composición) y `lastRobotCount`.
 
-Pulsar abre `PodGroupingModal` simplificado:
+### 5.2 Botón "Agrupar" (única vez, sin pods)
+
+Solo se ofrece la primera vez. Pulsar abre `PodGroupingModal` simplificado:
 
 ```
 ┌─────────────────────────────────────────────┐
 │  Agrupar                                    │
 │  Cada grupo tendrá entre 2 y 4 alumnos.     │
-│  Después podrás reagrupar con otros         │
-│  criterios.                                 │
 │                                             │
 │  Alumnos presentes hoy: [30]                │
 │  Robots disponibles:    [8]                 │
@@ -104,7 +107,7 @@ Pulsar abre `PodGroupingModal` simplificado:
 
 - Solo dos campos. El modo es siempre **Aleatorio**.
 - **Alumnos presentes**: pre-rellenado con `students.length`. Editable [1..students.length] para excluir ausentes.
-- **Robots disponibles**: pre-rellenado con `lastRobotCount` si existe; si no, `Math.ceil(presentes/4)` acotado a [1, MAX_PODS=15].
+- **Robots disponibles**: pre-rellenado con `Math.ceil(presentes/4)`. Sin atributo `max` en el input (Zod valida hasta 15). El modal **no depende de `lastRobotCount`** (no aparece más después).
 
 Validación Zod (`lib/pods/grouping-schema.ts`):
 - Ambos enteros ≥ 1.
@@ -112,26 +115,29 @@ Validación Zod (`lib/pods/grouping-schema.ts`):
 - `robotCount ≤ presentCount`.
 - `presentCount ∈ [robotCount*2, robotCount*4]`. Si no: `"No se puede distribuir N alumnos en M grupos respetando min 2 y max 4."`
 
-Al confirmar:
-- **Sin pods previos** → `createPods` (random).
-- **Con pods** → `regroupWithLocks` (mantiene emojis/colores, respeta candados).
-- `sortMode` pasa a `'grouped'`, `lastRobotCount` se guarda.
+Al confirmar: `createPods` (random), `sortMode` pasa a `'grouped'`, `lastRobotCount` se guarda. Modal se cierra.
 
-### 5.3 Vista grouped: flecha back + dropdown "Reagrupar"
+Después de la primera agrupación el modal **no se vuelve a abrir**. Si el profe quiere otro número de grupos tiene que resetear (recargar la app sin localStorage, o eliminar manualmente la clave `c360-pods-state`).
 
-Sustituye al botón "Volver a lista" textual y al modal en este modo. Dos botones en la barra:
+### 5.3 Volver a vista alfabética (con pods)
 
-- **Flecha back** (icono `ArrowLeft`, sin texto): vuelve a vista alfabética. `setSortMode('alphabetical')`. No toca pods, candados, ni semáforos.
-- **"Reagrupar ▼"** (icono `Shuffle` + `ChevronDown`): abre `PodRegroupModeDropdown` con 4 modos. Click en un modo **ejecuta directamente** sin modal intermedio:
-  - **Aleatorio** → `regroupWithLocks` con `lastRobotCount` y `students.length` actuales.
+Botón **"Ver grupos"** (LayoutGrid) en alphabetical → `setSortMode('grouped')`. No abre modal, no recalcula, no pregunta. Mantiene los pods tal como estaban.
+
+### 5.4 Vista grouped: flecha back + dropdown "Reagrupar"
+
+- **Flecha back** (`ArrowLeft`, sin texto): vuelve a alfabética. `setSortMode('alphabetical')`. No toca pods, candados ni semáforos.
+- **"Reagrupar ▼"** (Shuffle + ChevronDown): abre `PodRegroupModeDropdown` con 4 modos. Click en un modo **ejecuta directamente** sin modal intermedio:
+  - **Aleatorio** → `regroupWithLocks`.
   - **Compensada / Por niveles** → `createPodsByLevel` con `getStudentScore`, locks y `currentPods`.
   - **Por avance** → `createPodsByProgress` con `getStudentOverallScore` + `getStudentProgress`, locks y `currentPods`.
+
+**Número de grupos invariante**: cualquier reagrupación desde grouped pasa `robotCount = pods.length` (el número actual). Si el profe creó 10 grupos, las reagrupaciones siempre mantienen 10. Lo que el profe puso al inicio se respeta.
 
 En todos los modos: `pod.evaluation` se reinicia a `null`, se mantienen candados individuales. Si un modo lanza error (capacidad imposible), aparece banner rojo fijo arriba a la derecha 4s.
 
 El profe puede reagrupar las veces que quiera desde grouped sin tener que volver a la lista.
 
-### 5.4 Vista grouped
+### 5.5 Estructura de la vista grouped (filas + cabeceras)
 
 Cada pod renderiza un `<tbody>` con cabecera:
 - Emoji + nombre del grupo editable (popover de emoji al click en el emoji vía `PodHeaderTrigger`).
@@ -145,14 +151,14 @@ Cada fila de alumno (`StudentRowDraggable`):
 
 Al final, un botón "Crear nuevo grupo" si `pods.length < 15`.
 
-### 5.5 Drag & drop
+### 5.6 Drag & drop
 
 - `DndContext` con `pointerWithin`, sensors `PointerSensor({distance: 4})` + `KeyboardSensor`.
 - Drop en pod lleno → ring rojo, banner `role="alert"` 2.5s con `MOVE_ERROR_MESSAGES.destination-pod-full`.
 - Drop en pod libre → animación de entrada, actualización inmediata.
 - Anuncios ARIA en castellano (announcements + screenReaderInstructions).
 
-### 5.6 Modo Proyección
+### 5.7 Modo Proyección
 
 `PodProjectionButton` abre `PodProjectionModal` a pantalla completa con cada pod como card grande (emoji + nombre del grupo + lista de alumnos). Sin cambios respecto a v4.
 
@@ -349,13 +355,13 @@ El prototipo v5 es correcto si:
 
 1. `/mi-alumnado` carga 30 alumnos reales desde Supabase mock (clase "2º Bachillerato A").
 2. Sin pods previos: vista alfabética sin badges, botón "Agrupar" visible.
-3. Con pods previos guardados: vista alfabética con badges, botón "Agrupar".
-4. Pulsar "Agrupar" abre modal simple (solo presentes + robots) con campos pre-rellenados. Modo siempre random implícito.
-5. Confirmar 24/6 → 6 grupos de 4, vista cambia automáticamente a grouped.
+3. Con pods previos guardados: vista alfabética con badges, botón **"Ver grupos"** (no "Agrupar"). Pulsar lleva a grouped sin pasar por modal.
+4. Pulsar "Agrupar" (sin pods) abre modal simple (solo presentes + robots) con campos pre-rellenados. Modo siempre random implícito.
+5. **Si pongo 10 robots, salen 10 grupos. Sin excepciones.** Confirmar 24/6 → 6 grupos de 4. Confirmar 30/10 → 10 grupos de 3.
 6. Confirmar 30/3 → error "No se puede distribuir 30 alumnos en 3 grupos respetando min 2 y max 4." dentro del modal, sin cerrarlo.
 7. Confirmar 18/9 → 9 grupos de 2 (caso mínimo permitido).
-8. En vista grouped, la barra superior muestra **flecha back** + botón **"Reagrupar ▼"**.
-9. Click en "Reagrupar ▼" abre dropdown con 4 modos; click en un modo ejecuta directamente sin modal intermedio.
+8. En vista grouped, la barra superior muestra **flecha back** (←) + botón **"Reagrupar ▼"**.
+9. Click en "Reagrupar ▼" abre dropdown con 4 modos; click en un modo ejecuta directamente sin modal intermedio. **El número de grupos no cambia** entre reagrupaciones (queda fijado al setup inicial).
 10. Reagrupar con modo Compensada/Por niveles/Por avance respeta candados individuales y resetea todos los semáforos a null.
 11. En cada cabecera de grupo: emoji + semáforo **🔴 🟡 🟢** (verde a la derecha) + contador. Seleccionado se ve a color pleno con fondo tintado; no seleccionado atenuado.
 12. Click en 🟢 selecciona; click otra vez deselecciona (vuelve a null).
@@ -363,9 +369,9 @@ El prototipo v5 es correcto si:
 14. Click en candado bloquea/desbloquea al alumno con feedback visual (amarillo).
 15. Arrastrar A→B (libre) → mueve y actualiza badge.
 16. Arrastrar a pod lleno → ring rojo + banner `role="alert"` 2.5s, no se mueve.
-17. Flecha back → vista alfabética con badges, pods siguen.
+17. Flecha back → vista alfabética con badges, pods siguen. Botón principal pasa a "Ver grupos".
 18. Botón Proyección abre vista a pantalla completa con card por grupo (emoji grande + nombre + alumnos).
-19. Cerrar pestaña + reabrir: pods persisten (sin evaluation), `lockedStudentIds=[]`, `sortMode='alphabetical'`, `evaluation=null` en todos los pods.
+19. Cerrar pestaña + reabrir: pods persisten (sin evaluation), `lockedStudentIds=[]`, `sortMode='alphabetical'`, `evaluation=null` en todos los pods. La barra muestra "Ver grupos" porque ya hay pods.
 
 ---
 
@@ -420,12 +426,29 @@ Prototipo **funcionalmente completo según spec v5**. Sirve en `localhost:3000/m
 ### 12.6 Historial de commits relevantes (refactor v5)
 
 ```
+1937a32 fix(ui): reagrupar mantiene num grupos del setup inicial, sin segundo modal
+b5c2dff fix(ui): no re-preguntar al volver a vista por grupos + reset robusto modal
+50b3290 fix(ui): modal simple, dropdown reagrupar en grouped, semaforo sin ring
+a601217 docs: actualizar SUPERPROMPT.md a v5
 2a691ed feat(ui): modal Agrupar con selector de modo, defaults min2 max4 y error duro
 46bfa64 feat(ui): candados siempre visibles, semaforo por grupo, icono dnd 6 puntos
 13b827f feat(ui): boton unico con doble funcion reagrupar/volver
 6ccdc98 refactor(store): unificar createOrRegroup, Pod.evaluation, persist v6
 1a56572 refactor: eliminar historial, evaluacion por sesion y candado de grupo
 ```
+
+### 12.7 Iteraciones de UX tras prueba manual
+
+Tres rondas de feedback redujeron complejidad de la barra y arreglaron un bug
+de número de grupos:
+
+1. **Modal con selector de 4 modos** (v5 inicial) → demasiada UI al inicio.
+2. **Modal simple (solo counts) + dropdown de modos en grouped**: el modal
+   solo pregunta presentes + robots; los modos de reagrupar viven en grouped.
+3. **Sin segundo modal + reagrupar invariante**: el modal solo aparece la
+   primera vez (sin pods). Después, alphabetical muestra solo "Ver grupos".
+   En grouped, las reagrupaciones usan `pods.length` como `robotCount` para
+   garantizar que el setup inicial del profe se respeta siempre.
 
 ### 12.7 Cómo arrancar la próxima sesión
 
