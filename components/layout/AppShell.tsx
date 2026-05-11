@@ -42,6 +42,7 @@ export function AppShell() {
             classes={classes}
             activeClassId={classId}
             onSelectClass={setClassId}
+            students={students}
           />
           <ScoreLegend updatedAt="6/05/2026 12:00" />
           <section className="flex-1 overflow-auto">
