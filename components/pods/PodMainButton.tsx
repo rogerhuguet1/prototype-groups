@@ -1,34 +1,119 @@
 "use client";
 
-import { useState } from "react";
-import { Shuffle, List } from "lucide-react";
+import { useRef, useState } from "react";
+import { ArrowLeft, Shuffle, ChevronDown } from "lucide-react";
 import { Button } from "../ui/Button";
 import { PodGroupingModal } from "./PodGroupingModal";
+import { PodRegroupModeDropdown } from "./PodRegroupModeDropdown";
 import { usePodsStore } from "@/store/pods-store";
+import {
+  getStudentOverallScore,
+  getStudentProgress,
+  getStudentScore,
+} from "@/lib/pods/student-score";
+import { MAX_PODS } from "@/lib/pods/pod-emojis";
 import type { Student } from "@/lib/pods/create-pods";
+import type { GroupingMode } from "@/lib/pods/grouping-schema";
 
 type Props = {
   students: Student[];
 };
 
+function defaultRobotCount(presentCount: number, last: number | null): number {
+  if (last !== null && last >= 1 && last <= MAX_PODS) return last;
+  return Math.min(MAX_PODS, Math.max(1, Math.ceil(presentCount / 4)));
+}
+
 export function PodMainButton({ students }: Props) {
   const sortMode = usePodsStore((s) => s.sortMode);
   const setSortMode = usePodsStore((s) => s.setSortMode);
+  const lastRobotCount = usePodsStore((s) => s.lastRobotCount);
+  const createOrRegroup = usePodsStore((s) => s.createOrRegroup);
+
   const [modalOpen, setModalOpen] = useState(false);
+  const dropdownTriggerRef = useRef<HTMLButtonElement>(null);
+  const [dropdownRect, setDropdownRect] = useState<DOMRect | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   if (students.length === 0) return null;
 
   if (sortMode === "grouped") {
+    const onPickMode = (mode: GroupingMode) => {
+      setDropdownRect(null);
+      const presentStudents = students.slice(0, students.length).map((s) => ({
+        id: s.id,
+        full_name: s.full_name,
+      }));
+      const robotCount = defaultRobotCount(students.length, lastRobotCount);
+      try {
+        const args: Parameters<typeof createOrRegroup>[0] = {
+          mode,
+          presentStudents,
+          robotCount,
+        };
+        if (mode === "by-progress") {
+          args.scoreFn = getStudentOverallScore;
+          args.progressFn = getStudentProgress;
+        } else if (mode !== "random") {
+          args.scoreFn = getStudentScore;
+        }
+        createOrRegroup(args);
+      } catch (e) {
+        setError((e as Error).message);
+        window.setTimeout(() => setError(null), 4000);
+      }
+    };
+
+    const onOpenDropdown = () => {
+      if (dropdownRect) {
+        setDropdownRect(null);
+        return;
+      }
+      const el = dropdownTriggerRef.current;
+      if (!el) return;
+      setDropdownRect(el.getBoundingClientRect());
+    };
+
     return (
-      <Button
-        variant="secondary"
-        onClick={() => setSortMode("alphabetical")}
-        className="text-[11px] font-bold uppercase tracking-wider px-3 py-2"
-        title="Volver a la lista alfabética"
-      >
-        <List className="size-3.5" aria-hidden />
-        Volver a lista
-      </Button>
+      <>
+        <Button
+          variant="secondary"
+          onClick={() => setSortMode("alphabetical")}
+          className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-2"
+          title="Volver a la lista alfabética"
+          aria-label="Volver a la lista alfabética"
+        >
+          <ArrowLeft className="size-4" aria-hidden />
+        </Button>
+        <Button
+          ref={dropdownTriggerRef}
+          variant="secondary"
+          onClick={onOpenDropdown}
+          aria-haspopup="menu"
+          aria-expanded={Boolean(dropdownRect)}
+          className="text-[11px] font-bold uppercase tracking-wider px-3 py-2"
+          title="Reagrupar por otro criterio"
+        >
+          <Shuffle className="size-3.5" aria-hidden />
+          Reagrupar
+          <ChevronDown className="size-3" aria-hidden />
+        </Button>
+        {dropdownRect && (
+          <PodRegroupModeDropdown
+            triggerRect={dropdownRect}
+            onSelect={onPickMode}
+            onClose={() => setDropdownRect(null)}
+          />
+        )}
+        {error && (
+          <div
+            role="alert"
+            className="fixed top-4 right-4 z-[70] max-w-sm rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 shadow-lg"
+          >
+            {error}
+          </div>
+        )}
+      </>
     );
   }
 
@@ -38,10 +123,10 @@ export function PodMainButton({ students }: Props) {
         variant="secondary"
         onClick={() => setModalOpen(true)}
         className="text-[11px] font-bold uppercase tracking-wider px-3 py-2"
-        title="Generar/regenerar agrupación"
+        title="Agrupar a los alumnos"
       >
         <Shuffle className="size-3.5" aria-hidden />
-        Reagrupar
+        Agrupar
       </Button>
       <PodGroupingModal
         open={modalOpen}

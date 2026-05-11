@@ -14,31 +14,13 @@ type Option = {
   label: string;
   emoji: string;
   bg: string;
-  ring: string;
 };
 
+// Orden de izquierda a derecha: rojo, ambar, verde (verde a la derecha = "ok").
 const OPTIONS: Option[] = [
-  {
-    value: "green",
-    label: "Verde",
-    emoji: "🟢",
-    bg: "bg-emerald-100 hover:bg-emerald-200",
-    ring: "ring-emerald-500",
-  },
-  {
-    value: "amber",
-    label: "Ámbar",
-    emoji: "🟡",
-    bg: "bg-amber-100 hover:bg-amber-200",
-    ring: "ring-amber-500",
-  },
-  {
-    value: "red",
-    label: "Rojo",
-    emoji: "🔴",
-    bg: "bg-rose-100 hover:bg-rose-200",
-    ring: "ring-rose-500",
-  },
+  { value: "red", label: "Rojo", emoji: "🔴", bg: "bg-rose-100" },
+  { value: "amber", label: "Ámbar", emoji: "🟡", bg: "bg-amber-100" },
+  { value: "green", label: "Verde", emoji: "🟢", bg: "bg-emerald-100" },
 ];
 
 export function PodEvaluationRadio({ podId, current }: Props) {
@@ -47,6 +29,8 @@ export function PodEvaluationRadio({ podId, current }: Props) {
   const onClick = (value: Exclude<PodEvaluation, null>) => {
     setPodEvaluation(podId, current === value ? null : value);
   };
+
+  const anySelected = current !== null;
 
   return (
     <div
@@ -66,9 +50,12 @@ export function PodEvaluationRadio({ podId, current }: Props) {
             title={opt.label}
             onClick={() => onClick(opt.value)}
             className={cn(
-              "inline-flex items-center justify-center size-6 rounded-full text-xs leading-none transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1",
-              opt.bg,
-              selected ? `ring-2 ring-offset-1 ${opt.ring}` : "ring-1 ring-transparent",
+              "inline-flex items-center justify-center size-6 rounded-full text-sm leading-none transition-all focus:outline-none focus:ring-2 focus:ring-c360-blue/40",
+              selected
+                ? `${opt.bg} opacity-100 scale-110`
+                : anySelected
+                  ? "opacity-20 hover:opacity-60"
+                  : "opacity-40 hover:opacity-90",
             )}
           >
             <span aria-hidden>{opt.emoji}</span>

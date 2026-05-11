@@ -84,57 +84,58 @@ Publishable/anon key, pública por diseño (RLS protege los datos).
 
 En ambos casos `lockedStudentIds=[]`, cada `pod.evaluation = null` y `sortMode = 'alphabetical'` (no se persisten).
 
-### 5.2 Botón "Reagrupar" (modo alphabetical)
+### 5.2 Botón "Agrupar" (modo alphabetical)
 
-Pulsar abre `PodGroupingModal`:
+Pulsar abre `PodGroupingModal` simplificado:
 
 ```
 ┌─────────────────────────────────────────────┐
-│  Reagrupar                                  │
+│  Agrupar                                    │
 │  Cada grupo tendrá entre 2 y 4 alumnos.     │
-│                                             │
-│  Modo:                                      │
-│  ┌──────────────┬──────────────┐            │
-│  │ Aleatorio    │ Compensada   │            │
-│  ├──────────────┼──────────────┤            │
-│  │ Por niveles  │ Por avance   │            │
-│  └──────────────┴──────────────┘            │
+│  Después podrás reagrupar con otros         │
+│  criterios.                                 │
 │                                             │
 │  Alumnos presentes hoy: [30]                │
 │  Robots disponibles:    [8]                 │
 │                                             │
-│              [Cancelar]   [Reagrupar]       │
+│              [Cancelar]    [Agrupar]        │
 └─────────────────────────────────────────────┘
 ```
 
-- **Modo** (default `Aleatorio`): 4 opciones mutuamente excluyentes con descripción breve.
+- Solo dos campos. El modo es siempre **Aleatorio**.
 - **Alumnos presentes**: pre-rellenado con `students.length`. Editable [1..students.length] para excluir ausentes.
 - **Robots disponibles**: pre-rellenado con `lastRobotCount` si existe; si no, `Math.ceil(presentes/4)` acotado a [1, MAX_PODS=15].
 
 Validación Zod (`lib/pods/grouping-schema.ts`):
-
 - Ambos enteros ≥ 1.
 - `robotCount ≤ 15`.
 - `robotCount ≤ presentCount`.
-- `presentCount ∈ [robotCount*2, robotCount*4]`. Si no: error claro `"No se puede distribuir N alumnos en M grupos respetando min 2 y max 4."`
+- `presentCount ∈ [robotCount*2, robotCount*4]`. Si no: `"No se puede distribuir N alumnos en M grupos respetando min 2 y max 4."`
 
-Al confirmar, según modo:
-- **Aleatorio sin pods previos** → `createPods`.
-- **Aleatorio con pods** → `regroupWithLocks` (mantiene emojis/colores).
-- **Compensada / Por niveles** → `createPodsByLevel` con `{ scoreFn: getStudentScore, lockedStudentIds, currentPods }`.
-- **Por avance** → `createPodsByProgress` con `{ scoreFn: getStudentOverallScore, progressFn: getStudentProgress, lockedStudentIds, currentPods }`.
+Al confirmar:
+- **Sin pods previos** → `createPods` (random).
+- **Con pods** → `regroupWithLocks` (mantiene emojis/colores, respeta candados).
+- `sortMode` pasa a `'grouped'`, `lastRobotCount` se guarda.
 
-En todos los casos: `pod.evaluation` se reinicia a `null`, `sortMode` pasa a `'grouped'`, `lastRobotCount` se guarda.
+### 5.3 Vista grouped: flecha back + dropdown "Reagrupar"
 
-### 5.3 Botón "Volver a lista" (modo grouped)
+Sustituye al botón "Volver a lista" textual y al modal en este modo. Dos botones en la barra:
 
-Pulsar ejecuta `setSortMode('alphabetical')`. No toca pods, candados, ni semáforos.
+- **Flecha back** (icono `ArrowLeft`, sin texto): vuelve a vista alfabética. `setSortMode('alphabetical')`. No toca pods, candados, ni semáforos.
+- **"Reagrupar ▼"** (icono `Shuffle` + `ChevronDown`): abre `PodRegroupModeDropdown` con 4 modos. Click en un modo **ejecuta directamente** sin modal intermedio:
+  - **Aleatorio** → `regroupWithLocks` con `lastRobotCount` y `students.length` actuales.
+  - **Compensada / Por niveles** → `createPodsByLevel` con `getStudentScore`, locks y `currentPods`.
+  - **Por avance** → `createPodsByProgress` con `getStudentOverallScore` + `getStudentProgress`, locks y `currentPods`.
+
+En todos los modos: `pod.evaluation` se reinicia a `null`, se mantienen candados individuales. Si un modo lanza error (capacidad imposible), aparece banner rojo fijo arriba a la derecha 4s.
+
+El profe puede reagrupar las veces que quiera desde grouped sin tener que volver a la lista.
 
 ### 5.4 Vista grouped
 
 Cada pod renderiza un `<tbody>` con cabecera:
 - Emoji + nombre del grupo editable (popover de emoji al click en el emoji vía `PodHeaderTrigger`).
-- **Semáforo** (`PodEvaluationRadio`): 3 botones radio (🟢 🟡 🔴). Click asigna; click en el seleccionado deselecciona (`null`). Selección visual con `ring-2 ring-<color>` (no solo background).
+- **Semáforo** (`PodEvaluationRadio`): 3 botones radio en orden **🔴 🟡 🟢** (verde a la derecha = "ok"). Click asigna; click en el seleccionado deselecciona (`null`). Selección visual por **opacidad y fondo tintado** (no ring): el seleccionado a opacidad 100% con fondo claro tintado y `scale-110`; los demás a opacidad reducida.
 - Contador `N de 4 alumnos`.
 
 Cada fila de alumno (`StudentRowDraggable`):
@@ -347,22 +348,24 @@ Detalle completo en `SKILLS_PROTOTYPE_GROUPS.md`.
 El prototipo v5 es correcto si:
 
 1. `/mi-alumnado` carga 30 alumnos reales desde Supabase mock (clase "2º Bachillerato A").
-2. Sin pods previos: vista alfabética sin badges, botón "Reagrupar" visible.
-3. Con pods previos guardados: vista alfabética con badges, botón "Reagrupar".
-4. Pulsar "Reagrupar" abre modal con 4 modos y campos pre-rellenados (presentes=auto, robots=lastRobotCount o auto).
-5. Confirmar 24/6 Aleatorio → 6 grupos de 4, vista cambia automáticamente a grouped.
+2. Sin pods previos: vista alfabética sin badges, botón "Agrupar" visible.
+3. Con pods previos guardados: vista alfabética con badges, botón "Agrupar".
+4. Pulsar "Agrupar" abre modal simple (solo presentes + robots) con campos pre-rellenados. Modo siempre random implícito.
+5. Confirmar 24/6 → 6 grupos de 4, vista cambia automáticamente a grouped.
 6. Confirmar 30/3 → error "No se puede distribuir 30 alumnos en 3 grupos respetando min 2 y max 4." dentro del modal, sin cerrarlo.
-7. Confirmar 18/9 Aleatorio → 9 grupos de 2 (caso mínimo permitido).
-8. En vista grouped, cada cabecera muestra emoji + 3 botones del semáforo + contador.
-9. Click en 🟢 selecciona; click otra vez deselecciona (vuelve a null).
-10. Cada fila muestra candado individual (siempre visible) + handle de 6 puntos + nombre.
-11. Click en candado bloquea/desbloquea al alumno con feedback visual (amarillo).
-12. Arrastrar A→B (libre) → mueve y actualiza badge.
-13. Arrastrar a pod lleno → ring rojo + banner `role="alert"` 2.5s, no se mueve.
-14. Botón cambia a "Volver a lista" → vista alfabética con badges, pods siguen.
-15. Reagrupar con modo Compensada/Por niveles/Por avance → respeta candados individuales, resetea todos los semáforos a null.
-16. Botón Proyección abre vista a pantalla completa con card por grupo (emoji grande + nombre + alumnos).
-17. Cerrar pestaña + reabrir: pods persisten (sin evaluation), `lockedStudentIds=[]`, `sortMode='alphabetical'`, `evaluation=null` en todos los pods.
+7. Confirmar 18/9 → 9 grupos de 2 (caso mínimo permitido).
+8. En vista grouped, la barra superior muestra **flecha back** + botón **"Reagrupar ▼"**.
+9. Click en "Reagrupar ▼" abre dropdown con 4 modos; click en un modo ejecuta directamente sin modal intermedio.
+10. Reagrupar con modo Compensada/Por niveles/Por avance respeta candados individuales y resetea todos los semáforos a null.
+11. En cada cabecera de grupo: emoji + semáforo **🔴 🟡 🟢** (verde a la derecha) + contador. Seleccionado se ve a color pleno con fondo tintado; no seleccionado atenuado.
+12. Click en 🟢 selecciona; click otra vez deselecciona (vuelve a null).
+13. Cada fila muestra candado individual (siempre visible) + handle de 6 puntos + nombre.
+14. Click en candado bloquea/desbloquea al alumno con feedback visual (amarillo).
+15. Arrastrar A→B (libre) → mueve y actualiza badge.
+16. Arrastrar a pod lleno → ring rojo + banner `role="alert"` 2.5s, no se mueve.
+17. Flecha back → vista alfabética con badges, pods siguen.
+18. Botón Proyección abre vista a pantalla completa con card por grupo (emoji grande + nombre + alumnos).
+19. Cerrar pestaña + reabrir: pods persisten (sin evaluation), `lockedStudentIds=[]`, `sortMode='alphabetical'`, `evaluation=null` en todos los pods.
 
 ---
 
