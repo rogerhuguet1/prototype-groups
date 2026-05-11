@@ -32,7 +32,7 @@ export type CreatePodsOutput = {
   seed: string;
 };
 
-export const DEFAULT_MAX_PER_POD = 3;
+export const DEFAULT_MAX_PER_POD = 4;
 export const DEFAULT_MIN_PER_POD = 2;
 
 export function shuffleInPlace<T>(arr: T[], random: () => number): T[] {

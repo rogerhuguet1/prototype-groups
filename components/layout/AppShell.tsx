@@ -8,7 +8,6 @@ import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { ScoreLegend } from "@/components/students/ScoreLegend";
 import { StudentTable } from "@/components/students/StudentTable";
-import { PodControls } from "@/components/pods/PodControls";
 import { PodRegroupSelectionBanner } from "@/components/pods/PodRegroupSelectionBanner";
 
 export function AppShell() {
@@ -48,7 +47,6 @@ export function AppShell() {
             students={students}
           />
           <ScoreLegend updatedAt="6/05/2026 12:00" />
-          <PodControls />
           <section className="flex-1 overflow-auto">
             {classesQuery.isLoading ? (
               <div className="px-8 py-4 text-c360-text-muted text-sm">

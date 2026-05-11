@@ -3,7 +3,6 @@
 import { Shuffle, Check, Trash2 } from "lucide-react";
 import { Button } from "../ui/Button";
 import { usePodsStore } from "@/store/pods-store";
-import { useHistoryStore } from "@/store/history-store";
 import { regroupWithLocks, RegroupLocksError } from "@/lib/pods/regroup-with-locks";
 import { useState } from "react";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
@@ -18,8 +17,6 @@ export function PodRegroupSelectionBanner() {
   });
   const exitRegroupSelection = usePodsStore((s) => s.exitRegroupSelection);
   const clearAllLocks = usePodsStore((s) => s.clearAllLocks);
-  const setCurrentEntryId = usePodsStore((s) => s.setCurrentEntryId);
-  const addEntry = useHistoryStore((s) => s.addEntry);
 
   const [error, setError] = useState<string | null>(null);
   const [iterationCount, setIterationCount] = useState(0);
@@ -46,30 +43,13 @@ export function PodRegroupSelectionBanner() {
         lockedStudentIds: state.lockedStudentIds,
         allPresentStudents: presentStudents,
       });
-      const snapshotLocked = [...state.lockedStudentIds];
 
       usePodsStore.setState({
         pods: result.pods,
-        regroupConfirmNeeded: false,
         currentSeed: result.seed,
         lastInputs: { ...lastInputs, robotCount: result.pods.length },
       });
 
-      const entryId = crypto.randomUUID();
-      addEntry({
-        id: entryId,
-        timestamp: new Date().toISOString(),
-        classId: state.currentClassId,
-        presentStudents: lastInputs.presentCount,
-        robotCount: result.pods.length,
-        seed: result.seed,
-        pods: result.pods.map((p) => ({ ...p, isLocked: false })),
-        isFavorite: false,
-        evaluations: [],
-        evaluatedAt: null,
-        lockedStudentIds: snapshotLocked,
-      });
-      setCurrentEntryId(entryId);
       setIterationCount((n) => n + 1);
     } catch (e) {
       if (e instanceof RegroupLocksError) {

@@ -22,7 +22,6 @@ import { Plus } from "lucide-react";
 import { PodBadge } from "@/components/pods/PodBadge";
 import { PodDroppableTbody } from "@/components/pods/PodDroppableTbody";
 import { PodHeaderTrigger } from "@/components/pods/PodHeaderTrigger";
-import { PodLockButton } from "@/components/pods/PodLockButton";
 import { MOVE_ERROR_MESSAGES } from "@/lib/pods/move-student";
 import { MAX_PODS } from "@/lib/pods/pod-emojis";
 import type { StudentRow as StudentRowType } from "@/types/database";
@@ -351,8 +350,6 @@ function DndStudentBodies({
 }
 
 function PodSectionHeaderRow({ pod }: { pod: Pod }) {
-  const togglePodLock = usePodsStore((s) => s.togglePodLock);
-  const regroupSelecting = usePodsStore((s) => s.regroupSelecting);
   return (
     <tr>
       <td
@@ -368,18 +365,6 @@ function PodSectionHeaderRow({ pod }: { pod: Pod }) {
           <span className="text-xs font-semibold text-slate-700">
             {pod.students.length} de {pod.maxCapacity} alumnos
           </span>
-          {regroupSelecting && (
-            <PodLockButton
-              locked={pod.isLocked}
-              onToggle={() => togglePodLock(pod.id)}
-              label={
-                pod.isLocked
-                  ? `Desbloquear grupo ${pod.emojiLabel}`
-                  : `Bloquear grupo ${pod.emojiLabel} para que no se reagrupe`
-              }
-              colorHex={pod.color.hex}
-            />
-          )}
         </div>
       </td>
     </tr>

@@ -2,11 +2,8 @@
 
 import { ClassSelector } from "./ClassSelector";
 import { PodRegroupButton } from "@/components/pods/PodRegroupButton";
-import { PodHistoryButton } from "@/components/pods/PodHistoryButton";
 import { PodProjectionButton } from "@/components/pods/PodProjectionButton";
 import { PodCreateGroupsButton } from "@/components/pods/PodCreateGroupsButton";
-import { PodEvaluateButton } from "@/components/pods/PodEvaluateButton";
-import { PodSaveSnapshotButton } from "@/components/pods/PodSaveSnapshotButton";
 import { COURSE_LABEL, PROGRAM_LABEL } from "@/lib/data/units";
 import type { ClassRow } from "@/types/database";
 import type { Student } from "@/lib/pods/create-pods";
@@ -53,10 +50,7 @@ export function TopBar({
       <div className="flex items-center justify-end gap-3 px-8 pb-4">
         <PodCreateGroupsButton students={students} classId={activeClassId} />
         <PodRegroupButton />
-        <PodSaveSnapshotButton />
-        <PodEvaluateButton />
         <PodProjectionButton />
-        <PodHistoryButton />
         <button
           type="button"
           className="bg-c360-blue hover:bg-c360-blue-dark text-white text-sm font-bold uppercase tracking-wider px-6 py-2.5 rounded-full transition-colors"

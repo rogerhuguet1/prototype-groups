@@ -3,8 +3,6 @@
 import { useDraggable } from "@dnd-kit/core";
 import { StudentRow } from "./StudentRow";
 import { DragHandle } from "./DragHandle";
-import { PodLockButton } from "@/components/pods/PodLockButton";
-import { usePodsStore } from "@/store/pods-store";
 import type { Pod } from "@/lib/pods/create-pods";
 import type { StudentRow as StudentRowType } from "@/types/database";
 import type { FlatColumn } from "@/lib/data/units";
@@ -24,12 +22,6 @@ export function StudentRowDraggable({
   pod,
   onRemoveFromPod,
 }: Props) {
-  const isStudentLocked = usePodsStore((s) =>
-    s.lockedStudentIds.includes(student.id),
-  );
-  const toggleStudentLock = usePodsStore((s) => s.toggleStudentLock);
-  const regroupSelecting = usePodsStore((s) => s.regroupSelecting);
-
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `student:${student.id}`,
     data: {
@@ -38,22 +30,6 @@ export function StudentRowDraggable({
       fromPodId: pod?.id ?? null,
     },
   });
-
-  const showLockUi = regroupSelecting && pod !== null;
-
-  const lockButton: React.ReactNode = showLockUi ? (
-    <PodLockButton
-      size="sm"
-      locked={isStudentLocked}
-      onToggle={() => toggleStudentLock(student.id)}
-      label={
-        isStudentLocked
-          ? `Desbloquear a ${student.full_name}`
-          : `Bloquear a ${student.full_name} en este grupo`
-      }
-      colorHex={pod!.color.hex}
-    />
-  ) : null;
 
   return (
     <StudentRow
@@ -64,20 +40,17 @@ export function StudentRowDraggable({
       podColorBorder={Boolean(pod)}
       rowRef={setNodeRef}
       isDragging={isDragging}
-      onRemoveFromPod={regroupSelecting ? undefined : onRemoveFromPod}
+      onRemoveFromPod={onRemoveFromPod}
       dragHandle={
-        <span className="inline-flex items-center gap-0.5">
-          {lockButton}
-          <DragHandle
-            label={
-              pod
-                ? `Arrastrar a otro grupo: ${student.full_name}`
-                : `Arrastrar a un grupo: ${student.full_name}`
-            }
-            {...attributes}
-            {...listeners}
-          />
-        </span>
+        <DragHandle
+          label={
+            pod
+              ? `Arrastrar a otro grupo: ${student.full_name}`
+              : `Arrastrar a un grupo: ${student.full_name}`
+          }
+          {...attributes}
+          {...listeners}
+        />
       }
     />
   );

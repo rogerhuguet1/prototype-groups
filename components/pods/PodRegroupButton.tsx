@@ -6,7 +6,6 @@ import { Button } from "../ui/Button";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { PodRegroupMenu, type RegroupChoice } from "./PodRegroupMenu";
 import { usePodsStore } from "@/store/pods-store";
-import { useHistoryStore } from "@/store/history-store";
 import {
   createPodsByLevel,
   createPodsByProgress,
@@ -19,7 +18,7 @@ import {
 import { MAX_PODS } from "@/lib/pods/pod-emojis";
 
 function robotCountFor(presentCount: number): number {
-  return Math.min(MAX_PODS, Math.max(1, Math.ceil(presentCount / 3)));
+  return Math.min(MAX_PODS, Math.max(1, Math.ceil(presentCount / 4)));
 }
 
 const MODE_TITLES: Record<RegroupChoice, string> = {
@@ -40,13 +39,6 @@ const MODE_DESCRIPTIONS: Record<RegroupChoice, string> = {
     "Los alumnos con puntuación parecida quedarán juntos según la Unidad 1. La combinación actual se guardará en el historial.",
 };
 
-const MODE_LABELS: Record<RegroupChoice, string | undefined> = {
-  "by-progress": "Asignación por avance en el curso",
-  random: undefined,
-  mixed: "Asignación compensada (heterogénea)",
-  leveled: "Asignación por niveles (homogénea)",
-};
-
 export function PodRegroupButton() {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [menuRect, setMenuRect] = useState<DOMRect | null>(null);
@@ -54,8 +46,6 @@ export function PodRegroupButton() {
   const hasPods = usePodsStore((s) => s.pods.length > 0);
   const regroupSelecting = usePodsStore((s) => s.regroupSelecting);
   const enterRegroupSelection = usePodsStore((s) => s.enterRegroupSelection);
-  const setCurrentEntryId = usePodsStore((s) => s.setCurrentEntryId);
-  const addEntry = useHistoryStore((s) => s.addEntry);
 
   if (!hasPods) return null;
   if (regroupSelecting) return null;
@@ -99,28 +89,9 @@ export function PodRegroupButton() {
     usePodsStore.setState({
       pods: result.pods,
       lockedStudentIds: [],
-      regroupConfirmNeeded: true,
       currentSeed: result.seed,
       lastInputs: { ...lastInputs, robotCount },
     });
-
-    const entryId = crypto.randomUUID();
-    const label = MODE_LABELS[mode];
-    addEntry({
-      id: entryId,
-      timestamp: new Date().toISOString(),
-      classId: state.currentClassId,
-      presentStudents: lastInputs.presentCount,
-      robotCount,
-      seed: result.seed,
-      pods: result.pods,
-      isFavorite: false,
-      evaluations: [],
-      evaluatedAt: null,
-      lockedStudentIds: [],
-      ...(label ? { label } : {}),
-    });
-    setCurrentEntryId(entryId);
   };
 
   const onPickMode = (mode: RegroupChoice) => {

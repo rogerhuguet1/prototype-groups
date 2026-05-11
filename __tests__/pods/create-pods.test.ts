@@ -239,19 +239,19 @@ describe("createPods — comportamiento adicional", () => {
     ).toThrow(/No hay tantos alumnos/);
   });
 
-  it("si presentCount excede robotCount * maxPerPod (default 3), el resto queda sin asignar", () => {
+  it("si presentCount excede robotCount * maxPerPod (default 4), el resto queda sin asignar", () => {
     const { pods } = createPods({
       students: makeStudents(30),
       presentCount: 30,
       robotCount: 3,
     });
     expect(pods).toHaveLength(3);
-    pods.forEach((p) => expect(p.students.length).toBeLessThanOrEqual(3));
+    pods.forEach((p) => expect(p.students.length).toBeLessThanOrEqual(4));
     const totalAssigned = pods.reduce(
       (acc, p) => acc + p.students.length,
       0,
     );
-    expect(totalAssigned).toBe(9);
+    expect(totalAssigned).toBe(12);
   });
 
   it("excedentes con maxPerPod custom tambien se respeta el cap", () => {
