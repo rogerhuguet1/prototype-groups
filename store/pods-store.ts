@@ -8,6 +8,7 @@ import {
   createPodsByLevel,
   createPodsByProgress,
   DEFAULT_MAX_PER_POD,
+  GROUP_NAMES,
   groupNameForIndex,
   type Pod,
   type RegroupMode,
@@ -48,6 +49,7 @@ type Actions = {
   addEmptyPod: () => void;
   deletePod: (podId: string) => void;
   createPodAndAssignStudent: (student: Student) => void;
+  renamePod: (podId: string, newName: string) => void;
 };
 
 const INITIAL: State = {
@@ -56,12 +58,18 @@ const INITIAL: State = {
   lastRobotCount: null,
 };
 
+// Renumera SOLO los ids (pod-1..N). Conserva el nombre que cada pod tiene
+// asignado actualmente (el profe puede haberlo cambiado manualmente).
 function renumberPods(pods: Pod[]): Pod[] {
-  return pods.map((p, i) => ({
-    ...p,
-    id: `pod-${i + 1}`,
-    name: groupNameForIndex(i),
-  }));
+  return pods.map((p, i) => ({ ...p, id: `pod-${i + 1}` }));
+}
+
+function nextAvailableName(existing: Pod[]): string {
+  const used = new Set(existing.map((p) => p.name));
+  for (const candidate of GROUP_NAMES) {
+    if (!used.has(candidate)) return candidate;
+  }
+  return groupNameForIndex(existing.length);
 }
 
 export const usePodsStore = create<State & Actions>()(
@@ -167,7 +175,14 @@ export const usePodsStore = create<State & Actions>()(
           existing: state.pods,
           maxCapacity,
         });
-        set({ pods: [...state.pods, newPod] });
+        // Toma el primer GROUP_NAMES disponible (en lugar del que asigna
+        // createEmptyPod por índice, que podría colisionar si el profe
+        // renombró pods antes).
+        const newPodWithFreeName = {
+          ...newPod,
+          name: nextAvailableName(state.pods),
+        };
+        set({ pods: [...state.pods, newPodWithFreeName] });
       },
       deletePod: (podId) => {
         set((state) => {
@@ -198,10 +213,37 @@ export const usePodsStore = create<State & Actions>()(
         }));
         const podWithStudent = {
           ...newPod,
+          name: nextAvailableName(cleanedPods),
           students: [{ id: student.id, full_name: student.full_name }],
         };
         set({
           pods: [...cleanedPods, podWithStudent],
+        });
+      },
+      renamePod: (podId, newName) => {
+        set((state) => {
+          const target = state.pods.find((p) => p.id === podId);
+          if (!target) return {};
+          if (target.name === newName) return {};
+          const other = state.pods.find(
+            (p) => p.name === newName && p.id !== podId,
+          );
+          if (other) {
+            // Swap entre los dos pods.
+            const oldName = target.name;
+            return {
+              pods: state.pods.map((p) => {
+                if (p.id === podId) return { ...p, name: newName };
+                if (p.id === other.id) return { ...p, name: oldName };
+                return p;
+              }),
+            };
+          }
+          return {
+            pods: state.pods.map((p) =>
+              p.id === podId ? { ...p, name: newName } : p,
+            ),
+          };
         });
       },
     }),

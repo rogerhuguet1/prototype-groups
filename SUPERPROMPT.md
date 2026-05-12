@@ -106,9 +106,21 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable__-RDC0rLI9Rg2iARjbOnXA_t2uIC
 
 Cada pod renderiza un `<tbody>` con cabecera:
 
-- **Nombre del grupo** en una píldora con el color del pod (texto blanco/negro según contraste). Sin emojis, sin popover. El nombre se asigna por posición desde `GROUP_NAMES` (pod-1 → `ORION`, pod-2 → `APOLLO`, etc.).
+- **Píldora con el nombre del grupo** clicable (color del pod como fondo; texto blanco o negro según contraste WCAG, calculado en `pod-colors.ts`). Click → abre `PodNamePicker` (ver §5.3.1). Sin emojis.
 - **Contador**: `"N de 4 alumnos"`. Si `N === 4` aparece un badge **"Lleno"** en amber. Como max=4 es duro, nunca verás N>4.
-- **Botón eliminar** (`Trash2`): borra el grupo. Si tiene alumnos, `confirm` antes; al aceptar, los alumnos pasan a "Pendientes de asignar" y los pods restantes se **renumeran** a `pod-1..pod-N` (y también sus nombres: `ORION`, `APOLLO`, ...).
+- **Botón eliminar** (`Trash2`): borra el grupo. Si tiene alumnos, `confirm` antes; al aceptar, los alumnos pasan a "Pendientes de asignar" y los pods restantes se **renumeran** a `pod-1..pod-N` (los IDs se renumeran; los nombres se conservan tal cual los haya dejado el profe).
+
+#### 5.3.1 `PodNamePicker` — selector visual de nombre
+
+Popover compacto que se abre al click en la píldora del nombre. Renderiza una **cuadrícula 2 columnas** con los 17 `GROUP_NAMES`. Cada item:
+
+- **Nombre actual del pod**: pill azul `c360-blue` + checkmark blanco.
+- **Nombre en uso por otro pod**: dot del color del otro pod (al elegirlo, los dos pods **intercambian nombres**).
+- **Nombre libre**: simple texto, hover c360-blue/10.
+
+Footer del popover: *"Tocar un nombre con punto lo intercambia con el grupo que ya lo usa."*
+
+`renamePod(podId, newName)` en el store maneja el swap automáticamente.
 
 Cada fila de alumno (`StudentRowDraggable`):
 
@@ -341,8 +353,9 @@ type Actions = {
   removeStudentFromPod(studentId): MoveStudentResult;
   toggleStudentLock(studentId): void;
   addEmptyPod(): void;
-  deletePod(podId: string): void;          // borra pod y renumera ids/nombres
+  deletePod(podId: string): void;          // borra pod y renumera ids
   createPodAndAssignStudent(student): void;
+  renamePod(podId: string, newName: string): void; // swap si newName ya está en uso
 };
 ```
 
@@ -421,7 +434,7 @@ Detalle completo en `SKILLS_PROTOTYPE_GROUPS.md`.
    - 30 alumnos / 10 robots → 10 grupos de 3, 0 pendientes.
    - 30 / 5 → 5 grupos de 4, **10 pendientes** (visible en bloque inferior).
    - 30 / 3 → 3 grupos de 4 (capacidad 12), 18 pendientes.
-6. Cabecera de grupo: **píldora con el nombre del grupo en MAYÚSCULAS** (color del pod) + contador `"N de 4 alumnos"` + badge `"Lleno"` si N=4 + botón eliminar. **Sin semáforo. Sin emoji.**
+6. Cabecera de grupo: **píldora clicable con el nombre del grupo en MAYÚSCULAS** (color del pod, texto blanco/negro según contraste WCAG) + contador `"N de 4 alumnos"` + badge `"Lleno"` si N=4 + botón eliminar. **Sin semáforo. Sin emoji.** Click en la píldora abre `PodNamePicker` con grid 2×9 de nombres; elegir uno usado por otro pod intercambia los nombres.
 7. Cada fila: candado individual (color del pod) + handle Equal + badge (con nombre, sin emoji) + nombre del alumno.
 8. **Drop en pod con menos de 4** → ring verde, asignación inmediata.
 9. **Drop en pod lleno (4)** → ring rojo + cursor `not-allowed` + banner *"El grupo ya tiene el máximo de 4 alumnos"*. **No se asigna.**
