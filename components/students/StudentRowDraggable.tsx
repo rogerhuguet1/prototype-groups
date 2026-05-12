@@ -66,17 +66,24 @@ export function StudentRowDraggable({
                   : `Bloquear a ${student.full_name}`
               }
               aria-pressed={isLocked}
+              style={
+                isLocked
+                  ? {
+                      backgroundColor: pod.color.hex,
+                      color:
+                        pod.color.textOn === "white" ? "#ffffff" : "#0f172a",
+                    }
+                  : { color: pod.color.hex }
+              }
               className={cn(
                 "size-6 inline-flex items-center justify-center rounded focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors",
-                isLocked
-                  ? "text-amber-700 bg-amber-100 hover:bg-amber-200"
-                  : "text-slate-400 hover:bg-slate-100 hover:text-slate-700",
+                !isLocked && "hover:bg-slate-100",
               )}
             >
               {isLocked ? (
                 <Lock className="size-3.5" aria-hidden />
               ) : (
-                <Unlock className="size-3.5" aria-hidden />
+                <Unlock className="size-3.5 opacity-50" aria-hidden />
               )}
             </button>
           )}
