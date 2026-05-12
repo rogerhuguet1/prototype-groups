@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MAX_PODS } from "@/lib/pods/pod-emojis";
+import { MAX_PODS } from "@/lib/pods/group-names";
 
 export const GROUPING_MODES = [
   "random",

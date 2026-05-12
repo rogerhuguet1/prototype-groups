@@ -19,9 +19,8 @@ import { sortByLastName, displayName } from "@/lib/utils/sort-students";
 import { Plus, Trash2 } from "lucide-react";
 import { PodBadge } from "@/components/pods/PodBadge";
 import { PodDroppableTbody } from "@/components/pods/PodDroppableTbody";
-import { PodHeaderTrigger } from "@/components/pods/PodHeaderTrigger";
 import { MOVE_ERROR_MESSAGES } from "@/lib/pods/move-student";
-import { MAX_PODS } from "@/lib/pods/pod-emojis";
+import { MAX_PODS } from "@/lib/pods/group-names";
 import type { StudentRow as StudentRowType } from "@/types/database";
 import type { Pod } from "@/lib/pods/create-pods";
 
@@ -327,11 +326,12 @@ function DndStudentBodies({
 function PodSectionHeaderRow({ pod }: { pod: Pod }) {
   const deletePod = usePodsStore((s) => s.deletePod);
   const isFull = pod.students.length >= pod.maxCapacity;
+  const textColor = pod.color.textOn === "white" ? "#ffffff" : "#0f172a";
 
   const onDelete = () => {
     if (pod.students.length > 0) {
       const ok = window.confirm(
-        `¿Eliminar el grupo ${pod.emoji}? Sus ${pod.students.length} alumno${pod.students.length === 1 ? "" : "s"} pasarán a "Pendientes de asignar".`,
+        `¿Eliminar el grupo ${pod.name}? Sus ${pod.students.length} alumno${pod.students.length === 1 ? "" : "s"} pasarán a "Pendientes de asignar".`,
       );
       if (!ok) return;
     }
@@ -349,7 +349,12 @@ function PodSectionHeaderRow({ pod }: { pod: Pod }) {
           className="flex items-center gap-3 px-4 py-2"
           style={{ backgroundColor: `${pod.color.hex}1a` }}
         >
-          <PodHeaderTrigger pod={pod} />
+          <span
+            className="inline-flex items-center px-3 py-1 rounded-full text-sm font-extrabold uppercase tracking-wider"
+            style={{ backgroundColor: pod.color.hex, color: textColor }}
+          >
+            {pod.name}
+          </span>
           <span className="text-xs font-semibold text-slate-700">
             {pod.students.length} de {pod.maxCapacity} alumnos
           </span>
@@ -361,7 +366,7 @@ function PodSectionHeaderRow({ pod }: { pod: Pod }) {
           <button
             type="button"
             onClick={onDelete}
-            aria-label={`Eliminar grupo ${pod.emojiLabel}`}
+            aria-label={`Eliminar grupo ${pod.name}`}
             title="Eliminar grupo"
             className="ml-auto inline-flex size-7 items-center justify-center rounded text-slate-500 hover:bg-rose-100 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400"
           >

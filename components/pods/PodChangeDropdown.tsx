@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronLeft, Plus } from "lucide-react";
+import { Check, Plus } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import {
   computePopoverPosition,
   type Position,
 } from "@/lib/utils/popover-position";
-import { POD_EMOJIS, MAX_PODS } from "@/lib/pods/pod-emojis";
+import { MAX_PODS } from "@/lib/pods/group-names";
 import type { Pod } from "@/lib/pods/create-pods";
 
 type Props = {
@@ -16,11 +16,9 @@ type Props = {
   currentPodId: string | null;
   triggerRect: DOMRect;
   onSelect: (podId: string | null) => void;
-  onCreateAndAssign?: (emoji: string, label: string) => void;
+  onCreateAndAssign?: () => void;
   onClose: () => void;
 };
-
-type Mode = "list" | "pick-emoji";
 
 export function PodChangeDropdown({
   pods,
@@ -32,18 +30,12 @@ export function PodChangeDropdown({
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<Position | null>(null);
-  const [mode, setMode] = useState<Mode>("list");
-
-  const emojisInUse = useMemo(
-    () => new Set(pods.map((p) => p.emoji)),
-    [pods],
-  );
 
   useLayoutEffect(() => {
     if (!ref.current) return;
     const rect = ref.current.getBoundingClientRect();
     setPosition(computePopoverPosition(triggerRect, rect.width, rect.height));
-  }, [triggerRect, mode]);
+  }, [triggerRect]);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -64,7 +56,7 @@ export function PodChangeDropdown({
       document.removeEventListener("mousedown", onClick);
       document.removeEventListener("keydown", onKey);
     };
-  }, [onClose, mode]);
+  }, [onClose]);
 
   if (typeof window === "undefined") return null;
 
@@ -74,9 +66,7 @@ export function PodChangeDropdown({
     <div
       ref={ref}
       role="menu"
-      aria-label={
-        mode === "list" ? "Cambiar de grupo" : "Elige emoji del nuevo grupo"
-      }
+      aria-label="Cambiar de grupo"
       style={{
         position: "fixed",
         top: position?.top ?? -9999,
@@ -86,122 +76,78 @@ export function PodChangeDropdown({
       }}
       className="w-60 rounded-md border border-slate-200 bg-white shadow-lg overflow-hidden"
     >
-      {mode === "list" ? (
-        <>
-          <div className="px-3 py-2 border-b border-slate-200 text-[10px] uppercase tracking-wide font-semibold text-slate-500">
-            {currentPodId === null ? "Asignar a un grupo" : "Mover a otro grupo"}
-          </div>
-          <ul className="py-1 max-h-56 overflow-y-auto">
-            {pods.map((pod) => {
-              const isCurrent = pod.id === currentPodId;
-              const isFull = pod.students.length >= pod.maxCapacity;
-              const disabled = isFull && !isCurrent;
-              return (
-                <li key={pod.id}>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    disabled={disabled}
-                    onClick={() => onSelect(pod.id)}
-                    title={disabled ? "Grupo lleno" : undefined}
-                    className={cn(
-                      "w-full text-left px-3 py-1.5 text-xs font-medium flex items-center gap-2",
-                      disabled
-                        ? "text-slate-400 cursor-not-allowed"
-                        : "text-slate-700 hover:bg-blue-50 hover:text-blue-800 focus:outline-none focus:bg-blue-50",
-                    )}
-                  >
-                    <span
-                      className="inline-flex size-5 items-center justify-center rounded text-[12px] leading-none shrink-0"
-                      style={{ backgroundColor: pod.color.hex }}
-                    >
-                      {pod.emoji}
-                    </span>
-                    <span className="flex-1">Grupo {pod.emoji}</span>
-                    <span className="text-[10px] text-slate-500 tabular-nums">
-                      {pod.students.length}/{pod.maxCapacity}
-                    </span>
-                    {isCurrent && (
-                      <Check
-                        className="size-3.5 text-blue-700 shrink-0"
-                        aria-hidden
-                      />
-                    )}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-          <div className="border-t border-slate-200 py-1">
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => onSelect(null)}
-              disabled={currentPodId === null}
-              className={cn(
-                "w-full text-left px-3 py-1.5 text-xs font-medium",
-                currentPodId === null
-                  ? "text-slate-400 cursor-not-allowed"
-                  : "text-slate-700 hover:bg-slate-50 focus:outline-none focus:bg-slate-50",
-              )}
-            >
-              Pendiente de asignar
-            </button>
-            {canCreate && (
+      <div className="px-3 py-2 border-b border-slate-200 text-[10px] uppercase tracking-wide font-semibold text-slate-500">
+        {currentPodId === null ? "Asignar a un grupo" : "Mover a otro grupo"}
+      </div>
+      <ul className="py-1 max-h-56 overflow-y-auto">
+        {pods.map((pod) => {
+          const isCurrent = pod.id === currentPodId;
+          const isFull = pod.students.length >= pod.maxCapacity;
+          const disabled = isFull && !isCurrent;
+          return (
+            <li key={pod.id}>
               <button
                 type="button"
                 role="menuitem"
-                onClick={() => setMode("pick-emoji")}
-                className="w-full text-left px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50 focus:outline-none focus:bg-blue-50 flex items-center gap-1.5"
+                disabled={disabled}
+                onClick={() => onSelect(pod.id)}
+                title={disabled ? "Grupo lleno" : undefined}
+                className={cn(
+                  "w-full text-left px-3 py-1.5 text-xs font-medium flex items-center gap-2",
+                  disabled
+                    ? "text-slate-400 cursor-not-allowed"
+                    : "text-slate-700 hover:bg-blue-50 hover:text-blue-800 focus:outline-none focus:bg-blue-50",
+                )}
               >
-                <Plus className="size-3.5" aria-hidden />
-                Crear nuevo grupo
+                <span
+                  className="inline-block size-3 rounded-full shrink-0"
+                  style={{ backgroundColor: pod.color.hex }}
+                  aria-hidden
+                />
+                <span className="flex-1 uppercase tracking-wider font-semibold">
+                  {pod.name}
+                </span>
+                <span className="text-[10px] text-slate-500 tabular-nums">
+                  {pod.students.length}/{pod.maxCapacity}
+                </span>
+                {isCurrent && (
+                  <Check
+                    className="size-3.5 text-blue-700 shrink-0"
+                    aria-hidden
+                  />
+                )}
               </button>
-            )}
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="px-2 py-1.5 border-b border-slate-200 flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setMode("list")}
-              aria-label="Volver a la lista de grupos"
-              className="inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wide font-semibold text-slate-500 hover:text-slate-800 px-1.5 py-1 rounded hover:bg-slate-100 focus:outline-none focus:bg-slate-100"
-            >
-              <ChevronLeft className="size-3" aria-hidden />
-              Volver
-            </button>
-            <span className="text-[10px] uppercase tracking-wide font-semibold text-slate-500 ml-1">
-              Elige emoji
-            </span>
-          </div>
-          <ul className="grid grid-cols-5 gap-1 p-2">
-            {POD_EMOJIS.map((e) => {
-              const inUse = emojisInUse.has(e.emoji);
-              return (
-                <li key={e.emoji}>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    disabled={inUse}
-                    title={inUse ? "En uso" : e.label}
-                    onClick={() => onCreateAndAssign?.(e.emoji, e.label)}
-                    className={cn(
-                      "size-10 inline-flex items-center justify-center rounded text-xl transition-colors",
-                      inUse
-                        ? "opacity-40 cursor-not-allowed"
-                        : "hover:bg-blue-50 focus:outline-none focus:bg-blue-50 ring-1 ring-transparent hover:ring-blue-200",
-                    )}
-                  >
-                    {e.emoji}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </>
-      )}
+            </li>
+          );
+        })}
+      </ul>
+      <div className="border-t border-slate-200 py-1">
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => onSelect(null)}
+          disabled={currentPodId === null}
+          className={cn(
+            "w-full text-left px-3 py-1.5 text-xs font-medium",
+            currentPodId === null
+              ? "text-slate-400 cursor-not-allowed"
+              : "text-slate-700 hover:bg-slate-50 focus:outline-none focus:bg-slate-50",
+          )}
+        >
+          Pendiente de asignar
+        </button>
+        {canCreate && (
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => onCreateAndAssign?.()}
+            className="w-full text-left px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50 focus:outline-none focus:bg-blue-50 flex items-center gap-1.5"
+          >
+            <Plus className="size-3.5" aria-hidden />
+            Crear nuevo grupo
+          </button>
+        )}
+      </div>
     </div>,
     document.body,
   );

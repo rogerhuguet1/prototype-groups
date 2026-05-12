@@ -44,7 +44,7 @@ describe("regroupWithLocks", () => {
     expect(totalAssigned(result.pods)).toBe(24);
     for (let i = 0; i < 6; i++) {
       expect(result.pods[i]!.id).toBe(initial[i]!.id);
-      expect(result.pods[i]!.emoji).toBe(initial[i]!.emoji);
+      expect(result.pods[i]!.name).toBe(initial[i]!.name);
       expect(result.pods[i]!.color.hex).toBe(initial[i]!.color.hex);
       expect(result.pods[i]!.maxCapacity).toBe(4);
     }

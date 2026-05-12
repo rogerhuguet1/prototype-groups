@@ -7,7 +7,6 @@ import type { Pod } from "@/lib/pods/create-pods";
 type Props = {
   pod: Pod;
   size?: "sm" | "md";
-  prefix?: string;
   withChevron?: boolean;
   className?: string;
   title?: string;
@@ -15,62 +14,41 @@ type Props = {
 
 const SIZES = {
   sm: {
-    circle: 22,
-    emoji: "text-[15px]",
-    gap: "gap-1.5",
-    text: "text-[11px]",
+    pad: "px-2 py-0.5",
+    text: "text-[10px]",
+    gap: "gap-1",
   },
   md: {
-    circle: 28,
-    emoji: "text-[19px]",
-    gap: "gap-2",
+    pad: "px-2.5 py-1",
     text: "text-xs",
+    gap: "gap-1.5",
   },
 } as const;
 
 export function PodBadge({
   pod,
   size = "sm",
-  prefix,
   withChevron = false,
   className,
   title,
 }: Props) {
   const s = SIZES[size];
+  const textColor = pod.color.textOn === "white" ? "#ffffff" : "#0f172a";
   return (
     <span
-      title={title ?? `Grupo del ${pod.emojiLabel}`}
+      title={title ?? `Grupo ${pod.name}`}
       className={cn(
-        "inline-flex items-center whitespace-nowrap shrink-0 leading-none",
+        "inline-flex items-center whitespace-nowrap shrink-0 leading-none rounded-full font-bold uppercase tracking-wider",
+        s.pad,
+        s.text,
         s.gap,
         className,
       )}
+      style={{ backgroundColor: pod.color.hex, color: textColor }}
     >
-      {prefix ? (
-        <span className={cn("font-bold tracking-wide text-slate-800", s.text)}>
-          {prefix}
-        </span>
-      ) : null}
-      <span
-        className="inline-flex items-center justify-center rounded-full bg-white shrink-0"
-        style={{
-          width: s.circle,
-          height: s.circle,
-          borderColor: pod.color.hex,
-          borderWidth: 2,
-          borderStyle: "solid",
-          boxShadow: `0 0 0 1px ${pod.color.hex}30`,
-        }}
-      >
-        <span
-          className={cn("leading-none", s.emoji)}
-          style={{ filter: "saturate(1.1)" }}
-        >
-          {pod.emoji}
-        </span>
-      </span>
+      <span>{pod.name}</span>
       {withChevron ? (
-        <ChevronDown className="size-3 shrink-0 text-slate-500" aria-hidden />
+        <ChevronDown className="size-3 shrink-0 opacity-75" aria-hidden />
       ) : null}
     </span>
   );

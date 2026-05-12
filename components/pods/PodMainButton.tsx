@@ -11,7 +11,7 @@ import {
   getStudentProgress,
   getStudentScore,
 } from "@/lib/pods/student-score";
-import { MAX_PODS } from "@/lib/pods/pod-emojis";
+import { MAX_PODS } from "@/lib/pods/group-names";
 import type { Student } from "@/lib/pods/create-pods";
 import type { GroupingMode } from "@/lib/pods/grouping-schema";
 

@@ -5,7 +5,7 @@ import { Bot, Minus, Plus } from "lucide-react";
 import { usePodsStore } from "@/store/pods-store";
 import { groupingSchema } from "@/lib/pods/grouping-schema";
 import { cn } from "@/lib/utils/cn";
-import { MAX_PODS } from "@/lib/pods/pod-emojis";
+import { MAX_PODS } from "@/lib/pods/group-names";
 import type { Student } from "@/lib/pods/create-pods";
 
 type Props = {

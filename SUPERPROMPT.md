@@ -1,6 +1,6 @@
 # SUPERPROMPT.md — Prototipo de Agrupación por Grupos (C360 / ROBOTIX)
 
-> Spec viva v6 para Claude Code. Prototipo aislado de la feature "Agrupar por
+> Spec viva v7 para Claude Code. Prototipo aislado de la feature "Agrupar por
 > Grupos" del C360 SuperNova Yellow. Datos mock desde Supabase. Solo composición
 > de pods persistida en localStorage. No toca producción.
 
@@ -29,6 +29,7 @@
 | **Máx 4 alumnos por grupo es ESTRICTO** | Un grupo no puede tener más de 4 alumnos. Si faltan robots, los alumnos sobrantes quedan en "Pendientes de asignar". |
 | **Reparto balanceado** | El algoritmo distribuye `min(presentes, robots*4)` alumnos lo más balanceado posible. Sin trucos para llenar grupos a 4. |
 | **Sin semáforos** | La feature de "evaluar grupo" se ha quitado para simplificar la UI. |
+| **Sin emojis: nombres textuales fijos** | Cada grupo se identifica con un nombre de la lista `GROUP_NAMES` (`ORION`, `APOLLO`, `VOYAGER`, ...). Sin emojis en ningún sitio: cabeceras, badges, dropdowns, proyección. |
 | **Control de robots como stepper** | Botones `−` / `+` con icono de robot, input editable. No es un `<input type="number">` plano. |
 | **Validación dura en DnD y move** | Drop en pod lleno = rechazo con banner "El grupo ya tiene el máximo de 4 alumnos". |
 
@@ -105,9 +106,9 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable__-RDC0rLI9Rg2iARjbOnXA_t2uIC
 
 Cada pod renderiza un `<tbody>` con cabecera:
 
-- **Emoji + nombre del grupo** editable (popover de emoji al click vía `PodHeaderTrigger`).
+- **Nombre del grupo** en una píldora con el color del pod (texto blanco/negro según contraste). Sin emojis, sin popover. El nombre se asigna por posición desde `GROUP_NAMES` (pod-1 → `ORION`, pod-2 → `APOLLO`, etc.).
 - **Contador**: `"N de 4 alumnos"`. Si `N === 4` aparece un badge **"Lleno"** en amber. Como max=4 es duro, nunca verás N>4.
-- **Botón eliminar** (`Trash2`): borra el grupo. Si tiene alumnos, `confirm` antes; al aceptar, los alumnos pasan a "Pendientes de asignar" y los pods restantes se renumeran a `pod-1..pod-N`.
+- **Botón eliminar** (`Trash2`): borra el grupo. Si tiene alumnos, `confirm` antes; al aceptar, los alumnos pasan a "Pendientes de asignar" y los pods restantes se **renumeran** a `pod-1..pod-N` (y también sus nombres: `ORION`, `APOLLO`, ...).
 
 Cada fila de alumno (`StudentRowDraggable`):
 
@@ -173,8 +174,7 @@ Click ejecuta directamente. `robotCount = pods.length` (mantiene el número). Lo
 ```ts
 type Pod = {
   id: string;           // 'pod-1', 'pod-2', ...
-  emoji: string;
-  emojiLabel: string;
+  name: string;         // GROUP_NAMES[i] — ORION, APOLLO, VOYAGER, ...
   color: PodColor;      // { name, hex, textOn }
   students: Student[];
   maxCapacity: number;  // 4 por defecto, ESTRICTO
@@ -311,7 +311,7 @@ __tests__/pods/
 .github/workflows/deploy.yml
 ```
 
-**Eliminados (no recrear):** `PodEvaluationRadio.tsx`, `PodGroupingModal.tsx`, `SessionPrompt.tsx`, `useHistoryStore`, `PodHistory*`, `PodEvaluate*`, `PodSortControl`, `PodLockButton`, `PodControls`, `PodSaveSnapshotButton`, `PodCreateGroupsButton`, `PodRegroupButton`, `PodRegroupMenu`, `PodRegroupSelectionBanner`, `co-occurrence.ts`, `types/history.ts`, `components/ui/{Checkbox,SegmentedControl,ConfirmDialog}.tsx`, carpetas `codex/` y `legacy/`.
+**Eliminados (no recrear):** `PodEvaluationRadio.tsx`, `PodEmojiPicker.tsx`, `PodHeaderTrigger.tsx`, `PodGroupingModal.tsx`, `SessionPrompt.tsx`, `useHistoryStore`, `PodHistory*`, `PodEvaluate*`, `PodSortControl`, `PodLockButton`, `PodControls`, `PodSaveSnapshotButton`, `PodCreateGroupsButton`, `PodRegroupButton`, `PodRegroupMenu`, `PodRegroupSelectionBanner`, `co-occurrence.ts`, `edit-pod.ts` (changePodEmoji), `lib/pods/pod-emojis.ts`, `types/history.ts`, `components/ui/{Checkbox,SegmentedControl,ConfirmDialog}.tsx`, carpetas `codex/` y `legacy/`. **No quedan emojis** en ningún lugar de la UI ni del modelo.
 
 ---
 
@@ -341,9 +341,8 @@ type Actions = {
   removeStudentFromPod(studentId): MoveStudentResult;
   toggleStudentLock(studentId): void;
   addEmptyPod(): void;
-  deletePod(podId: string): void;          // borra pod y renumera ids
-  createPodAndAssignStudent(student, emoji, emojiLabel): void;
-  changeEmoji(podId, emoji, emojiLabel): ChangeEmojiResult;
+  deletePod(podId: string): void;          // borra pod y renumera ids/nombres
+  createPodAndAssignStudent(student): void;
 };
 ```
 
@@ -364,13 +363,13 @@ Tras ejecutar, escribe `pods` y `lastRobotCount`.
 - **Renumera** los pods restantes a `pod-1..pod-N` para mantener IDs contiguos.
 - Quita los candados de los alumnos del pod borrado.
 
-### Persistencia (persist middleware version 8)
+### Persistencia (persist middleware version 9)
 
 - `name: 'c360-pods-state'`, `skipHydration: true`.
 - `partialize`: `{ pods, lastRobotCount }`.
 - `migrate`:
-  - `version < 8` → descarta state (esquema sin `evaluation` ni `sortMode`). Si hay `pods` previos, los conserva limpiando cualquier `evaluation` residual.
-  - `version >= 8` → tal cual.
+  - `version < 9` → limpia campos viejos (`emoji`, `emojiLabel`, `evaluation`), asigna `name` por índice desde `GROUP_NAMES`, y **trunca pods que superen `maxCapacity`** (el exceso queda fuera = aparece en "Pendientes de asignar").
+  - `version >= 9` → tal cual.
 - `<StoresHydrator/>` ejecuta `usePodsStore.persist.rehydrate()` en `useEffect`.
 
 **No se persiste:** `lockedStudentIds`.
@@ -422,8 +421,8 @@ Detalle completo en `SKILLS_PROTOTYPE_GROUPS.md`.
    - 30 alumnos / 10 robots → 10 grupos de 3, 0 pendientes.
    - 30 / 5 → 5 grupos de 4, **10 pendientes** (visible en bloque inferior).
    - 30 / 3 → 3 grupos de 4 (capacidad 12), 18 pendientes.
-6. Cabecera de grupo: emoji + nombre editable + contador `"N de 4 alumnos"` + badge `"Lleno"` si N=4 + botón eliminar. **Sin semáforo.**
-7. Cada fila: candado individual (color del pod) + handle Equal + badge + nombre.
+6. Cabecera de grupo: **píldora con el nombre del grupo en MAYÚSCULAS** (color del pod) + contador `"N de 4 alumnos"` + badge `"Lleno"` si N=4 + botón eliminar. **Sin semáforo. Sin emoji.**
+7. Cada fila: candado individual (color del pod) + handle Equal + badge (con nombre, sin emoji) + nombre del alumno.
 8. **Drop en pod con menos de 4** → ring verde, asignación inmediata.
 9. **Drop en pod lleno (4)** → ring rojo + cursor `not-allowed` + banner *"El grupo ya tiene el máximo de 4 alumnos"*. **No se asigna.**
 10. **Dropdown `PodChangeDropdown` en "Pendientes"** deshabilita las opciones de pods llenos.
@@ -435,27 +434,35 @@ Detalle completo en `SKILLS_PROTOTYPE_GROUPS.md`.
 
 ---
 
-## 12. Estado actual (v6, mayo 2026)
+## 12. Estado actual (v7, mayo 2026)
 
 ### 12.1 Resumen
 
-Prototipo **funcionalmente completo según v6**. `npm test` → 78/78 verde. `npm run typecheck` y `npm run build` verde. CI en GitHub Actions ejecuta los 3 en cada push; deploy a Pages solo desde `main`.
+Prototipo **funcionalmente completo según v7**. `npm test` → 76/76 verde. `npm run typecheck` y `npm run build` verde. CI en GitHub Actions ejecuta los 3 en cada push; deploy a Pages solo desde `main`.
 
-### 12.2 Cambios v5 → v6
+### 12.2 Cambios v6 → v7
 
-| Concepto | v5 | v6 (actual) |
+| Concepto | v6 | v7 (actual) |
 |---|---|---|
-| Reparto | "Maximize-4" si cabe, balanceado si no | **Siempre balanceado**, cap a `robots*4` |
-| Max por pod | Recomendado, no estricto | **Estricto** |
-| Excedentes | Se acomodaban a pods llenos | **Quedan en "Pendientes de asignar"** |
-| `move-student` | Sin cap | **Rechaza con `destination-pod-full`** |
-| DnD a pod lleno | Ring verde, permitido | **Ring rojo + cursor not-allowed + banner** |
-| `PodEvaluationRadio` (semáforo) | Sí | **Eliminado** |
-| `Pod.evaluation` | Sí | **Eliminado del tipo** |
-| Vista alfabética + toggle Lista/Grupos | Sí | **Eliminado** — solo vista por grupos |
-| `sortMode` en store | Sí | **Eliminado** |
-| `PodCountControls` | `<input type="number">` | **Stepper** con `-`/`+` + input string + icono Bot |
-| Persist version | 7 | **8** |
+| Identificador visual del grupo | emoji + emojiLabel | **Nombre textual** desde `GROUP_NAMES` (ORION, APOLLO, ...) |
+| Tipo `Pod` | `{ id, emoji, emojiLabel, color, students, maxCapacity }` | `{ id, name, color, students, maxCapacity }` |
+| `PodHeaderTrigger` (selector emoji) | Sí | **Eliminado** |
+| `PodEmojiPicker` | Sí | **Eliminado** |
+| `pod-emojis.ts` + `POD_EMOJIS` | Sí | **Eliminado** — `MAX_PODS` movido a `group-names.ts` |
+| `edit-pod.ts` (changePodEmoji) | Sí | **Eliminado** |
+| `createPodAndAssignStudent(student, emoji, emojiLabel)` | Sí | Firma simplificada: `createPodAndAssignStudent(student)` |
+| `PodChangeDropdown` | "Crear nuevo grupo" llevaba a pick-emoji | "Crear nuevo grupo" crea con siguiente nombre disponible |
+| `regroupWithLocks` | Mantenía emojis/colores | Mantiene **colores** (los nombres son por índice, persistentes) |
+| Cabecera de grupo | Emoji 28px + nombre del emoji | **Píldora MAYÚSCULAS con el nombre del grupo** |
+| Persist version | 8 | **9** (migración limpia emoji/emojiLabel/evaluation + trunca pods >4) |
+
+### 12.3 Cambios v5 → v6 (resumen, ya consolidados)
+
+- Reparto: maximize-4 → balanceado simple con cap duro `robots*4`.
+- Excedentes → "Pendientes de asignar" (no se fuerzan en pods llenos).
+- DnD/move a pod lleno: rechazado con `destination-pod-full`.
+- Eliminados: `PodEvaluationRadio`, `Pod.evaluation`, vista alfabética, `sortMode`, `setSortMode`, `PodGroupingModal`, `SessionPrompt`.
+- `PodCountControls` rediseñado como stepper.
 
 ### 12.3 Algoritmo: tabla de comportamiento
 
@@ -497,7 +504,8 @@ Prototipo **funcionalmente completo según v6**. `npm test` → 78/78 verde. `np
 ### 12.6 Historial de commits relevantes
 
 ```
-HEAD    feat: v6 — algoritmo balanceado con max 4 estricto, sin vista alfabética ni semáforos, stepper de robots
+HEAD    feat: v7 — nombres de grupos (GROUP_NAMES) sustituyen emojis completamente
+fef18ba feat: v6 — algoritmo balanceado con max 4 estricto, sin vista alfabética ni semáforos, stepper de robots
 c5490a4 feat(ui): quitar input 'Alumnos' de PodCountControls
 497255c docs: actualizar SUPERPROMPT.md con todos los cambios UX finales
 5194ab2 chore: limpiar carpetas historicas, huerfanos y docs obsoletas
@@ -513,13 +521,29 @@ ba18a7a ci: deploy solo desde main + anadir typecheck y tests al pipeline
 cd robotix_group_prototype
 npm install
 npm run dev                # http://localhost:3000/mi-alumnado
-npm test                   # 78/78
+npm test                   # 76/76
 npm run typecheck          # verde
 npm run build              # estático en out/, verde
 ```
 
 `.env.local` necesita `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 
+### 12.8 Lista oficial de nombres de grupos
+
+```ts
+export const GROUP_NAMES = [
+  "ORION", "APOLLO", "VOYAGER", "ARTEMIS", "ECLIPSE",
+  "COSMOS", "GALAXY", "SUPERNOVA", "NEBULA", "ASTRO",
+  "SATURN", "JUPITER", "MARS", "VENUS", "SUN",
+  "PEGASUS", "PLUTO",
+] as const;
+```
+
+Tope duro `MAX_PODS = 15`. Los 2 últimos nombres son reserva. Asignación
+por índice: pod-1 → `GROUP_NAMES[0] = ORION`, pod-2 → `APOLLO`, etc.
+Al eliminar un grupo, los pods restantes se renumeran y sus nombres también
+se reasignan desde `GROUP_NAMES[0]` en adelante.
+
 ---
 
-*SUPERPROMPT.md v6.0 — Prototipo Grupos (C360 / ROBOTIX). Spec viva.*
+*SUPERPROMPT.md v7.0 — Prototipo Grupos (C360 / ROBOTIX). Spec viva.*

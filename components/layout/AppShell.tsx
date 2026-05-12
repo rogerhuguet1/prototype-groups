@@ -9,7 +9,7 @@ import { TopBar } from "./TopBar";
 import { ScoreLegend } from "@/components/students/ScoreLegend";
 import { StudentTable } from "@/components/students/StudentTable";
 import { usePodsStore } from "@/store/pods-store";
-import { MAX_PODS } from "@/lib/pods/pod-emojis";
+import { MAX_PODS } from "@/lib/pods/group-names";
 
 function defaultRobotCount(presentCount: number): number {
   return Math.min(MAX_PODS, Math.max(1, Math.ceil(presentCount / 4)));

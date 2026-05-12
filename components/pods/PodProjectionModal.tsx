@@ -13,7 +13,6 @@ type Props = {
 };
 
 type SizeStyle = {
-  emoji: string;
   title: string;
   name: string;
   pad: string;
@@ -31,23 +30,20 @@ function colsFor(n: number): number {
 function sizeFor(n: number): SizeStyle {
   if (n <= 4) {
     return {
-      emoji: "text-7xl md:text-8xl",
-      title: "text-2xl md:text-3xl",
+      title: "text-4xl md:text-5xl",
       name: "text-lg md:text-xl",
       pad: "p-6",
     };
   }
   if (n <= 9) {
     return {
-      emoji: "text-5xl md:text-6xl",
-      title: "text-lg md:text-xl",
+      title: "text-2xl md:text-3xl",
       name: "text-base md:text-lg",
       pad: "p-4",
     };
   }
   return {
-    emoji: "text-4xl md:text-5xl",
-    title: "text-sm md:text-base",
+    title: "text-xl md:text-2xl",
     name: "text-xs md:text-sm",
     pad: "p-3",
   };
@@ -132,15 +128,14 @@ function ProjectionCard({ pod, size }: { pod: Pod; size: SizeStyle }) {
       className={`rounded-2xl bg-white flex flex-col items-center justify-start text-center shadow-2xl ${size.pad}`}
       style={{ border: `4px solid ${pod.color.hex}` }}
     >
-      <div className={`leading-none mb-2 ${size.emoji}`}>{pod.emoji}</div>
       <div
-        className={`font-bold mb-3 px-3 py-1 rounded-full ${size.title}`}
+        className={`font-extrabold uppercase tracking-wider mb-3 px-4 py-2 rounded-full ${size.title}`}
         style={{
           backgroundColor: pod.color.hex,
           color: pod.color.textOn === "white" ? "#ffffff" : "#0f172a",
         }}
       >
-        Grupo {pod.emoji}
+        {pod.name}
       </div>
       <ul
         className={`space-y-1 font-semibold text-slate-800 ${size.name}`}

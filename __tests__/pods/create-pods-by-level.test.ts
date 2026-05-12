@@ -146,7 +146,7 @@ describe("createPodsByLevel — comportamiento general", () => {
       mode: "leveled",
       scoreFn: linearScore,
     });
-    expect(new Set(pods.map((p) => p.emoji)).size).toBe(5);
+    expect(new Set(pods.map((p) => p.name)).size).toBe(5);
     expect(new Set(pods.map((p) => p.color.hex)).size).toBe(5);
   });
 });

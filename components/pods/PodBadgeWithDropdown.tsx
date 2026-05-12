@@ -54,8 +54,8 @@ export function PodBadgeWithDropdown({ student, pod }: Props) {
     setTriggerRect(null);
   }
 
-  function handleCreateAndAssign(emoji: string, label: string) {
-    createPodAndAssignStudent(student, emoji, label);
+  function handleCreateAndAssign() {
+    createPodAndAssignStudent(student);
     setTriggerRect(null);
   }
 
@@ -69,7 +69,7 @@ export function PodBadgeWithDropdown({ student, pod }: Props) {
         aria-expanded={Boolean(triggerRect)}
         aria-label={
           pod
-            ? `Cambiar grupo de este alumno (actualmente ${pod.emojiLabel})`
+            ? `Cambiar grupo de este alumno (actualmente ${pod.name})`
             : "Asignar a un grupo"
         }
         className="rounded focus:outline-none focus:ring-2 focus:ring-blue-500"

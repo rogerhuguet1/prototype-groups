@@ -8,6 +8,7 @@ import {
   createPodsByLevel,
   createPodsByProgress,
   DEFAULT_MAX_PER_POD,
+  groupNameForIndex,
   type Pod,
   type RegroupMode,
   type Student,
@@ -18,10 +19,6 @@ import {
   removeStudentFromPod as removeStudentLogic,
   type MoveStudentResult,
 } from "@/lib/pods/move-student";
-import {
-  changePodEmoji as changeEmojiLogic,
-  type ChangeEmojiResult,
-} from "@/lib/pods/edit-pod";
 import { regroupWithLocks } from "@/lib/pods/regroup-with-locks";
 
 export type GroupingMode = "random" | RegroupMode | "by-progress";
@@ -50,16 +47,7 @@ type Actions = {
   toggleStudentLock: (studentId: string) => void;
   addEmptyPod: () => void;
   deletePod: (podId: string) => void;
-  createPodAndAssignStudent: (
-    student: Student,
-    emoji: string,
-    emojiLabel: string,
-  ) => void;
-  changeEmoji: (
-    podId: string,
-    emoji: string,
-    emojiLabel: string,
-  ) => ChangeEmojiResult;
+  createPodAndAssignStudent: (student: Student) => void;
 };
 
 const INITIAL: State = {
@@ -69,7 +57,11 @@ const INITIAL: State = {
 };
 
 function renumberPods(pods: Pod[]): Pod[] {
-  return pods.map((p, i) => ({ ...p, id: `pod-${i + 1}` }));
+  return pods.map((p, i) => ({
+    ...p,
+    id: `pod-${i + 1}`,
+    name: groupNameForIndex(i),
+  }));
 }
 
 export const usePodsStore = create<State & Actions>()(
@@ -91,14 +83,12 @@ export const usePodsStore = create<State & Actions>()(
 
         if (mode === "random") {
           if (hasPods && sameCount) {
-            // mismo numero de grupos: mantiene emojis/colores y respeta candados
             result = regroupWithLocks({
               currentPods: state.pods,
               lockedStudentIds: state.lockedStudentIds,
               allPresentStudents: presentStudents,
             });
           } else {
-            // primera vez o cambio de count: fresh start
             result = createPods({
               students: presentStudents,
               presentCount: presentStudents.length,
@@ -169,11 +159,6 @@ export const usePodsStore = create<State & Actions>()(
           };
         });
       },
-      changeEmoji: (podId, emoji, emojiLabel) => {
-        const result = changeEmojiLogic(get().pods, podId, emoji, emojiLabel);
-        if (result.ok) set({ pods: result.pods });
-        return result;
-      },
       addEmptyPod: () => {
         const state = get();
         const maxCapacity =
@@ -188,7 +173,6 @@ export const usePodsStore = create<State & Actions>()(
         set((state) => {
           const target = state.pods.find((p) => p.id === podId);
           if (!target) return {};
-          // Quitar locks de los alumnos del pod eliminado: vuelven a pendientes.
           const releasedIds = new Set(target.students.map((s) => s.id));
           const remainingLocks = state.lockedStudentIds.filter(
             (id) => !releasedIds.has(id),
@@ -200,14 +184,13 @@ export const usePodsStore = create<State & Actions>()(
           };
         });
       },
-      createPodAndAssignStudent: (student, emoji, emojiLabel) => {
+      createPodAndAssignStudent: (student) => {
         const state = get();
         const maxCapacity =
           state.pods[0]?.maxCapacity ?? DEFAULT_MAX_PER_POD;
         const newPod = createEmptyPod({
           existing: state.pods,
           maxCapacity,
-          preferredEmoji: { emoji, label: emojiLabel },
         });
         const cleanedPods = state.pods.map((p) => ({
           ...p,
@@ -224,23 +207,41 @@ export const usePodsStore = create<State & Actions>()(
     }),
     {
       name: "c360-pods-state",
-      version: 8,
+      version: 9,
       skipHydration: true,
       partialize: (state): Pick<State, "pods" | "lastRobotCount"> => ({
         pods: state.pods,
         lastRobotCount: state.lastRobotCount,
       }),
       migrate: (persistedState, version) => {
-        // v < 8 descarta state: el esquema cambio (sin evaluation ni sortMode).
-        if (version < 8) {
+        // v < 9 limpia campos viejos (emoji, emojiLabel, evaluation), añade
+        // 'name' por índice y trunca pods que excedan maxCapacity.
+        if (version < 9) {
           const prev =
-            (persistedState ?? {}) as Partial<
-              Pick<State, "pods" | "lastRobotCount">
-            >;
-          // Limpia evaluation por si existe en pods de versiones anteriores.
-          const cleanedPods = (prev.pods ?? []).map((p: Pod & { evaluation?: unknown }) => {
-            const { evaluation: _e, ...rest } = p;
-            return rest as Pod;
+            (persistedState ?? {}) as {
+              pods?: Array<Record<string, unknown>>;
+              lastRobotCount?: number | null;
+            };
+          const rawPods = prev.pods ?? [];
+          const cleanedPods: Pod[] = rawPods.map((raw, idx) => {
+            const max =
+              typeof raw["maxCapacity"] === "number"
+                ? (raw["maxCapacity"] as number)
+                : DEFAULT_MAX_PER_POD;
+            const studentsRaw = Array.isArray(raw["students"])
+              ? (raw["students"] as Array<{ id: string; full_name: string }>)
+              : [];
+            // Trunca a maxCapacity: el exceso queda fuera y aparecerá como
+            // "Pendientes de asignar".
+            const truncated = studentsRaw.slice(0, max);
+            const color = raw["color"] as Pod["color"];
+            return {
+              id: `pod-${idx + 1}`,
+              name: groupNameForIndex(idx),
+              color,
+              students: truncated,
+              maxCapacity: max,
+            };
           });
           return {
             ...INITIAL,

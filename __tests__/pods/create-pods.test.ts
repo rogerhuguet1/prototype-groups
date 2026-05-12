@@ -5,7 +5,7 @@ import {
   type Student,
 } from "@/lib/pods/create-pods";
 import { POD_COLORS } from "@/lib/pods/pod-colors";
-import { POD_EMOJIS } from "@/lib/pods/pod-emojis";
+import { GROUP_NAMES } from "@/lib/pods/group-names";
 
 function makeStudents(n: number): Student[] {
   return Array.from({ length: n }, (_, i) => ({
@@ -107,18 +107,16 @@ describe("createPods — casos del SUPERPROMPT §5", () => {
     expect(pods.map((p) => p.students.length)).toEqual([4, 4, 4, 4, 4]);
   });
 
-  it("1 alumno / 1 robot → 1 grupo de 1 (con minPerPod: 1)", () => {
+  it("1 alumno / 1 robot → 1 grupo de 1", () => {
     const { pods } = createPods({
       students: makeStudents(1),
       presentCount: 1,
       robotCount: 1,
-      minPerPod: 1,
     });
     expect(pods).toHaveLength(1);
     expect(pods[0]?.students).toHaveLength(1);
     expect(pods[0]?.id).toBe("pod-1");
-    expect(pods[0]?.emoji).toBeTruthy();
-    expect(pods[0]?.emojiLabel).toBeTruthy();
+    expect(pods[0]?.name).toBe("ORION");
   });
 
   it("0 alumnos / 1 robot → error", () => {
@@ -158,7 +156,7 @@ describe("createPods — casos del SUPERPROMPT §5", () => {
       robotCount: 15,
     });
     expect(pods).toHaveLength(15);
-    expect(new Set(pods.map((p) => p.emoji)).size).toBe(15);
+    expect(new Set(pods.map((p) => p.name)).size).toBe(15);
   });
 });
 
@@ -217,17 +215,15 @@ describe("createPods — comportamiento adicional", () => {
     );
   });
 
-  it("emojis asignados son unicos dentro de la misma llamada", () => {
+  it("nombres asignados son unicos dentro de la misma llamada (GROUP_NAMES por indice)", () => {
     const { pods } = createPods({
       students: makeStudents(12),
       presentCount: 12,
       robotCount: 6,
     });
-    const emojis = pods.map((p) => p.emoji);
-    expect(new Set(emojis).size).toBe(emojis.length);
-    emojis.forEach((e) =>
-      expect(POD_EMOJIS.map((x) => x.emoji)).toContain(e),
-    );
+    const names = pods.map((p) => p.name);
+    expect(new Set(names).size).toBe(names.length);
+    expect(names).toEqual(GROUP_NAMES.slice(0, 6));
   });
 
   it("colores asignados son unicos dentro de la misma llamada hasta 15", () => {
@@ -235,7 +231,6 @@ describe("createPods — comportamiento adicional", () => {
       students: makeStudents(15),
       presentCount: 15,
       robotCount: 15,
-      minPerPod: 1,
     });
     const colors = pods.map((p) => p.color.hex);
     expect(new Set(colors).size).toBe(15);
@@ -405,7 +400,7 @@ describe("createPods — reproducibilidad por seed", () => {
     });
     a.pods.forEach((podA, i) => {
       const podB = b.pods[i]!;
-      expect(podB.emoji).toBe(podA.emoji);
+      expect(podB.name).toBe(podA.name);
       expect(podB.color.hex).toBe(podA.color.hex);
       expect(podB.students.map((s) => s.id)).toEqual(
         podA.students.map((s) => s.id),
@@ -415,7 +410,7 @@ describe("createPods — reproducibilidad por seed", () => {
 });
 
 describe("createEmptyPod", () => {
-  it("crea un grupo vacio con emoji y color no usados por los existentes", () => {
+  it("crea un grupo vacio con el siguiente nombre disponible y color no usado", () => {
     const { pods: existing } = createPods({
       students: makeStudents(12),
       presentCount: 12,
@@ -423,51 +418,78 @@ describe("createEmptyPod", () => {
     });
     const empty = createEmptyPod({ existing });
     expect(empty.students).toHaveLength(0);
-    expect(existing.map((p) => p.emoji)).not.toContain(empty.emoji);
+    expect(empty.name).toBe(GROUP_NAMES[6]); // siguiente tras los 6 existentes
     expect(existing.map((p) => p.color.hex)).not.toContain(empty.color.hex);
   });
 
-  it("usa preferredEmoji si esta disponible", () => {
-    const { pods: existing } = createPods({
-      students: makeStudents(8),
-      presentCount: 8,
-      robotCount: 2,
-    });
-    const usedEmojis = existing.map((p) => p.emoji);
-    const free = POD_EMOJIS.find((e) => !usedEmojis.includes(e.emoji))!;
-    const empty = createEmptyPod({
-      existing,
-      preferredEmoji: { emoji: free.emoji, label: free.label },
-    });
-    expect(empty.emoji).toBe(free.emoji);
-    expect(empty.emojiLabel).toBe(free.label);
-  });
-
-  it("ignora preferredEmoji si ya esta en uso y elige uno disponible", () => {
-    const { pods: existing } = createPods({
-      students: makeStudents(8),
-      presentCount: 8,
-      robotCount: 2,
-    });
-    const conflictingEmoji = existing[0]!.emoji;
-    const empty = createEmptyPod({
-      existing,
-      preferredEmoji: { emoji: conflictingEmoji, label: "x" },
-    });
-    expect(existing.map((p) => p.emoji)).not.toContain(empty.emoji);
-  });
-
-  it("error si existing tiene 15 grupos (limite de emojis)", () => {
+  it("error si existing tiene 15 grupos (limite de MAX_PODS)", () => {
     const existing: Parameters<typeof createEmptyPod>[0]["existing"] =
-      POD_EMOJIS.map((e, i) => ({
+      Array.from({ length: 15 }, (_, i) => ({
         id: `pod-${i + 1}`,
-        emoji: e.emoji,
-        emojiLabel: e.label,
+        name: GROUP_NAMES[i] as string,
         color: POD_COLORS[i % POD_COLORS.length]!,
         students: [],
         maxCapacity: 4,
-        evaluation: null,
       }));
     expect(() => createEmptyPod({ existing })).toThrow(/Máximo 15 grupos/);
+  });
+});
+
+describe("nombres de grupo (GROUP_NAMES)", () => {
+  it("1 grupo → ORION", () => {
+    const { pods } = createPods({
+      students: makeStudents(2),
+      presentCount: 2,
+      robotCount: 1,
+    });
+    expect(pods.map((p) => p.name)).toEqual(["ORION"]);
+  });
+
+  it("2 grupos → ORION, APOLLO", () => {
+    const { pods } = createPods({
+      students: makeStudents(4),
+      presentCount: 4,
+      robotCount: 2,
+    });
+    expect(pods.map((p) => p.name)).toEqual(["ORION", "APOLLO"]);
+  });
+
+  it("4 grupos → ORION, APOLLO, VOYAGER, ARTEMIS", () => {
+    const { pods } = createPods({
+      students: makeStudents(12),
+      presentCount: 12,
+      robotCount: 4,
+    });
+    expect(pods.map((p) => p.name)).toEqual([
+      "ORION",
+      "APOLLO",
+      "VOYAGER",
+      "ARTEMIS",
+    ]);
+  });
+
+  it("5 grupos → ORION, APOLLO, VOYAGER, ARTEMIS, ECLIPSE", () => {
+    const { pods } = createPods({
+      students: makeStudents(15),
+      presentCount: 15,
+      robotCount: 5,
+    });
+    expect(pods.map((p) => p.name)).toEqual([
+      "ORION",
+      "APOLLO",
+      "VOYAGER",
+      "ARTEMIS",
+      "ECLIPSE",
+    ]);
+  });
+
+  it("no se repiten nombres dentro de una misma agrupacion", () => {
+    const { pods } = createPods({
+      students: makeStudents(30),
+      presentCount: 30,
+      robotCount: 10,
+    });
+    const names = pods.map((p) => p.name);
+    expect(new Set(names).size).toBe(names.length);
   });
 });
