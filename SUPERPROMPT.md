@@ -141,20 +141,22 @@ Si tras eliminar grupos o alumnos quedan alumnos sin pod, aparecen al final en u
 
 Ambas vías (drag y dropdown) están activas en paralelo.
 
-### 5.4 Inputs inline "Alumnos / Robots" (en grouped)
+### 5.4 Input inline "Robots" (en grouped)
 
 `PodCountControls` en la barra entre "Lista" y "Reagrupar ▼":
 
-- Dos `<input type="number" min={1}>` etiquetados Alumnos / Robots.
-- Pre-rellenados con `lastPresentCount ?? students.length` y `pods.length`.
-- Sincronizados con el store via `useEffect`.
+- Un único `<input type="number" min={1}>` etiquetado **Robots**.
+- Pre-rellenado con `pods.length`.
+- Sincronizado con el store via `useEffect`: cualquier cambio externo (reagrupar, eliminar grupo) actualiza el campo.
 - Al hacer `blur` o pulsar **Enter**:
-  - Si los valores son los actuales: no-op.
-  - Si nuevos: valida con `groupingSchema` (enteros ≥ 1, robotCount ≤ 15, robotCount ≤ presentCount).
-  - Si OK, ejecuta `createOrRegroup({mode: 'random', presentStudents, robotCount})`.
-  - Si inválido: muestra error 4s y revierte los inputs.
+  - Si el valor es el actual: no-op.
+  - Si nuevo: valida con `groupingSchema` (entero ≥ 1, robotCount ≤ 15, robotCount ≤ alumnos totales).
+  - Si OK, ejecuta `createOrRegroup({mode: 'random', presentStudents: students, robotCount})` con **todos** los alumnos.
+  - Si inválido: muestra error 4s y revierte.
 
-Si el profe cambia el **robotCount**, el store usa `createPods` fresh (nuevos emojis/colores, locks se pierden). Si solo cambia el **presentCount** (mismo robotCount), usa `regroupWithLocks` (mantiene emojis y respeta locks).
+**No hay input "Alumnos"**: cambiar el número de presentes manualmente quitaría alumnos arbitrarios del reparto (los últimos del orden alfabético), lo cual es contraintuitivo. El reparto siempre usa el total de alumnos de la clase. Si hay ausentes, el profe puede marcarlos individualmente con el candado o moverlos a "Pendientes de asignar".
+
+Cambiar el `robotCount` siempre dispara `createPods` fresh (nuevos emojis/colores, locks se pierden) porque `pods.length !== nuevo robotCount`. Para mantener emojis tras un reagrupamiento sin cambiar el número, el profe usa el dropdown "Reagrupar ▼" → Aleatorio.
 
 ### 5.5 Reagrupar manual: dropdown con 4 modos
 
@@ -468,9 +470,10 @@ El prototipo v5 es correcto si:
 3. **Con pods previos guardados** (cualquier refresh): vista alfabética con los mismos badges, botón **"Grupos"** visible.
 4. Pulsar "Grupos" → entra a vista por grupos. Pulsar "Lista" desde grouped → vuelve a alfabética. Toggle simétrico.
 5. En vista grouped:
-   - Inputs **Alumnos** y **Robots** muestran los valores actuales. Editar y blur/Enter reagrupa.
-   - 30/10 → 10 grupos. 30/5 → 5 grupos de 6 (excede max recomendado, reparto balanceado, sin error).
-   - 30/3 → 3 grupos de 10. 3/2 → 2 grupos `[2, 1]`. Nunca error.
+   - Input **Robots** muestra el valor actual (= `pods.length`). Editar y blur/Enter reagrupa con TODOS los alumnos.
+   - Con 30 alumnos: cambiar a 10 → 10 grupos. Cambiar a 5 → 5 grupos de 6 (excede max recomendado, reparto balanceado, sin error).
+   - Cambiar a 3 → 3 grupos de 10. Cambiar a 15 → 15 grupos de 2. Nunca error.
+   - No hay input "Alumnos" porque el reparto siempre usa el total real.
 6. Cabecera de cada grupo: emoji + semáforo **🔴 🟡 🟢** + **"N alumnos"** (en amber si N > 4) + botón eliminar.
 7. Click en 🟢 selecciona; click otra vez deselecciona. Selección por opacidad/fondo (no ring).
 8. Cada fila: candado individual con color del pod + handle Equal (dos rayas =) + nombre.
