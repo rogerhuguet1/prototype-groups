@@ -106,21 +106,21 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable__-RDC0rLI9Rg2iARjbOnXA_t2uIC
 
 Cada pod renderiza un `<tbody>` con cabecera:
 
-- **Píldora con el nombre del grupo** clicable (color del pod como fondo; texto blanco o negro según contraste WCAG, calculado en `pod-colors.ts`). Click → abre `PodNamePicker` (ver §5.3.1). Sin emojis.
+- **Píldora con el nombre del grupo** clicable (color del pod como fondo, **texto siempre blanco** — la paleta `pod-colors.ts` está pensada para garantizar contraste WCAG AA con blanco). Click → abre `PodNamePicker` (ver §5.3.1). Sin emojis.
 - **Contador**: `"N de 4 alumnos"`. Si `N === 4` aparece un badge **"Lleno"** en amber. Como max=4 es duro, nunca verás N>4.
 - **Botón eliminar** (`Trash2`): borra el grupo. Si tiene alumnos, `confirm` antes; al aceptar, los alumnos pasan a "Pendientes de asignar" y los pods restantes se **renumeran** a `pod-1..pod-N` (los IDs se renumeran; los nombres se conservan tal cual los haya dejado el profe).
 
 #### 5.3.1 `PodNamePicker` — selector visual de nombre
 
-Popover compacto que se abre al click en la píldora del nombre. Renderiza una **cuadrícula 2 columnas** con los 17 `GROUP_NAMES`. Cada item:
+Popover compacto al click en la píldora del nombre. **Mismo diseño visual que `PodChangeDropdown`** (lista vertical, mismo ancho `w-60`, mismo `text-xs` + uppercase, mismo header/footer) para que el profe vea ambos popovers como variantes de la misma cosa: uno cambia *dónde* está un alumno, el otro cambia *cómo se llama* un grupo.
 
-- **Nombre actual del pod**: pill azul `c360-blue` + checkmark blanco.
-- **Nombre en uso por otro pod**: dot del color del otro pod (al elegirlo, los dos pods **intercambian nombres**).
-- **Nombre libre**: simple texto, hover c360-blue/10.
+Por cada uno de los 17 `GROUP_NAMES`:
 
-Footer del popover: *"Tocar un nombre con punto lo intercambia con el grupo que ya lo usa."*
+- **Nombre actual del pod**: dot del color del pod + nombre + check azul a la derecha.
+- **Nombre en uso por otro pod**: dot del color del otro pod + nombre. Click → `renamePod` ejecuta **swap** automático entre los dos pods.
+- **Nombre libre**: dot con borde dashed gris + nombre, hover `bg-blue-50`.
 
-`renamePod(podId, newName)` en el store maneja el swap automáticamente.
+Footer del popover: *"Nombre con dot de color = en uso por otro grupo (se intercambian al elegirlo)."*
 
 Cada fila de alumno (`StudentRowDraggable`):
 
@@ -277,8 +277,9 @@ app/
 
 components/
   layout/
-    AppShell.tsx                          ← auto-group inicial (useEffect+useRef)
-    Sidebar.tsx, TopBar.tsx, ClassSelector.tsx
+    AppShell.tsx                          ← auto-group inicial + state de sidebar
+    Sidebar.tsx                           ← plegable con botón PanelLeftClose/Open
+    TopBar.tsx, ClassSelector.tsx
     StoresHydrator.tsx                    ← rehydrate de Zustand
   pods/
     PodMainButton.tsx                     ← stepper + dropdown Reagrupar
@@ -453,23 +454,33 @@ Detalle completo en `SKILLS_PROTOTYPE_GROUPS.md`.
 
 Prototipo **funcionalmente completo según v7**. `npm test` → 76/76 verde. `npm run typecheck` y `npm run build` verde. CI en GitHub Actions ejecuta los 3 en cada push; deploy a Pages solo desde `main`.
 
-### 12.2 Cambios v6 → v7
+### 12.2 Ajustes finales sobre v7
+
+Sobre el rediseño v7 (nombres en vez de emojis) se aplicaron tres pulidos:
+
+| Cambio | Detalle |
+|---|---|
+| **Paleta oscura con texto blanco siempre** | `pod-colors.ts` reescrita con 15 colores Tailwind 700/800 (red-700, orange-700, amber-800, lime-700, green-700, emerald-700, teal-700, cyan-700, sky-700, blue-700, indigo-700, violet-700, purple-700, fuchsia-700, pink-700). Todos con `textOn: 'white'`, todos con contraste ≥ 4.5:1 vs blanco. **Sin excepciones** — el texto del nombre del grupo siempre va en blanco. |
+| **`PodNamePicker` uniforme con `PodChangeDropdown`** | El popover de "cambiar nombre del grupo" pasa de grid 2 columnas a **lista vertical** con el mismo patrón visual que el popover de "cambiar grupo del alumno": mismo `w-60`, mismo `text-xs` + uppercase, mismo header/footer, mismo item con dot+nombre+check. Mismo lenguaje visual para acciones análogas. |
+| **Sidebar plegable** | `Sidebar` se pliega/despliega con un botón en su cabecera (`PanelLeftClose` / `PanelLeftOpen`). Width `w-60` ↔ `w-12` con transición 200ms. Estado local en `AppShell`. Permite ganar espacio horizontal para la tabla. |
+
+### 12.3 Cambios v6 → v7 (consolidados)
 
 | Concepto | v6 | v7 (actual) |
 |---|---|---|
 | Identificador visual del grupo | emoji + emojiLabel | **Nombre textual** desde `GROUP_NAMES` (ORION, APOLLO, ...) |
 | Tipo `Pod` | `{ id, emoji, emojiLabel, color, students, maxCapacity }` | `{ id, name, color, students, maxCapacity }` |
-| `PodHeaderTrigger` (selector emoji) | Sí | **Eliminado** |
-| `PodEmojiPicker` | Sí | **Eliminado** |
-| `pod-emojis.ts` + `POD_EMOJIS` | Sí | **Eliminado** — `MAX_PODS` movido a `group-names.ts` |
-| `edit-pod.ts` (changePodEmoji) | Sí | **Eliminado** |
+| `PodHeaderTrigger`, `PodEmojiPicker`, `pod-emojis.ts`, `edit-pod.ts` | Sí | **Eliminados** — `MAX_PODS` movido a `group-names.ts` |
 | `createPodAndAssignStudent(student, emoji, emojiLabel)` | Sí | Firma simplificada: `createPodAndAssignStudent(student)` |
+| Store action `renamePod` | No existía | **Nueva**: cambia el nombre del pod; si el nombre está en uso, **swap** automático. |
+| `addEmptyPod` / `createPodAndAssignStudent` | Asignaban nombre por índice | Toman el primer `GROUP_NAMES` disponible (no por índice) |
+| `deletePod` + renumeración | Renumera IDs y nombres | Renumera **solo IDs**; nombres custom del profe se preservan |
 | `PodChangeDropdown` | "Crear nuevo grupo" llevaba a pick-emoji | "Crear nuevo grupo" crea con siguiente nombre disponible |
-| `regroupWithLocks` | Mantenía emojis/colores | Mantiene **colores** (los nombres son por índice, persistentes) |
-| Cabecera de grupo | Emoji 28px + nombre del emoji | **Píldora MAYÚSCULAS con el nombre del grupo** |
+| `regroupWithLocks` | Mantenía emojis/colores | Mantiene **colores** (los nombres son atributo independiente) |
+| Cabecera de grupo | Emoji 28px + nombre del emoji | **Píldora clicable** MAYÚSCULAS + ChevronDown que abre `PodNamePicker` |
 | Persist version | 8 | **9** (migración limpia emoji/emojiLabel/evaluation + trunca pods >4) |
 
-### 12.3 Cambios v5 → v6 (resumen, ya consolidados)
+### 12.4 Cambios v5 → v6 (resumen)
 
 - Reparto: maximize-4 → balanceado simple con cap duro `robots*4`.
 - Excedentes → "Pendientes de asignar" (no se fuerzan en pods llenos).
@@ -477,7 +488,7 @@ Prototipo **funcionalmente completo según v7**. `npm test` → 76/76 verde. `np
 - Eliminados: `PodEvaluationRadio`, `Pod.evaluation`, vista alfabética, `sortMode`, `setSortMode`, `PodGroupingModal`, `SessionPrompt`.
 - `PodCountControls` rediseñado como stepper.
 
-### 12.3 Algoritmo: tabla de comportamiento
+### 12.5 Algoritmo: tabla de comportamiento
 
 | Presentes | Robots | Capacity (=robots×4) | Asignados | Pendientes | Sizes |
 |---|---|---|---|---|---|
@@ -491,7 +502,7 @@ Prototipo **funcionalmente completo según v7**. `npm test` → 76/76 verde. `np
 | 30 | 15 | 60 | 30 | 0 | `[2,2,2,2,2,2,2,2,2,2,2,2,2,2,2]` |
 | 3 | 2 | 8 | 3 | 0 | `[2,1]` |
 
-### 12.4 Validaciones / errores
+### 12.6 Validaciones / errores
 
 | Punto | Caso | Resultado |
 |---|---|---|
@@ -505,7 +516,7 @@ Prototipo **funcionalmente completo según v7**. `npm test` → 76/76 verde. `np
 | `PodCountControls` | Valor inválido | Error 4s, revierte al último válido |
 | `createEmptyPod` | 15 pods existentes | `Máximo 15 grupos permitidos` |
 
-### 12.5 Persistencia: qué sobrevive a un refresh
+### 12.7 Persistencia: qué sobrevive a un refresh
 
 | Item | Persistido |
 |---|---|
@@ -514,13 +525,16 @@ Prototipo **funcionalmente completo según v7**. `npm test` → 76/76 verde. `np
 | `lastRobotCount` | ✓ |
 | Vista (no existe `sortMode`) | n/a |
 
-### 12.6 Historial de commits relevantes
+### 12.8 Historial de commits relevantes
 
 ```
-HEAD    feat: v7 — nombres de grupos (GROUP_NAMES) sustituyen emojis completamente
+HEAD    docs: actualizar SUPERPROMPT con paleta blanco, picker uniforme, sidebar plegable
+02a4f36 feat(layout): sidebar plegable
+c0bad52 fix(ui): paleta oscura con texto blanco siempre + PodNamePicker uniforme con PodChangeDropdown
+85ca4c0 feat(ui): selector visual de nombre + contraste textOn ajustado
+ee93930 feat: v7 — nombres de grupos (GROUP_NAMES) sustituyen emojis completamente
 fef18ba feat: v6 — algoritmo balanceado con max 4 estricto, sin vista alfabética ni semáforos, stepper de robots
 c5490a4 feat(ui): quitar input 'Alumnos' de PodCountControls
-497255c docs: actualizar SUPERPROMPT.md con todos los cambios UX finales
 5194ab2 chore: limpiar carpetas historicas, huerfanos y docs obsoletas
 f90e30e feat(pods): auto-agrupar al cargar + min/max recomendados (no estrictos)
 0e07906 feat(ui): toggle Lista/Grupos simetrico, drag handle Equal y dropdown en pendientes
@@ -528,7 +542,7 @@ ba18a7a ci: deploy solo desde main + anadir typecheck y tests al pipeline
 … (ver git log para v5 completo)
 ```
 
-### 12.7 Cómo arrancar
+### 12.9 Cómo arrancar
 
 ```bash
 cd robotix_group_prototype
@@ -541,7 +555,7 @@ npm run build              # estático en out/, verde
 
 `.env.local` necesita `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 
-### 12.8 Lista oficial de nombres de grupos
+### 12.10 Lista oficial de nombres de grupos
 
 ```ts
 export const GROUP_NAMES = [
