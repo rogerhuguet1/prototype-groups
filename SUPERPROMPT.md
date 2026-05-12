@@ -159,7 +159,7 @@ Botón **"Reagrupar ▼"** abre `PodRegroupModeDropdown`:
 
 | Modo | Función | Semántica |
 |---|---|---|
-| **Aleatorio** | `regroupWithLocks` (si `robotCount === pods.length`) o `createPods` fresh | Mezcla al azar; mantiene emojis/colores y candados si el número no cambia. |
+| **Aleatorio** | `regroupWithLocks` (si `robotCount === pods.length`) o `createPods` fresh | Mezcla al azar; mantiene nombres/colores y candados si el número no cambia. |
 | **Compensada** | `createPodsByLevel({mode: 'mixed', scoreFn: getStudentScore})` | Equilibra niveles en cada grupo (zigzag). |
 | **Por niveles** | `createPodsByLevel({mode: 'leveled', scoreFn: getStudentScore})` | Alumnos con puntuación parecida juntos. |
 | **Por avance** | `createPodsByProgress({progressFn, scoreFn: getStudentOverallScore})` | Junta a alumnos que están en la misma unidad del curso. |
@@ -250,11 +250,11 @@ export function computePodSizes({
 
 - **`createPodsByLevel({..., mode: 'mixed' | 'leveled', scoreFn, lockedStudentIds?, currentPods?})`**: respeta candados con cap a `maxPerPod` por pod. Reparto balanceado (no maximize-4). Los free que no caben en la capacidad libre **quedan fuera** (= pendientes).
 - **`createPodsByProgress({..., progressFn, scoreFn, ...})`**: wrapper que compone `score = progress*1000 + score` y llama `createPodsByLevel` modo `leveled`.
-- **`createEmptyPod({existing, ...})`**: crea un pod vacío con emoji/color únicos.
+- **`createEmptyPod({existing, ...})`**: crea un pod vacío con el siguiente nombre disponible de `GROUP_NAMES` y un color no usado.
 
 ### `regroupWithLocks` (lib/pods/regroup-with-locks.ts)
 
-Mantiene emojis/colores. Cap **duro** a `maxPerPod` por pod. Si quedan free fuera de la capacidad libre, **quedan pendientes** sin lanzar error. (Antes lanzaba `RegroupLocksError` en este caso; ahora es comportamiento silencioso porque el flujo de pendientes lo absorbe.)
+Mantiene nombres/colores de los pods existentes. Cap **duro** a `maxPerPod` por pod. Si quedan free fuera de la capacidad libre, **quedan pendientes** sin lanzar error. (Antes lanzaba `RegroupLocksError` en este caso; ahora es comportamiento silencioso porque el flujo de pendientes lo absorbe.)
 
 ### `move-student.ts`
 
@@ -308,7 +308,9 @@ lib/
     edit-pod.ts                           ← changePodEmoji
     regroup-with-locks.ts                 ← cap duro a maxPerPod
     grouping-schema.ts                    ← Zod laxo (solo limites duros)
-    pod-colors.ts, pod-emojis.ts, seeded-random.ts, student-score.ts
+    group-names.ts                        ← GROUP_NAMES (ORION...PLUTO) + MAX_PODS
+    pod-colors.ts                         ← 15 colores oscuros, textOn white siempre
+    seeded-random.ts, student-score.ts
   supabase/client.ts
   utils/cn.ts, sort-students.ts, progress-cells.ts, popover-position.ts
   data/units.ts
@@ -365,7 +367,7 @@ type Actions = {
 ### `createOrRegroup` — dispatcher
 
 - **random** + sin pods o cambio de `robotCount`: `createPods` fresh.
-- **random** + mismo `robotCount`: `regroupWithLocks` (mantiene emojis/colores y respeta candados).
+- **random** + mismo `robotCount`: `regroupWithLocks` (mantiene nombres/colores y respeta candados).
 - **mixed/leveled**: `createPodsByLevel` con `scoreFn`, locks y `currentPods`.
 - **by-progress**: `createPodsByProgress` con `progressFn` + `scoreFn`.
 
@@ -435,7 +437,7 @@ Detalle completo en `SKILLS_PROTOTYPE_GROUPS.md`.
    - 30 alumnos / 10 robots → 10 grupos de 3, 0 pendientes.
    - 30 / 5 → 5 grupos de 4, **10 pendientes** (visible en bloque inferior).
    - 30 / 3 → 3 grupos de 4 (capacidad 12), 18 pendientes.
-6. Cabecera de grupo: **píldora clicable con el nombre del grupo en MAYÚSCULAS** (color del pod, texto blanco/negro según contraste WCAG) + contador `"N de 4 alumnos"` + badge `"Lleno"` si N=4 + botón eliminar. **Sin semáforo. Sin emoji.** Click en la píldora abre `PodNamePicker` con grid 2×9 de nombres; elegir uno usado por otro pod intercambia los nombres.
+6. Cabecera de grupo: **píldora clicable con el nombre del grupo en MAYÚSCULAS** (color del pod, **texto siempre blanco**) + contador `"N de 4 alumnos"` + badge `"Lleno"` si N=4 + botón eliminar. **Sin semáforo. Sin emoji.** Click en la píldora abre `PodNamePicker` (lista vertical estilo `PodChangeDropdown`); elegir un nombre usado por otro pod intercambia los nombres.
 7. Cada fila: candado individual (color del pod) + handle Equal + badge (con nombre, sin emoji) + nombre del alumno.
 8. **Drop en pod con menos de 4** → ring verde, asignación inmediata.
 9. **Drop en pod lleno (4)** → ring rojo + cursor `not-allowed` + banner *"El grupo ya tiene el máximo de 4 alumnos"*. **No se asigna.**
