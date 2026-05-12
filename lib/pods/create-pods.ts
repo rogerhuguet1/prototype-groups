@@ -7,8 +7,6 @@ export type Student = {
   full_name: string;
 };
 
-export type PodEvaluation = "green" | "amber" | "red" | null;
-
 export type Pod = {
   id: string;
   emoji: string;
@@ -16,7 +14,6 @@ export type Pod = {
   color: PodColor;
   students: Student[];
   maxCapacity: number;
-  evaluation: PodEvaluation;
 };
 
 export type CreatePodsInput = {
@@ -29,15 +26,6 @@ export type CreatePodsInput = {
   random?: () => number;
 };
 
-export function distributionErrorMessage(
-  presentCount: number,
-  robotCount: number,
-  minPerPod: number,
-  maxPerPod: number,
-): string {
-  return `No se puede distribuir ${presentCount} alumnos en ${robotCount} grupos respetando min ${minPerPod} y max ${maxPerPod}.`;
-}
-
 export type CreatePodsOutput = {
   pods: Pod[];
   seed: string;
@@ -47,55 +35,36 @@ export const DEFAULT_MAX_PER_POD = 4;
 export const DEFAULT_MIN_PER_POD = 2;
 
 /**
- * Devuelve los tamaños objetivo para `robotCount` grupos que suman
- * `presentCount`.
+ * Reparto **balanceado** simple para `robotCount` grupos sobre `assignableCount`
+ * alumnos. Cada grupo recibe `base` o `base+1` (los primeros `extra` pods).
  *
- * Si la combinación cabe en `[robotCount*minPerPod, robotCount*maxPerPod]`,
- * **maximiza grupos de `maxPerPod`** y deja la cola con valores en
- * `[minPerPod, maxPerPod-1]`. Ejemplos con min=2 max=4:
- *   22/6  → [4,4,4,4,4,2]
- *   18/9  → [2,2,2,2,2,2,2,2,2]
- *   30/10 → [4,4,4,4,4,2,2,2,2,2]
+ * Asume que `assignableCount ≤ robotCount * maxPerPod` (el caller debe haber
+ * recortado el pool si excede capacidad — los alumnos sobrantes quedan como
+ * "Pendientes de asignar").
  *
- * Si NO cabe (faltan robots o sobran), **reparto balanceado** base+extra:
- *   30/3  → [10,10,10]  (excede max recomendado)
- *   3/2   → [2,1]       (debajo de min recomendado)
+ * Ejemplos (con maxPerPod=4):
+ *   10/4 → [3,3,2,2]
+ *   12/4 → [3,3,3,3]
+ *   13/4 → [4,3,3,3]
+ *   16/4 → [4,4,4,4]
+ *   30/10 → [3,3,3,3,3,3,3,3,3,3]
+ *
+ * Si el caller pasa 18 alumnos y 4 robots, debe llamar con assignableCount=16
+ * (= min(18, 16)). El reparto será `[4,4,4,4]` y los 2 restantes quedan fuera.
  */
 export function computePodSizes({
-  presentCount,
+  assignableCount,
   robotCount,
-  minPerPod,
-  maxPerPod,
 }: {
-  presentCount: number;
+  assignableCount: number;
   robotCount: number;
-  minPerPod: number;
-  maxPerPod: number;
 }): number[] {
   if (robotCount <= 0) return [];
-
-  const fitsInRange =
-    presentCount >= robotCount * minPerPod &&
-    presentCount <= robotCount * maxPerPod;
-
-  if (!fitsInRange) {
-    // Reparto balanceado simple. Primeros pods reciben uno más si hay resto.
-    const base = Math.floor(presentCount / robotCount);
-    const extra = presentCount % robotCount;
-    return Array.from({ length: robotCount }, (_, i) =>
-      i < extra ? base + 1 : base,
-    );
-  }
-
-  // Cabe: maximizar grupos llenos.
-  const sizes = new Array<number>(robotCount).fill(minPerPod);
-  let stock = presentCount - robotCount * minPerPod;
-  for (let i = 0; i < robotCount && stock > 0; i++) {
-    const add = Math.min(stock, maxPerPod - minPerPod);
-    sizes[i] = (sizes[i] as number) + add;
-    stock -= add;
-  }
-  return sizes;
+  const base = Math.floor(assignableCount / robotCount);
+  const extra = assignableCount % robotCount;
+  return Array.from({ length: robotCount }, (_, i) =>
+    i < extra ? base + 1 : base,
+  );
 }
 
 export function shuffleInPlace<T>(arr: T[], random: () => number): T[] {
@@ -114,7 +83,6 @@ export function createPods(input: CreatePodsInput): CreatePodsOutput {
     presentCount,
     robotCount,
     maxPerPod = DEFAULT_MAX_PER_POD,
-    minPerPod = DEFAULT_MIN_PER_POD,
   } = input;
 
   if (!Number.isInteger(presentCount) || presentCount < 0) {
@@ -132,28 +100,28 @@ export function createPods(input: CreatePodsInput): CreatePodsOutput {
   if (robotCount > presentCount) {
     throw new Error("Hay más robots que alumnos");
   }
-  // min/maxPerPod son recomendados, no estrictos. computePodSizes adapta el
-  // reparto si la combinación queda fuera del rango (más robots o menos).
 
   const seed = input.seed ?? generateSeed();
   const random = input.random ?? randomFromSeed(seed);
 
-  const present = shuffleInPlace(students.slice(0, presentCount), random);
+  const capacity = robotCount * maxPerPod;
+  const assignableCount = Math.min(presentCount, capacity);
+
+  // Mezclamos los presentes y solo asignamos los primeros `assignableCount`.
+  // Los demás quedan fuera de cualquier pod = aparecerán como "Pendientes".
+  const shuffled = shuffleInPlace(students.slice(0, presentCount), random);
+  const assignable = shuffled.slice(0, assignableCount);
+
   const emojis = shuffleInPlace([...POD_EMOJIS], random).slice(0, robotCount);
   const colors = pickUniqueColors(robotCount, [], random);
 
-  const sizes = computePodSizes({
-    presentCount,
-    robotCount,
-    minPerPod,
-    maxPerPod,
-  });
+  const sizes = computePodSizes({ assignableCount, robotCount });
 
   const pods: Pod[] = [];
   let cursor = 0;
   for (let i = 0; i < robotCount; i++) {
     const size = sizes[i] as number;
-    const slice = present.slice(cursor, cursor + size);
+    const slice = assignable.slice(cursor, cursor + size);
     cursor += size;
     const emoji = emojis[i] as PodEmoji;
     const color = colors[i] as PodColor;
@@ -164,7 +132,6 @@ export function createPods(input: CreatePodsInput): CreatePodsOutput {
       color,
       students: slice,
       maxCapacity: maxPerPod,
-      evaluation: null,
     });
   }
   return { pods, seed };
@@ -217,7 +184,6 @@ export function createEmptyPod(input: {
     color: color as PodColor,
     students: [],
     maxCapacity,
-    evaluation: null,
   };
 }
 
@@ -275,7 +241,6 @@ export type CreatePodsByLevelInput = {
   mode: RegroupMode;
   scoreFn: (studentId: string) => number;
   maxPerPod?: number;
-  minPerPod?: number;
   seed?: string;
   lockedStudentIds?: string[];
   currentPods?: Pod[];
@@ -288,7 +253,6 @@ export type CreatePodsByProgressInput = {
   progressFn: (studentId: string) => number;
   scoreFn: (studentId: string) => number;
   maxPerPod?: number;
-  minPerPod?: number;
   seed?: string;
   lockedStudentIds?: string[];
   currentPods?: Pod[];
@@ -306,7 +270,6 @@ export function createPodsByProgress(
     mode: "leveled",
     scoreFn: compositeScore,
     ...(input.maxPerPod !== undefined ? { maxPerPod: input.maxPerPod } : {}),
-    ...(input.minPerPod !== undefined ? { minPerPod: input.minPerPod } : {}),
     ...(input.seed !== undefined ? { seed: input.seed } : {}),
     ...(input.lockedStudentIds !== undefined
       ? { lockedStudentIds: input.lockedStudentIds }
@@ -327,7 +290,6 @@ export function createPodsByLevel(
     mode,
     scoreFn,
     maxPerPod = DEFAULT_MAX_PER_POD,
-    minPerPod = DEFAULT_MIN_PER_POD,
     lockedStudentIds = [],
     currentPods = [],
   } = input;
@@ -347,18 +309,18 @@ export function createPodsByLevel(
   if (robotCount > presentCount) {
     throw new Error("Hay más robots que alumnos");
   }
-  // min/maxPerPod son recomendados, no estrictos.
 
   const seed = input.seed ?? generateSeed();
   const random = randomFromSeed(seed);
 
+  const capacity = robotCount * maxPerPod;
   const lockedSet = new Set(lockedStudentIds);
   const pool = students.slice(0, presentCount);
   const presentSet = new Set(pool.map((s) => s.id));
   const presentMap = new Map(pool.map((s) => [s.id, s]));
 
-  // Locked students that survive: must be present AND have a current pod whose
-  // id falls in pod-1..pod-{robotCount}. Anything else returns to the free pool.
+  // Alumnos lockeados que sobreviven: presentes Y con pod actual en
+  // pod-1..pod-{robotCount}.
   const lockedByPodIndex: Student[][] = Array.from(
     { length: robotCount },
     () => [],
@@ -370,19 +332,22 @@ export function createPodsByLevel(
     for (const s of pod.students) {
       if (!lockedSet.has(s.id)) continue;
       if (!presentSet.has(s.id)) continue;
+      // Respeta el max duro: si un pod ya tiene maxPerPod lockeados, los demás
+      // se quedan fuera.
+      if (lockedByPodIndex[idx]!.length >= maxPerPod) continue;
       lockedByPodIndex[idx]!.push(presentMap.get(s.id) as Student);
       lockedKept.add(s.id);
     }
   }
+  const lockedTotal = lockedKept.size;
 
   const freeStudents = pool.filter((s) => !lockedKept.has(s.id));
-  const lockedTotal = Array.from(lockedKept).length;
-  // validacion presentCount in [min*robot, max*robot] ya asegura que cabe sin cap.
-  const effectiveFree = freeStudents.length;
 
-  const sortedFree = [...freeStudents].sort(
-    (a, b) => scoreFn(b.id) - scoreFn(a.id),
-  );
+  // Capacidad libre tras locks; los alumnos que no caben quedan fuera.
+  const freeCapacity = Math.max(0, capacity - lockedTotal);
+  const sortedFree = [...freeStudents]
+    .sort((a, b) => scoreFn(b.id) - scoreFn(a.id))
+    .slice(0, freeCapacity);
 
   const emojis = shuffleInPlace([...POD_EMOJIS], random).slice(0, robotCount);
   const colors = pickUniqueColors(robotCount, [], random);
@@ -392,25 +357,29 @@ export function createPodsByLevel(
     () => [],
   );
 
-  // En modos por nivel/progreso usamos reparto BALANCEADO (no maximize-4),
-  // porque la semantica de 'agrupar juntos por nivel' exige tamanos parecidos.
-  // computePodSizes (que maximiza 4s) solo se usa en createPods/regroupWithLocks.
-  const totalPresent = effectiveFree + lockedTotal;
-  const baseSize = Math.floor(totalPresent / robotCount);
-  const extraSize = totalPresent % robotCount;
+  // Reparto BALANCEADO sobre (lockedTotal + sortedFree.length), descontando
+  // lockedByPodIndex[i].length de cada pod. El max duro por pod es maxPerPod.
+  const totalAssignable = lockedTotal + sortedFree.length;
+  const baseSize = Math.floor(totalAssignable / robotCount);
+  const extraSize = totalAssignable % robotCount;
   const targetSizes = Array.from({ length: robotCount }, (_, i) =>
-    i < extraSize ? baseSize + 1 : baseSize,
+    Math.min(maxPerPod, i < extraSize ? baseSize + 1 : baseSize),
   );
-  // Free quota por pod = target - locked. Si los locks exceden el target, el
-  // pod no recibe free students; los free van a otros pods con espacio.
-  const freeQuota = targetSizes.map((t, i) =>
-    Math.max(0, t - lockedByPodIndex[i]!.length),
-  );
-  let overflow =
-    effectiveFree - freeQuota.reduce((acc, n) => acc + n, 0);
+  // Free quota por pod = target - locked; cap a (maxPerPod - locked).
+  const freeQuota = targetSizes.map((t, i) => {
+    const lockedAtPod = lockedByPodIndex[i]!.length;
+    const slotsAvailable = Math.max(0, maxPerPod - lockedAtPod);
+    return Math.max(0, Math.min(slotsAvailable, t - lockedAtPod));
+  });
+  // Redistribuir overflow a pods con espacio (que no hayan llegado a maxPerPod).
+  let overflow = sortedFree.length - freeQuota.reduce((acc, n) => acc + n, 0);
   for (let i = 0; i < robotCount && overflow > 0; i++) {
-    freeQuota[i] = (freeQuota[i] as number) + 1;
-    overflow -= 1;
+    const lockedAtPod = lockedByPodIndex[i]!.length;
+    const slotsAvailable = maxPerPod - lockedAtPod;
+    if ((freeQuota[i] as number) < slotsAvailable) {
+      freeQuota[i] = (freeQuota[i] as number) + 1;
+      overflow -= 1;
+    }
   }
 
   if (mode === "leveled") {
@@ -453,8 +422,6 @@ export function createPodsByLevel(
     }
   }
 
-  // Prepend locked students (preserved from their original pod) to each bucket
-  // so they keep priority in the resulting order.
   const finalBuckets = buckets.map((bucket, i) => [
     ...lockedByPodIndex[i]!,
     ...bucket,
@@ -467,7 +434,6 @@ export function createPodsByLevel(
     color: colors[i] as PodColor,
     students: bucket,
     maxCapacity: maxPerPod,
-    evaluation: null,
   }));
 
   return { pods, seed };

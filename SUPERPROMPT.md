@@ -1,41 +1,36 @@
 # SUPERPROMPT.md — Prototipo de Agrupación por Grupos (C360 / ROBOTIX)
 
-> Spec viva v5 para Claude Code. Construye un prototipo aislado de la feature
-> "Agrupar por Grupos" sobre la pantalla "Mi alumnado: Progreso por unidad
-> didáctica" del C360. Usa datos mock desde Supabase. Persiste solo composición
-> de grupos en localStorage. No toca producción.
+> Spec viva v6 para Claude Code. Prototipo aislado de la feature "Agrupar por
+> Grupos" del C360 SuperNova Yellow. Datos mock desde Supabase. Solo composición
+> de pods persistida en localStorage. No toca producción.
 
-> Para el historial de iteraciones v1→v4 y los pasos del refactor v5 ver
-> `git log`. Este documento describe **el estado actual vigente**.
+> Para el historial de iteraciones anteriores ver `git log`. Este documento
+> describe **el estado actual vigente**.
 
 ---
 
 ## 1. Contexto
 
 - **Producto**: prototipo de la feature "Agrupar por Grupos" para el programa C360 SuperNova Yellow de ROBOTIX.
-- **Objetivo**: validar la UX de agrupación (recomendado 2-4 alumnos por robot, no estricto) antes de integrarla en el C360 real.
-- **Pantalla destino**: réplica visual de "Mi alumnado: Progreso por unidad didáctica" (lista de alumnos con columnas de progreso por unidad).
+- **Objetivo**: validar la UX de agrupación (recomendado 2-4 alumnos por robot, **máx 4 estricto**) antes de integrarla en el C360 real.
+- **Pantalla destino**: réplica visual de "Mi alumnado: Progreso por unidad didáctica".
 - **Repo**: aislado en `robotix_group_prototype/`. **No tocar el C360 existente.**
-- **Persistencia**: localStorage de `pods` (composición, sin `evaluation`), `lastRobotCount` y `lastPresentCount`. Bloqueos y semáforos se pierden al cerrar pestaña. Los pods sobreviven a refrescos.
+- **Persistencia**: localStorage de `pods` (composición) y `lastRobotCount`. Candados se pierden al cerrar pestaña.
 - **Mock data**: tablas `students` y `classes` ya creadas en Supabase de test.
-
-Si la validación va bien, se integrará en el C360 real. Esa integración no forma parte de este prompt.
 
 ---
 
-## 2. Filosofía UX del v5
-
-El v5 reduce fricción al máximo:
+## 2. Filosofía UX
 
 | Decisión | Razonamiento |
 |---|---|
-| **Auto-agrupar al cargar** | El profe abre la app y ya ve los grupos. Sin modal de configuración inicial. Cálculo automático: `robotCount = ceil(alumnos / 4)`. |
-| **Sin SessionPrompt** | Nada de "¿continuar sesión anterior?". Los pods persistidos siempre vuelven; el profe entra a vista alfabética y pulsa "Grupos" si quiere verlos. |
-| **Min/max recomendados** | 4 max y 2 min son sugerencias del algoritmo automático. El profe puede mover manualmente alumnos a grupos "llenos" (>4) o crear grupos pequeños (<2) sin errores. |
-| **Reparto que maximiza 4s** | `createPods` rellena grupos a 4 hasta agotar el stock; los últimos quedan con 2-3. Si no caben, reparto balanceado. Nunca un grupo con 1 alumno cuando se puede evitar. |
-| **Toggle simétrico Lista/Grupos** | Un solo botón en TopBar que cambia label e icono según el modo. Sin flecha back asimétrica. |
-| **Inputs inline para reconfigurar** | En vista grouped, dos inputs editables (Alumnos / Robots) que reagrupan en `blur`/Enter. No hay modal después del auto-group inicial. |
-| **DnD sin penalización** | Drop en cualquier pod siempre permitido (ring verde). Pod lleno no es error, es un grupo "más grande de lo recomendado". |
+| **Auto-agrupar al cargar** | El profe abre la app y ya ve los grupos. Sin modal de configuración. |
+| **Sin vista alfabética** | Una única vista: la de grupos. La app es para agrupar; ver la lista plana no aporta. |
+| **Máx 4 alumnos por grupo es ESTRICTO** | Un grupo no puede tener más de 4 alumnos. Si faltan robots, los alumnos sobrantes quedan en "Pendientes de asignar". |
+| **Reparto balanceado** | El algoritmo distribuye `min(presentes, robots*4)` alumnos lo más balanceado posible. Sin trucos para llenar grupos a 4. |
+| **Sin semáforos** | La feature de "evaluar grupo" se ha quitado para simplificar la UI. |
+| **Control de robots como stepper** | Botones `−` / `+` con icono de robot, input editable. No es un `<input type="number">` plano. |
+| **Validación dura en DnD y move** | Drop en pod lleno = rechazo con banner "El grupo ya tiene el máximo de 4 alumnos". |
 
 ---
 
@@ -47,14 +42,14 @@ El v5 reduce fricción al máximo:
 | Lenguaje | TypeScript 5.7, `strict` + `noUncheckedIndexedAccess` |
 | UI | Tailwind v4 con `@theme`, tokens `c360-*` y `grade-*` |
 | UI state | Zustand v5 con `persist` middleware y selectors granulares |
-| Server state | Tanstack Query v5 (todo data-fetching) |
-| DnD | `@dnd-kit/core` + `/sortable` (sensors: PointerSensor distance 4 + KeyboardSensor) |
+| Server state | Tanstack Query v5 |
+| DnD | `@dnd-kit/core` + `/sortable` |
 | Validación | Zod v4 |
 | Backend datos | Supabase **solo lectura** vía `@supabase/ssr` |
 | Tests | Vitest 4 (solo lógica pura en `lib/pods/*`) |
 | Iconos | `lucide-react` exclusivamente |
 
-Convenciones detalladas en `SKILLS_PROTOTYPE_GROUPS.md`. No instalar dependencias adicionales sin justificación.
+Convenciones detalladas en `SKILLS_PROTOTYPE_GROUPS.md`.
 
 ---
 
@@ -66,9 +61,7 @@ NEXT_PUBLIC_SUPABASE_URL=https://andprbqacpspbxmqqxuj.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable__-RDC0rLI9Rg2iARjbOnXA_t2uICKYK
 ```
 
-Publishable/anon key, pública por diseño (RLS protege los datos).
-
-### Tablas relevantes
+### Tablas
 
 - **`students`**: `id`, `full_name`, `initials`, `avatar_url`, `class_id`, `created_at`.
 - **`classes`**: `id`, `name`, `subject`, `created_at`.
@@ -77,15 +70,13 @@ Publishable/anon key, pública por diseño (RLS protege los datos).
 
 ---
 
-## 5. Comportamiento detallado (v5)
+## 5. Comportamiento detallado
 
 ### 5.1 Carga inicial: auto-agrupar sin modal
 
-Flujo al abrir la app:
-
 1. `<StoresHydrator/>` rehidrata Zustand desde `localStorage`.
-2. `<AppShell/>` carga `students` desde Supabase vía Tanstack Query.
-3. En cuanto `students.length > 0` y `pods.length === 0`, **un `useEffect` con `useRef` guard ejecuta automáticamente**:
+2. `<AppShell/>` carga `students` desde Supabase.
+3. Si tras la rehidratación `pods.length === 0` y `students.length > 0`, **un `useEffect` con `useRef` guard ejecuta automáticamente** `createOrRegroup`:
    ```ts
    createOrRegroup({
      mode: "random",
@@ -93,119 +84,108 @@ Flujo al abrir la app:
      robotCount: Math.min(15, Math.ceil(students.length / 4)),
    });
    ```
-4. El profe ya ve los grupos creados (vista alfabética con badges + botón "Grupos" para ver el grupo-por-grupo).
+4. El profe ya ve los grupos directamente, **sin vista alfabética previa**.
 
 **Casos:**
 
-- **Primera vez de todas** (sin sesión previa): auto-agrupa. El profe ve la lista alfabética con badges.
-- **Cualquier refresh posterior**: los pods persistidos siguen ahí. El `useEffect` ve `pods.length > 0` y NO auto-agrupa. El profe ve la misma vista alfabética con los mismos badges.
-- **Si el profe elimina todos los grupos**: queda en `pods.length === 0` pero `autoGroupedRef.current === true` (ya disparado). No se vuelve a auto-agrupar. Aparece un botón "Agrupar" fallback en TopBar que ejecuta el mismo cálculo manualmente.
+- **Primera vez de todas** (sin sesión previa): auto-agrupa al instante.
+- **Cualquier refresh con pods guardados**: rehidrata y los muestra. NO se vuelve a auto-agrupar.
+- **Si el profe elimina todos los grupos**: queda `pods.length === 0` pero `autoGroupedRef.current === true`. Aparece un botón **"Agrupar"** fallback en TopBar que ejecuta el mismo cálculo.
 
-`sortMode` **nunca se persiste**, así que cualquier refresh siempre arranca en `alphabetical`.
-
-### 5.2 Barra de acciones: tres estados de `PodMainButton`
+### 5.2 Barra de acciones (`PodMainButton`)
 
 | Estado | UI | Acción |
 |---|---|---|
-| `pods.length === 0` + `alphabetical` (raro: solo tras borrar todos) | 1 botón **"Agrupar"** (Shuffle) | Ejecuta el auto-group con defaults. |
-| `pods.length > 0` + `alphabetical` (el caso normal tras carga) | 1 botón **"Grupos"** (LayoutGrid) | `setSortMode('grouped')`. Sin modal. |
-| `sortMode === 'grouped'` | Botón **"Lista"** (List) + inputs **Alumnos / Robots** + botón **"Reagrupar ▼"** (Shuffle + ChevronDown) | Lista → alfabético. Inputs reagrupan en blur/Enter. Dropdown ofrece 4 modos. |
+| `pods.length === 0` (fallback) | Botón **"Agrupar"** (Shuffle) | Ejecuta auto-group con defaults. |
+| `pods.length > 0` (normal) | **Stepper de robots** + botón **"Reagrupar ▼"** | Stepper cambia `robotCount` con `-`/`+`/edición directa. Dropdown ofrece 4 modos de reagrupación. |
 
-Toggle simétrico Lista↔Grupos: mismo `Button secondary`, mismo estilo, solo cambia label e icono.
+**No hay vista alfabética**, así que no existe toggle "Lista/Grupos" ni `sortMode`.
 
-### 5.3 Vista grouped: estructura de cada grupo
+### 5.3 Estructura de cada grupo (`PodSectionHeaderRow`)
 
-Cada pod renderiza un `<tbody>` con cabecera (`PodSectionHeaderRow`):
+Cada pod renderiza un `<tbody>` con cabecera:
 
 - **Emoji + nombre del grupo** editable (popover de emoji al click vía `PodHeaderTrigger`).
-- **Semáforo** (`PodEvaluationRadio`): 3 botones radio en orden **🔴 🟡 🟢** (verde a la derecha = "ok"). Click asigna; click en el seleccionado deselecciona (vuelve a `null`). Selección visual por **opacidad y fondo tintado** (no ring): el seleccionado a `opacity-100` con fondo claro tintado y `scale-110`; los demás a `opacity-20` (o `opacity-40` si ninguno está seleccionado).
-- **Contador** `"N alumnos"` (sin "de 4"). Si `N > pod.maxCapacity` (= 4), el texto va en **color amber** (`text-amber-700`) con tooltip *"Supera el máximo recomendado"*. Es un aviso, no un error.
-- **Botón eliminar** (`Trash2`, alineado a la derecha): borra el grupo. Si tiene alumnos, `window.confirm` pide confirmación: los alumnos pasan a "Pendientes de asignar" (al quitar el pod, dejan de tener entrada en `studentToPod` y aparecen en el bloque pendientes). Al borrar, los pods restantes se **renumeran** a `pod-1..pod-N` para mantener IDs contiguos.
+- **Contador**: `"N de 4 alumnos"`. Si `N === 4` aparece un badge **"Lleno"** en amber. Como max=4 es duro, nunca verás N>4.
+- **Botón eliminar** (`Trash2`): borra el grupo. Si tiene alumnos, `confirm` antes; al aceptar, los alumnos pasan a "Pendientes de asignar" y los pods restantes se renumeran a `pod-1..pod-N`.
 
 Cada fila de alumno (`StudentRowDraggable`):
 
-- **Candado individual siempre visible** (`Lock`/`Unlock`):
-  - **Bloqueado**: fondo sólido del color del pod, icono Lock en blanco o negro según `pod.color.textOn`.
-  - **No bloqueado**: icono Unlock en el color del pod con opacidad 50%, sin fondo.
-  - Click invierte. Los locks **no persisten** entre sesiones.
-- **Handle DnD** (`DragHandle`): icono `Equal` de lucide-react (dos rayas horizontales paralelas `=`).
+- **Candado individual** (`Lock`/`Unlock`):
+  - Bloqueado: fondo sólido del color del pod, icono Lock blanco/negro según `pod.color.textOn`.
+  - No bloqueado: icono Unlock en color del pod a opacidad 50%, sin fondo.
+  - Los locks **no persisten**.
+- **Handle DnD** (`DragHandle`): icono `Equal` (dos rayas horizontales `=`).
 - Badge + nombre + columnas de progreso.
 
 Al final, botón **"Crear nuevo grupo"** si `pods.length < 15`.
 
 #### Bloque "Pendientes de asignar"
 
-Si tras eliminar grupos o alumnos quedan alumnos sin pod, aparecen al final en un bloque separado. Cada fila tiene:
-- **Drag handle** (Equal) — drag hacia cualquier grupo.
-- **Badge "Pendiente de asignar ▼"** que abre `PodChangeDropdown` (mismo dropdown que en vista alfabética). El profe asigna al alumno a un grupo sin tener que arrastrar desde abajo.
+Aparece automáticamente cuando hay alumnos sin pod (porque la capacidad `robots*4` no alcanza, o porque el profe borró un grupo). Cada fila tiene:
 
-Ambas vías (drag y dropdown) están activas en paralelo.
+- Drag handle (Equal) — drag hacia cualquier grupo **con hueco**.
+- Badge **"Pendiente de asignar ▼"** que abre `PodChangeDropdown` para asignar al alumno a un grupo sin arrastrar. El dropdown **deshabilita los grupos llenos** (con tooltip "Grupo lleno").
 
-### 5.4 Input inline "Robots" (en grouped)
+### 5.4 Stepper de robots (`PodCountControls`)
 
-`PodCountControls` en la barra entre "Lista" y "Reagrupar ▼":
+`PodCountControls` en la barra antes del botón "Reagrupar ▼":
 
-- Un único `<input type="number" min={1}>` etiquetado **Robots**.
-- Pre-rellenado con `pods.length`.
-- Sincronizado con el store via `useEffect`: cualquier cambio externo (reagrupar, eliminar grupo) actualiza el campo.
-- Al hacer `blur` o pulsar **Enter**:
-  - Si el valor es el actual: no-op.
-  - Si nuevo: valida con `groupingSchema` (entero ≥ 1, robotCount ≤ 15, robotCount ≤ alumnos totales).
-  - Si OK, ejecuta `createOrRegroup({mode: 'random', presentStudents: students, robotCount})` con **todos** los alumnos.
-  - Si inválido: muestra error 4s y revierte.
-
-**No hay input "Alumnos"**: cambiar el número de presentes manualmente quitaría alumnos arbitrarios del reparto (los últimos del orden alfabético), lo cual es contraintuitivo. El reparto siempre usa el total de alumnos de la clase. Si hay ausentes, el profe puede marcarlos individualmente con el candado o moverlos a "Pendientes de asignar".
-
-Cambiar el `robotCount` siempre dispara `createPods` fresh (nuevos emojis/colores, locks se pierden) porque `pods.length !== nuevo robotCount`. Para mantener emojis tras un reagrupamiento sin cambiar el número, el profe usa el dropdown "Reagrupar ▼" → Aleatorio.
+- **Bloque tipo pill** con borde y fondo azulado (`c360-blue/30` + `c360-blue/5`).
+- Icono `Bot` + label `"ROBOTS"` + botón `Minus` + input + botón `Plus`.
+- El **input usa state interno tipo string** para permitir borrarlo durante la edición sin que se fuerce a `0`. Solo dígitos (filtra `\D`).
+- Valida en `blur` o al pulsar **Enter**:
+  - Si vacío: revierte al valor anterior.
+  - Si entero válido entre 1 y 15: ejecuta `createOrRegroup({mode: 'random', presentStudents: students, robotCount: n})`.
+  - Si inválido (Zod schema): error 4s y revierte.
+- Los botones `-`/`+` ajustan ±1 con bounds `[1, 15]`. Disabled cuando llegan al límite.
 
 ### 5.5 Reagrupar manual: dropdown con 4 modos
 
-Botón **"Reagrupar ▼"** abre `PodRegroupModeDropdown` con cuatro opciones:
+Botón **"Reagrupar ▼"** abre `PodRegroupModeDropdown`:
 
 | Modo | Función | Semántica |
 |---|---|---|
-| **Aleatorio** | `regroupWithLocks` (si `robotCount === pods.length`) o `createPods` fresh | Mezcla al azar; mantiene emojis/colores y respeta candados si el número no cambia. |
-| **Compensada** | `createPodsByLevel({mode: 'mixed', scoreFn: getStudentScore})` | Equilibra niveles en cada grupo (top y bottom mezclados). |
-| **Por niveles** | `createPodsByLevel({mode: 'leveled', scoreFn: getStudentScore})` | Alumnos con puntuación parecida juntos (top en pod-1, bottom en pod-N). |
-| **Por avance** | `createPodsByProgress({progressFn: getStudentProgress, scoreFn: getStudentOverallScore})` | Junta a los alumnos que están en la misma unidad del curso. |
+| **Aleatorio** | `regroupWithLocks` (si `robotCount === pods.length`) o `createPods` fresh | Mezcla al azar; mantiene emojis/colores y candados si el número no cambia. |
+| **Compensada** | `createPodsByLevel({mode: 'mixed', scoreFn: getStudentScore})` | Equilibra niveles en cada grupo (zigzag). |
+| **Por niveles** | `createPodsByLevel({mode: 'leveled', scoreFn: getStudentScore})` | Alumnos con puntuación parecida juntos. |
+| **Por avance** | `createPodsByProgress({progressFn, scoreFn: getStudentOverallScore})` | Junta a alumnos que están en la misma unidad del curso. |
 
-Click en un modo **ejecuta directamente** sin modal intermedio. `robotCount` se pasa siempre como `pods.length` actual (mantiene el número). En todos los modos: `pod.evaluation` se reinicia a `null`, se mantienen los candados individuales (los locks redirigen alumnos a su pod original cuando es posible). Si algún cálculo lanza error, banner rojo fijo arriba a la derecha 4s.
+Click ejecuta directamente. `robotCount = pods.length` (mantiene el número). Los excedentes (si `students.length > robotCount*4`) quedan pendientes.
 
 ### 5.6 Drag & drop
 
 - `DndContext` con `pointerWithin`, sensors `PointerSensor({distance: 4})` + `KeyboardSensor`.
-- **Cualquier drop sobre un pod es válido**: ring verde + actualización inmediata. Max=4 es recomendado, no estricto.
-- Si el alumno se suelta fuera de un pod: no se mueve.
-- Drag desde "Pendientes" hacia un grupo: añade al pod destino.
-- Anuncios ARIA en castellano (announcements + screenReaderInstructions).
+- Drop sobre pod libre → **ring verde** + asignación.
+- Drop sobre pod lleno (4 alumnos) → **ring rojo + cursor `not-allowed` + banner "El grupo ya tiene el máximo de 4 alumnos"** 2.5s.
+- Drag fuera de pod → no se mueve.
+- Drag desde "Pendientes" hacia un grupo → asigna si hay hueco; rechazado si lleno.
+- Anuncios ARIA en castellano.
 
 ### 5.7 Modo Proyección
 
-`PodProjectionButton` abre `PodProjectionModal` a pantalla completa con cada pod como card grande (emoji + nombre del grupo + lista de alumnos). Sin cambios respecto a v4.
+`PodProjectionButton` abre `PodProjectionModal` a pantalla completa con cada pod como card grande. Sin cambios respecto a versiones anteriores.
 
 ---
 
 ## 6. Función pura `createPods` (lib/pods/create-pods.ts)
 
 ```ts
-type PodEvaluation = 'green' | 'amber' | 'red' | null;
-
 type Pod = {
-  id: string;          // 'pod-1', 'pod-2', ...
-  emoji: string;       // 🤖, 🚀, ...
+  id: string;           // 'pod-1', 'pod-2', ...
+  emoji: string;
   emojiLabel: string;
-  color: PodColor;     // { name, hex, textOn }
+  color: PodColor;      // { name, hex, textOn }
   students: Student[];
-  maxCapacity: number; // recomendado, no estricto
-  evaluation: PodEvaluation;
+  maxCapacity: number;  // 4 por defecto, ESTRICTO
 };
 
 type CreatePodsInput = {
   students: Student[];
   presentCount: number;
   robotCount: number;
-  maxPerPod?: number;   // default DEFAULT_MAX_PER_POD = 4 (recomendado)
-  minPerPod?: number;   // default DEFAULT_MIN_PER_POD = 2 (recomendado)
+  maxPerPod?: number;   // default DEFAULT_MAX_PER_POD = 4
+  minPerPod?: number;   // (legacy, no se usa para validar; reparto balanceado)
   seed?: string;
   random?: () => number;
 };
@@ -216,145 +196,122 @@ function createPods(input: CreatePodsInput): { pods: Pod[]; seed: string };
 ### Algoritmo
 
 1. Toma los primeros `presentCount` alumnos como pool.
-2. Crea `robotCount` pods con emojis únicos (Fisher-Yates con seed) y colores únicos (furthest-point sampling sobre paleta de 15).
-3. Calcula tamaños con **`computePodSizes`** (ver más abajo).
-4. Reparte alumnos según los tamaños calculados.
-5. Cada pod nace con `evaluation: null`.
+2. Calcula `capacity = robotCount * maxPerPod` y `assignableCount = min(presentCount, capacity)`.
+3. Mezcla con Fisher-Yates (seed) y toma los primeros `assignableCount`. **Los demás quedan fuera de cualquier pod** y aparecen automáticamente en "Pendientes de asignar".
+4. Calcula tamaños con `computePodSizes({ assignableCount, robotCount })` (reparto balanceado).
+5. Asigna alumnos según los tamaños.
+6. Cada pod nace con `maxCapacity = maxPerPod`.
 
-### Validaciones (las únicas duras)
+### Validaciones (duras)
 
 - `presentCount` entero ≥ 0.
-- `robotCount` entero ≥ 1.
-- `robotCount ≤ 15` (MAX_PODS).
+- `robotCount` entero ≥ 1, ≤ 15 (MAX_PODS).
 - `presentCount ≤ students.length`.
 - `robotCount ≤ presentCount`.
 
-**Importante**: ya no hay error si `presentCount` está fuera de `[robotCount*min, robotCount*max]`. El algoritmo se adapta.
-
-### `computePodSizes` — el algoritmo adaptativo
-
-Helper exportado público que decide los tamaños de cada grupo:
+### `computePodSizes` — algoritmo balanceado simple
 
 ```ts
 export function computePodSizes({
-  presentCount, robotCount, minPerPod, maxPerPod,
+  assignableCount, robotCount,
+}: {
+  assignableCount: number;
+  robotCount: number;
 }): number[]
 ```
 
-Tiene dos modos automáticos:
+`base = floor(assignable/robot)`, `extra = assignable % robot`. Primeros `extra` pods reciben `base+1`, el resto `base`.
 
-#### A) Cabe en el rango recomendado (`presentCount ∈ [robotCount*min, robotCount*max]`)
+**Ejemplos** (asignable = min(presentes, robots*4)):
 
-**Maximiza los grupos llenos** a `maxPerPod`, dejando la cola con valores en `[minPerPod, maxPerPod-1]`. Ejemplos con min=2 max=4:
-
-```
-24 / 6   → [4,4,4,4,4,4]
-22 / 6   → [4,4,4,4,4,2]
-21 / 6   → [4,4,4,4,3,2]   (no permite quedar con 1)
-20 / 6   → [4,4,4,4,2,2]
-18 / 9   → [2,2,2,2,2,2,2,2,2]  (mínimo)
-30 / 10  → [4,4,4,4,4,2,2,2,2,2]
-```
-
-#### B) No cabe (excede max o por debajo de min)
-
-**Reparto balanceado** `base+extra`. Los primeros pods reciben uno más si hay resto. Ejemplos:
-
-```
-30 / 3   → [10,10,10]   (excede max=12)
-30 / 4   → [8,8,7,7]    (con maxPerPod=5, sigue excediendo 20)
-3 / 2    → [2,1]        (debajo de min=4)
-6 / 5    → [2,1,1,1,1]  (sobran robots)
-```
-
-Esto permite al profe configurar lo que quiera (e.g. 5 robots para 30 alumnos) sin que la app le bloquee.
+| Presentes | Robots | Capacity | Asignable | Sizes | Pendientes |
+|---|---|---|---|---|---|
+| 10 | 4 | 16 | 10 | `[3,3,2,2]` | 0 |
+| 12 | 4 | 16 | 12 | `[3,3,3,3]` | 0 |
+| 13 | 4 | 16 | 13 | `[4,3,3,3]` | 0 |
+| 16 | 4 | 16 | 16 | `[4,4,4,4]` | 0 |
+| 18 | 4 | 16 | 16 | `[4,4,4,4]` | 2 |
+| 30 | 5 | 20 | 20 | `[4,4,4,4,4]` | 10 |
+| 30 | 10 | 40 | 30 | `[3,3,3,3,3,3,3,3,3,3]` | 0 |
 
 ### Variantes especializadas
 
-- **`createPodsByLevel({..., mode: 'mixed' | 'leveled', scoreFn, lockedStudentIds?, currentPods?})`**: respeta candados — alumnos lockeados mantienen su pod-id original si éste sigue existiendo; los free se distribuyen por score respetando `freeSlots[i]`. **Usa reparto balanceado** (no maximize-4) porque la semántica de "agrupar por nivel" requiere tamaños similares. En modo `leveled`: ordena descendiente por score y secciona. En modo `mixed`: zigzag (boustrophedon) saltando pods sin freeSlots.
+- **`createPodsByLevel({..., mode: 'mixed' | 'leveled', scoreFn, lockedStudentIds?, currentPods?})`**: respeta candados con cap a `maxPerPod` por pod. Reparto balanceado (no maximize-4). Los free que no caben en la capacidad libre **quedan fuera** (= pendientes).
 - **`createPodsByProgress({..., progressFn, scoreFn, ...})`**: wrapper que compone `score = progress*1000 + score` y llama `createPodsByLevel` modo `leveled`.
-- **`createEmptyPod({existing, ...})`**: crea un pod vacío adicional con emoji/color únicos. Usado por "Crear nuevo grupo".
+- **`createEmptyPod({existing, ...})`**: crea un pod vacío con emoji/color únicos.
 
 ### `regroupWithLocks` (lib/pods/regroup-with-locks.ts)
 
-Mantiene emojis/colores de los pods actuales. Solo redistribuye alumnos no bloqueados. **Resetea `evaluation: null`** en cada pod devuelto.
-
-Reparto: usa `computePodSizes` (maximize-4) y empareja tamaños con pods ordenados por `lockedCount` descendente — los pods con más alumnos lockeados reciben los tamaños mayores, garantizando que ningún pod recibe un target menor que sus locks. Si quedan alumnos sin colocar tras agotar targets (caso patológico con locks que exceden capacity), rellena por capacidad.
+Mantiene emojis/colores. Cap **duro** a `maxPerPod` por pod. Si quedan free fuera de la capacidad libre, **quedan pendientes** sin lanzar error. (Antes lanzaba `RegroupLocksError` en este caso; ahora es comportamiento silencioso porque el flujo de pendientes lo absorbe.)
 
 ### `move-student.ts`
 
-Funciones: `moveStudent`, `addStudentToPod`, `removeStudentFromPod`.
+| Función | Validación de capacidad |
+|---|---|
+| `moveStudent(pods, studentId, toPodId)` | Si `toPod.students.length >= maxCapacity` → `{ ok: false, reason: 'destination-pod-full' }`. |
+| `addStudentToPod(pods, student, toPodId)` | Mismo cap. |
+| `removeStudentFromPod(pods, studentId)` | Sin cap (no cabe la situación). |
 
-**Sin validación de capacidad**: max=4 es recomendado, no estricto. El profe puede mover un alumno a un grupo de 5+ alumnos sin error. Tipo `MoveError` ya no incluye `destination-pod-full`; las únicas razones son `student-not-found`, `destination-pod-not-found`, `source-pod-not-found`.
+`MOVE_ERROR_MESSAGES["destination-pod-full"] = "El grupo ya tiene el máximo de 4 alumnos"`.
 
 ---
 
-## 7. Estructura de archivos (v5)
+## 7. Estructura de archivos
 
 ```
-app/                          ← Next.js App Router
-  layout.tsx, providers.tsx, globals.css   ← tokens c360-* y grade-* en @theme
-  page.tsx                    ← renderiza <AppShell />
-  mi-alumnado/page.tsx        ← mismo punto de entrada (ruta limpia)
+app/
+  layout.tsx, providers.tsx, globals.css
+  page.tsx, mi-alumnado/page.tsx          ← renderiza <AppShell />
 
 components/
   layout/
-    AppShell.tsx              ← contiene useEffect del auto-group inicial
+    AppShell.tsx                          ← auto-group inicial (useEffect+useRef)
     Sidebar.tsx, TopBar.tsx, ClassSelector.tsx
-    StoresHydrator.tsx        ← rehydrate de Zustand al montar
+    StoresHydrator.tsx                    ← rehydrate de Zustand
   pods/
-    PodMainButton.tsx         ← barra dinámica según sortMode/hasPods
-    PodCountControls.tsx      ← inputs inline Alumnos/Robots en grouped
-    PodRegroupModeDropdown.tsx ← dropdown de 4 modos en grouped
-    PodEvaluationRadio.tsx    ← semáforo 🔴🟡🟢 en cabecera
+    PodMainButton.tsx                     ← stepper + dropdown Reagrupar
+    PodCountControls.tsx                  ← stepper de robots (icono Bot, -/+, input)
+    PodRegroupModeDropdown.tsx            ← dropdown de 4 modos
     PodBadge.tsx, PodBadgeWithDropdown.tsx
-    PodChangeDropdown.tsx     ← mover de grupo (en alphabetical y pendientes)
+    PodChangeDropdown.tsx                 ← mover de grupo (deshabilita llenos)
     PodHeaderTrigger.tsx, PodEmojiPicker.tsx
-    PodDroppableTbody.tsx     ← tbody droppable por pod (ring verde valid only)
+    PodDroppableTbody.tsx                 ← ring verde valid / ring rojo full
     PodProjectionButton.tsx, PodProjectionModal.tsx
   students/
-    StudentTable.tsx          ← tabla principal + DndContext + PodSectionHeaderRow
+    StudentTable.tsx                      ← tabla + DndContext + cabeceras
     StudentRow.tsx, StudentRowDraggable.tsx
-    DragHandle.tsx            ← icono Equal (= signo, dos rayas horizontales)
+    DragHandle.tsx                        ← icono Equal (=)
     ScoreLegend.tsx
   ui/
     Button.tsx, Input.tsx, Modal.tsx
 
 hooks/
-  useClasses.ts, useStudents.ts            ← Tanstack Query
+  useClasses.ts, useStudents.ts
 
 lib/
   pods/
-    create-pods.ts            ← createPods, createPodsByLevel, createPodsByProgress, createEmptyPod, computePodSizes (helper público)
-    move-student.ts           ← addStudentToPod, moveStudent, removeStudentFromPod, MOVE_ERROR_MESSAGES
-    edit-pod.ts               ← changePodEmoji
-    regroup-with-locks.ts     ← regroupWithLocks (maximize-4 + locks)
-    grouping-schema.ts        ← Zod schema laxo (solo limites duros)
+    create-pods.ts                        ← createPods, createPodsByLevel, computePodSizes
+    move-student.ts                       ← con validación de capacidad
+    edit-pod.ts                           ← changePodEmoji
+    regroup-with-locks.ts                 ← cap duro a maxPerPod
+    grouping-schema.ts                    ← Zod laxo (solo limites duros)
     pod-colors.ts, pod-emojis.ts, seeded-random.ts, student-score.ts
-  supabase/client.ts          ← getSupabaseBrowserClient (singleton cached)
+  supabase/client.ts
   utils/cn.ts, sort-students.ts, progress-cells.ts, popover-position.ts
-  data/units.ts               ← 6 unidades x actividades hardcoded
+  data/units.ts
 
-store/
-  pods-store.ts               ← Zustand persist v7
+store/pods-store.ts                       ← Zustand persist v8
 
-types/
-  database.ts                 ← StudentRow, ClassRow, Database
+types/database.ts
 
 __tests__/pods/
   create-pods.test.ts, create-pods-by-level.test.ts,
   edit-pod.test.ts, move-student.test.ts, regroup-with-locks.test.ts
 
-.github/workflows/
-  deploy.yml                  ← CI: typecheck + tests + build, deploy a Pages solo desde main
+.github/workflows/deploy.yml
 ```
 
-**Eliminados del proyecto** (no recrear):
-- Sistema de historial: `useHistoryStore`, `PodHistory*` (3), `co-occurrence.ts`, `types/history.ts`.
-- Evaluación por sesión: `PodEvaluate*` (2).
-- UI vieja del flujo agrupar: `PodSortControl`, `PodLockButton`, `PodControls`, `PodSaveSnapshotButton`, `PodCreateGroupsButton`, `PodRegroupButton`, `PodRegroupMenu`, `PodRegroupSelectionBanner`, `PodGroupingModal`, `SessionPrompt`.
-- Primitivas UI no usadas: `Checkbox`, `SegmentedControl`, `ConfirmDialog`.
-- Snapshots históricos: `codex/`, `legacy/`.
+**Eliminados (no recrear):** `PodEvaluationRadio.tsx`, `PodGroupingModal.tsx`, `SessionPrompt.tsx`, `useHistoryStore`, `PodHistory*`, `PodEvaluate*`, `PodSortControl`, `PodLockButton`, `PodControls`, `PodSaveSnapshotButton`, `PodCreateGroupsButton`, `PodRegroupButton`, `PodRegroupMenu`, `PodRegroupSelectionBanner`, `co-occurrence.ts`, `types/history.ts`, `components/ui/{Checkbox,SegmentedControl,ConfirmDialog}.tsx`, carpetas `codex/` y `legacy/`.
 
 ---
 
@@ -364,264 +321,205 @@ __tests__/pods/
 type State = {
   pods: Pod[];
   lockedStudentIds: string[];
-  sortMode: 'alphabetical' | 'grouped';
   lastRobotCount: number | null;
-  lastPresentCount: number | null;
 };
+
+type GroupingMode = 'random' | 'mixed' | 'leveled' | 'by-progress';
 
 type Actions = {
   createOrRegroup(input: {
-    mode: 'random' | 'mixed' | 'leveled' | 'by-progress';
+    mode: GroupingMode;
     presentStudents: Student[];
     robotCount: number;
     scoreFn?: (studentId: string) => number;
     progressFn?: (studentId: string) => number;
   }): void;
   resetPods(): void;
-  setSortMode(mode: SortMode): void;
   setLastRobotCount(n: number | null): void;
-  setPodEvaluation(podId: string, rating: PodEvaluation): void;
   moveStudent(studentId, toPodId): MoveStudentResult;
   addStudentToPod(student, toPodId): MoveStudentResult;
   removeStudentFromPod(studentId): MoveStudentResult;
   toggleStudentLock(studentId): void;
   addEmptyPod(): void;
-  deletePod(podId: string): void;           // borra pod y renumera ids
+  deletePod(podId: string): void;          // borra pod y renumera ids
   createPodAndAssignStudent(student, emoji, emojiLabel): void;
   changeEmoji(podId, emoji, emojiLabel): ChangeEmojiResult;
 };
 ```
 
-### `createOrRegroup` — dispatcher unificado
+**Sin `sortMode`, sin `setSortMode`, sin `setPodEvaluation`.** El concepto de vista alfabética ya no existe; el de semáforo tampoco.
 
-Decide qué algoritmo usar:
+### `createOrRegroup` — dispatcher
 
-- **`mode === 'random'`**:
-  - Si hay pods y `robotCount === pods.length`: `regroupWithLocks` (mantiene emojis/colores y respeta candados).
-  - Si no hay pods, o el número cambia: `createPods` fresh (los locks se pierden).
-- **`mode === 'mixed' | 'leveled'`**: `createPodsByLevel` con `scoreFn`, locks y `currentPods`.
-- **`mode === 'by-progress'`**: `createPodsByProgress` con `progressFn` + `scoreFn`, locks y `currentPods`.
+- **random** + sin pods o cambio de `robotCount`: `createPods` fresh.
+- **random** + mismo `robotCount`: `regroupWithLocks` (mantiene emojis/colores y respeta candados).
+- **mixed/leveled**: `createPodsByLevel` con `scoreFn`, locks y `currentPods`.
+- **by-progress**: `createPodsByProgress` con `progressFn` + `scoreFn`.
 
-Tras ejecutar, escribe: `pods`, `sortMode: 'grouped'`, `lastRobotCount`, `lastPresentCount`.
+Tras ejecutar, escribe `pods` y `lastRobotCount`.
 
 ### `deletePod`
 
 - Quita el pod del array.
-- **Renumera** los pods restantes a `pod-1..pod-N` para mantener IDs contiguos (evita colisión con `addEmptyPod` que genera `pod-${existing.length+1}`).
-- Quita los candados de los alumnos que estaban en ese pod (ya no tienen pod al que pertenecer).
-- Los alumnos del pod borrado aparecen automáticamente en "Pendientes de asignar" (al dejar de tener entrada en `studentToPod`).
+- **Renumera** los pods restantes a `pod-1..pod-N` para mantener IDs contiguos.
+- Quita los candados de los alumnos del pod borrado.
 
-### Persistencia (persist middleware version 7)
+### Persistencia (persist middleware version 8)
 
 - `name: 'c360-pods-state'`, `skipHydration: true`.
-- `partialize` solo `{ pods (con evaluation=null forzado), lastRobotCount, lastPresentCount }`.
+- `partialize`: `{ pods, lastRobotCount }`.
 - `migrate`:
-  - `version < 6` → descartar (esquema irreconciliable con v5 anterior).
-  - `version === 6` → mantener `pods` y `lastRobotCount`, añadir `lastPresentCount: null`.
-  - `version >= 7` → tal cual.
+  - `version < 8` → descarta state (esquema sin `evaluation` ni `sortMode`). Si hay `pods` previos, los conserva limpiando cualquier `evaluation` residual.
+  - `version >= 8` → tal cual.
 - `<StoresHydrator/>` ejecuta `usePodsStore.persist.rehydrate()` en `useEffect`.
 
-**No se persiste:** `lockedStudentIds`, `sortMode`, `pod.evaluation`.
+**No se persiste:** `lockedStudentIds`.
 
 ---
 
 ## 9. Tests obligatorios
 
-Solo en `__tests__/pods/*`. **Sin tests de UI, integración o E2E** en este prototipo.
+`__tests__/pods/*`. Sin tests de UI. **78 tests verde**.
 
 | Archivo | Cobertura |
 |---|---|
-| `create-pods.test.ts` | Reparto que maximiza 4s, seed reproducible, **adaptación cuando excede o queda por debajo de min/max** (sin error duro), casos límite (1/1 con minPerPod:1, 18/9 mínimo). |
-| `create-pods-by-level.test.ts` | Modos leveled/mixed/by-progress, respeto a locks, evaluation: null. **Reparto balanceado** (no maximize-4). |
-| `regroup-with-locks.test.ts` | Con/sin locks, capacidad, reset de evaluation, errores. |
-| `move-student.test.ts` | move/add/remove ok y errores (not-found). **No hay "destination-pod-full"**: aceptamos siempre, ejemplo `8/2 max=4` permite mover a un pod ya lleno (queda con 5). |
+| `create-pods.test.ts` | 10/4 → `[3,3,2,2]`, 12/4 → `[3,3,3,3]`, 13/4 → `[4,3,3,3]`, 16/4 → `[4,4,4,4]`, 18/4 → `[4,4,4,4]` + 2 pendientes, 30/5 → `[4,4,4,4,4]` + 10 pendientes, 30/10 → diez de 3, 20/5 → cinco de 4, errores duros (robot>present, max grupos, presentCount > students.length). |
+| `create-pods-by-level.test.ts` | leveled, mixed, by-progress; respeto a candados con cap duro a maxPerPod. |
+| `regroup-with-locks.test.ts` | con/sin candados, capacidad, **excedentes quedan pendientes (sin error)**. |
+| `move-student.test.ts` | move/add/remove ok y errores; **rechaza mover/anadir a pod lleno con `destination-pod-full`**. |
 | `edit-pod.test.ts` | changePodEmoji ok y errores. |
 
-`npm test` pasa **77/77 verdes**. `npm run typecheck` verde sin warnings.
+`npm test` → 78/78 verde. `npm run typecheck` verde. `npm run build` verde.
 
 ---
 
 ## 10. Reglas duras de implementación
 
-1. **Cero feature creep.** Si el SUPERPROMPT no lo pide y el humano no lo pidió en este turno, no se hace.
-2. **Cero integración Moodle.** No LTI, gradebook, Workplace, audiences, programs, plugin PHP.
-3. **Ningún archivo del C360 real se toca.** Este prototipo vive en su propio repo.
-4. **Cero persistencia más allá de composición.** No tabla `pods` en Supabase. No escrituras desde el prototipo.
+1. **Cero feature creep.**
+2. **Cero integración Moodle.** Solo prototipo aislado.
+3. **Ningún archivo del C360 real se toca.**
+4. **Cero persistencia más allá de composición.** No tabla `pods` en Supabase.
 5. **Tipos estrictos.** Cero `any`. Cero `as` salvo tras `z.parse`.
-6. **Sin `@ts-ignore` / `@ts-expect-error`** salvo autorización explícita.
+6. **Sin `@ts-ignore`/`@ts-expect-error`** salvo autorización.
 7. **Strings en castellano hardcoded.** Sin i18n.
-8. **Cero comentarios decorativos.** Solo donde el "por qué" no es obvio.
-9. **Tests obligatorios pasando.** Si rompes uno con tu refactor, arréglalo o revierte. Nada de `.skip`.
-10. **Selectors granulares en Zustand.** `const x = useStore(s => s.x)`. Prohibido destructurar el store entero.
-11. **Tanstack Query para todo data-fetching.** `useEffect + fetch/supabase` prohibido en componentes.
-12. **Tokens C360** (`bg-c360-*`, `bg-grade-*`). Nunca `bg-[#xxxxxx]` con hex inventado.
-13. **Tras cada fase**: explicar, probar (`npm run typecheck` + `npm test`), commit + push, actualizar §12 de este doc, esperar OK del humano.
+8. **Tests obligatorios pasando.**
+9. **Selectors granulares en Zustand.**
+10. **Tanstack Query para todo data-fetching.**
+11. **Tokens C360.** Nunca `bg-[#xxxxxx]`.
+12. **Max 4 alumnos por grupo es ESTRICTO.** Sin overrides manuales por DnD.
 
 Detalle completo en `SKILLS_PROTOTYPE_GROUPS.md`.
 
 ---
 
-## 11. Resultado final esperado (v5)
+## 11. Resultado final esperado
 
-El prototipo v5 es correcto si:
-
-1. `/mi-alumnado` carga 30 alumnos reales desde Supabase mock (clase "2º Bachillerato A").
-2. **Sin pods previos**: la app **auto-agrupa automáticamente** con `robotCount = ceil(alumnos/4)`. El profe ve directamente la vista alfabética con badges. Sin modal de configuración.
-3. **Con pods previos guardados** (cualquier refresh): vista alfabética con los mismos badges, botón **"Grupos"** visible.
-4. Pulsar "Grupos" → entra a vista por grupos. Pulsar "Lista" desde grouped → vuelve a alfabética. Toggle simétrico.
-5. En vista grouped:
-   - Input **Robots** muestra el valor actual (= `pods.length`). Editar y blur/Enter reagrupa con TODOS los alumnos.
-   - Con 30 alumnos: cambiar a 10 → 10 grupos. Cambiar a 5 → 5 grupos de 6 (excede max recomendado, reparto balanceado, sin error).
-   - Cambiar a 3 → 3 grupos de 10. Cambiar a 15 → 15 grupos de 2. Nunca error.
-   - No hay input "Alumnos" porque el reparto siempre usa el total real.
-6. Cabecera de cada grupo: emoji + semáforo **🔴 🟡 🟢** + **"N alumnos"** (en amber si N > 4) + botón eliminar.
-7. Click en 🟢 selecciona; click otra vez deselecciona. Selección por opacidad/fondo (no ring).
-8. Cada fila: candado individual con color del pod + handle Equal (dos rayas =) + nombre.
-9. Candado bloqueado: fondo sólido del color del pod, icono en blanco/negro según contraste.
-10. Drag A→B (cualquier destino) → mueve. **Drop en pod lleno también permitido** (queda con 5 alumnos, contador en amber).
-11. Drag a un sitio vacío fuera de pods → no se mueve.
-12. Botón **"Reagrupar ▼"** abre dropdown con 4 modos. Click en uno ejecuta directamente.
-13. Reagrupar con Compensada/Por niveles/Por avance: respeta candados, resetea semáforos a `null`.
-14. Eliminar un grupo con Trash2: confirm si tiene alumnos → pasan a "Pendientes de asignar" + renumeración de IDs.
-15. Sección "Pendientes de asignar": cada alumno tiene drag handle + dropdown "Pendiente de asignar ▼" para asignarlo a un grupo sin arrastrar.
-16. Botón **Proyección** abre vista a pantalla completa con card por grupo (emoji grande + nombre + alumnos).
-17. Cerrar pestaña + reabrir: pods persisten (sin evaluation), `lockedStudentIds=[]`, `sortMode='alphabetical'`, `evaluation=null`. El auto-group NO vuelve a dispararse porque hay pods.
+1. `/mi-alumnado` carga alumnos desde Supabase mock.
+2. **Sin pods previos**: la app **auto-agrupa** con `robotCount = ceil(alumnos/4)`. El profe ve directamente la **vista por grupos**, sin vista alfabética.
+3. **Con pods previos guardados** (cualquier refresh): vuelve a la misma vista por grupos con los mismos grupos.
+4. **No existe** botón "Lista" ni "Grupos" — la única vista es la de grupos.
+5. **Stepper de robots** en TopBar: icono Bot, label "Robots", botón `-`, input, botón `+`. Cambiar el número reagrupa con el nuevo `robotCount`.
+   - 30 alumnos / 10 robots → 10 grupos de 3, 0 pendientes.
+   - 30 / 5 → 5 grupos de 4, **10 pendientes** (visible en bloque inferior).
+   - 30 / 3 → 3 grupos de 4 (capacidad 12), 18 pendientes.
+6. Cabecera de grupo: emoji + nombre editable + contador `"N de 4 alumnos"` + badge `"Lleno"` si N=4 + botón eliminar. **Sin semáforo.**
+7. Cada fila: candado individual (color del pod) + handle Equal + badge + nombre.
+8. **Drop en pod con menos de 4** → ring verde, asignación inmediata.
+9. **Drop en pod lleno (4)** → ring rojo + cursor `not-allowed` + banner *"El grupo ya tiene el máximo de 4 alumnos"*. **No se asigna.**
+10. **Dropdown `PodChangeDropdown` en "Pendientes"** deshabilita las opciones de pods llenos.
+11. **Reagrupar ▼** con 4 modos (Aleatorio/Compensada/Por niveles/Por avance). Click ejecuta directamente. Respeta candados (cap a 4 por pod).
+12. Eliminar un grupo con Trash2: `confirm` si tiene alumnos → pasan a "Pendientes" + renumeración.
+13. Sección "Pendientes de asignar": drag handle + dropdown "Pendiente de asignar ▼" para asignar sin arrastrar.
+14. **Botón Proyección** sigue funcionando.
+15. Cerrar pestaña + reabrir: pods siguen, candados resetean.
 
 ---
 
-## 12. Estado actual de la implementación (v5, mayo 2026)
+## 12. Estado actual (v6, mayo 2026)
 
-### 12.1 Resumen ejecutivo
+### 12.1 Resumen
 
-Prototipo **funcionalmente completo según spec v5**. Sirve en `localhost:3000/mi-alumnado`. Conectado a Supabase real (clase "2º Bachillerato A", 30 alumnos). **77 tests verde**. TypeScript strict sin errores. Build estático genera `out/` correctamente. CI en GitHub Actions: typecheck + tests + build en cada push; deploy a Pages solo desde `main`.
+Prototipo **funcionalmente completo según v6**. `npm test` → 78/78 verde. `npm run typecheck` y `npm run build` verde. CI en GitHub Actions ejecuta los 3 en cada push; deploy a Pages solo desde `main`.
 
-### 12.2 Decisiones técnicas vigentes
+### 12.2 Cambios v5 → v6
 
-- **`DEFAULT_MAX_PER_POD = 4`, `DEFAULT_MIN_PER_POD = 2`** son **recomendaciones**, no límites estrictos. `createPods` y `createPodsByLevel` no lanzan error si la combinación queda fuera del rango — adaptan el reparto.
-- **`computePodSizes` adaptativo**: si cabe → maximize-4; si no → reparto balanceado base+extra.
-- **`move-student.ts` sin `destination-pod-full`**: drop a pod lleno permitido siempre. El tipo `MoveError` ya no incluye ese caso.
-- **`PodDroppableTbody`**: solo ring verde valid; nunca ring rojo invalid.
-- **`createPodsByLevel` con balanced sizes** (no maximize-4): preserva la semántica de "alumnos juntos por nivel" → tamaños parecidos.
-- **`regroupWithLocks` con maximize-4**: mantiene emojis/colores; empareja sizes descendientes con pods ordenados por lockedCount descendente para garantizar que ningún target queda por debajo de los locks.
-- **`deletePod` renumera** los pods restantes a `pod-1..pod-N` y libera locks de los alumnos del pod borrado.
-- **Auto-group inicial** en `AppShell` con `useRef` guard: una sola vez por vida del componente, cuando `students.length > 0 && pods.length === 0`.
-- **`sortMode` no se persiste** → refresh siempre arranca en alphabetical aunque la última sesión terminara en grouped.
-- **Persist version 7**: incluye `lastPresentCount`. Migrate v6→v7 conserva pods + lastRobotCount.
+| Concepto | v5 | v6 (actual) |
+|---|---|---|
+| Reparto | "Maximize-4" si cabe, balanceado si no | **Siempre balanceado**, cap a `robots*4` |
+| Max por pod | Recomendado, no estricto | **Estricto** |
+| Excedentes | Se acomodaban a pods llenos | **Quedan en "Pendientes de asignar"** |
+| `move-student` | Sin cap | **Rechaza con `destination-pod-full`** |
+| DnD a pod lleno | Ring verde, permitido | **Ring rojo + cursor not-allowed + banner** |
+| `PodEvaluationRadio` (semáforo) | Sí | **Eliminado** |
+| `Pod.evaluation` | Sí | **Eliminado del tipo** |
+| Vista alfabética + toggle Lista/Grupos | Sí | **Eliminado** — solo vista por grupos |
+| `sortMode` en store | Sí | **Eliminado** |
+| `PodCountControls` | `<input type="number">` | **Stepper** con `-`/`+` + input string + icono Bot |
+| Persist version | 7 | **8** |
 
-### 12.3 Algoritmo `computePodSizes` — tabla de comportamiento
+### 12.3 Algoritmo: tabla de comportamiento
 
-| Input | Modo | Output | Motivo |
-|---|---|---|---|
-| 24 / 6 (min2 max4) | Maximize-4 | `[4,4,4,4,4,4]` | Cabe, todos llenos |
-| 22 / 6 | Maximize-4 | `[4,4,4,4,4,2]` | Cabe, cola con 2 |
-| 21 / 6 | Maximize-4 | `[4,4,4,4,3,2]` | Cabe, no permite 1 |
-| 20 / 6 | Maximize-4 | `[4,4,4,4,2,2]` | Cabe |
-| 18 / 9 | Maximize-4 | `[2,2,2,2,2,2,2,2,2]` | Cabe, todos al mínimo |
-| 30 / 10 | Maximize-4 | `[4,4,4,4,4,2,2,2,2,2]` | Cabe |
-| 30 / 3 | Balanced | `[10,10,10]` | Excede max (>12) |
-| 30 / 4 con max=5 | Balanced | `[8,8,7,7]` | Excede max (>20) |
-| 3 / 2 | Balanced | `[2,1]` | Debajo de min (<4) |
-| 6 / 5 | Balanced | `[2,1,1,1,1]` | Sobran robots |
+| Presentes | Robots | Capacity (=robots×4) | Asignados | Pendientes | Sizes |
+|---|---|---|---|---|---|
+| 10 | 4 | 16 | 10 | 0 | `[3,3,2,2]` |
+| 12 | 4 | 16 | 12 | 0 | `[3,3,3,3]` |
+| 13 | 4 | 16 | 13 | 0 | `[4,3,3,3]` |
+| 16 | 4 | 16 | 16 | 0 | `[4,4,4,4]` |
+| 18 | 4 | 16 | **16** | **2** | `[4,4,4,4]` |
+| 30 | 5 | 20 | **20** | **10** | `[4,4,4,4,4]` |
+| 30 | 10 | 40 | 30 | 0 | `[3,3,3,3,3,3,3,3,3,3]` |
+| 30 | 15 | 60 | 30 | 0 | `[2,2,2,2,2,2,2,2,2,2,2,2,2,2,2]` |
+| 3 | 2 | 8 | 3 | 0 | `[2,1]` |
 
 ### 12.4 Validaciones / errores
 
-| Punto | Caso | Mensaje / efecto |
+| Punto | Caso | Resultado |
 |---|---|---|
 | `createPods` | `robotCount > presentCount` | `Hay más robots que alumnos` |
 | `createPods` | `robotCount > 15` | `Máximo 15 grupos permitidos` |
 | `createPods` | `presentCount > students.length` | `No hay tantos alumnos en clase` |
-| `createPods` | `presentCount/robotCount` fuera de rango recomendado | **Sin error**, reparto adaptativo |
-| `PodCountControls` | Inputs inválidos (entero≤0, robot>15, robot>present) | Banner rojo 4s + revierte inputs |
-| DnD | Pod destino lleno | Permitido. Contador en amber. |
-| `createEmptyPod` | `existing.length >= 15` | `Máximo 15 grupos permitidos` |
-| `createEmptyPod` | No quedan emojis | `No quedan emojis disponibles` |
+| `createPods` | `presentCount > capacity` | Sin error; los sobrantes quedan pendientes. |
+| `moveStudent` / `addStudentToPod` | Pod destino lleno | `{ok: false, reason: 'destination-pod-full'}` |
+| DnD | Pod lleno | Ring rojo, cursor not-allowed, banner 2.5s |
+| `PodChangeDropdown` | Pod lleno | Opción deshabilitada con tooltip "Grupo lleno" |
+| `PodCountControls` | Valor inválido | Error 4s, revierte al último válido |
+| `createEmptyPod` | 15 pods existentes | `Máximo 15 grupos permitidos` |
 
-### 12.5 Tests (77 verde)
+### 12.5 Persistencia: qué sobrevive a un refresh
 
-- **`create-pods.test.ts`** (≈25 tests): casos del SUPERPROMPT (24/6, 22/6, 18/5, 20/5, 18/9 mínimo), errores duros (robot>present, max grupos), errores `presentCount > students.length`, reproducibilidad seed, **adaptación a casos fuera de rango** (30/3 → `[10,10,10]`; 3/2 → `[2,1]`; 30/4 max=5 → `[8,8,7,7]`).
-- **`create-pods-by-level.test.ts`** (15): leveled, mixed, by-progress, **locks** (4 tests: en leveled, en mixed, capacidad con locks, evaluation:null), por-progreso agrupando por unidad.
-- **`regroup-with-locks.test.ts`** (10): con/sin locks, capacidad, reset de evaluation, errores.
-- **`move-student.test.ts`** (12): move/add/remove ok y errores not-found. **Tests `permite mover/anadir a pod lleno`** confirman que max=4 no es estricto.
-- **`edit-pod.test.ts`** (15): changePodEmoji ok y errores.
+| Item | Persistido |
+|---|---|
+| `pods` (composición, emojis, colores) | ✓ |
+| `lockedStudentIds` | – |
+| `lastRobotCount` | ✓ |
+| Vista (no existe `sortMode`) | n/a |
 
-### 12.6 CI/CD
-
-`.github/workflows/deploy.yml` ejecuta en cada push a `main` y `codex`:
-
-1. `npm ci`
-2. `npm run typecheck`
-3. `npm test`
-4. `npm run build` (con env vars de Supabase para que el build estático funcione)
-5. **Solo si `github.ref === 'refs/heads/main'`**: upload artifact + deploy a GitHub Pages.
-
-`codex` sirve como rama de trabajo verificada (build pero sin deploy). Cuando se mergea a `main`, Pages se actualiza.
-
-### 12.7 Persistencia: qué sobrevive a un refresh
-
-| Item | Persistido | Resetea al cerrar pestaña |
-|---|---|---|
-| `pods` (composición, emojis, colores) | ✓ | – |
-| `pod.evaluation` | – (se fuerza a null al partialize) | ✓ |
-| `lockedStudentIds` | – | ✓ |
-| `sortMode` | – | siempre arranca `alphabetical` |
-| `lastRobotCount` | ✓ | – |
-| `lastPresentCount` | ✓ | – |
-
-### 12.8 Limitaciones / gaps conocidos
-
-- Sin tests de UI ni E2E (out of scope deliberadamente).
-- Modal del auto-group no muestra cuántos grupos saldrán antes de hacerlo (es automático).
-- Modo Reagrupar no permite cambiar `robotCount` desde el dropdown directo (para eso están los inputs inline en `PodCountControls`).
-- Semáforo per-pod no se exporta (se pierde al cerrar pestaña, comportamiento esperado).
-- Migración v5→v6→v7 progresiva preserva pods compatibles; cualquier estado pre-v6 se descarta.
-
-### 12.9 Historial de commits relevantes (v5 + ajustes UX)
+### 12.6 Historial de commits relevantes
 
 ```
+HEAD    feat: v6 — algoritmo balanceado con max 4 estricto, sin vista alfabética ni semáforos, stepper de robots
+c5490a4 feat(ui): quitar input 'Alumnos' de PodCountControls
+497255c docs: actualizar SUPERPROMPT.md con todos los cambios UX finales
 5194ab2 chore: limpiar carpetas historicas, huerfanos y docs obsoletas
 f90e30e feat(pods): auto-agrupar al cargar + min/max recomendados (no estrictos)
 0e07906 feat(ui): toggle Lista/Grupos simetrico, drag handle Equal y dropdown en pendientes
 ba18a7a ci: deploy solo desde main + anadir typecheck y tests al pipeline
-392f65b style(ui): candado individual con color del grupo
-3ca4ddb refactor(ui): eliminar SessionPrompt, modal Agrupar solo primera vez de todas
-484d94f feat(ui): SessionPrompt continua a grouped, empezar nueva abre modal directo
-80895d9 feat(pods): maximizar grupos de 4 en createPods y regroupWithLocks
-8d94d49 feat(pods): eliminar grupo, prompt de sesion al refrescar, edicion inline counts
-02167d8 docs: actualizar SUPERPROMPT.md con UX final post-feedback
-1937a32 fix(ui): reagrupar mantiene num grupos del setup inicial, sin segundo modal
-b5c2dff fix(ui): no re-preguntar al volver a vista por grupos + reset robusto modal
-50b3290 fix(ui): modal simple, dropdown reagrupar en grouped, semaforo sin ring
-a601217 docs: actualizar SUPERPROMPT.md a v5
-2a691ed feat(ui): modal Agrupar con selector de modo, defaults min2 max4 y error duro
-46bfa64 feat(ui): candados siempre visibles, semaforo por grupo, icono dnd 6 puntos
-13b827f feat(ui): boton unico con doble funcion reagrupar/volver
-6ccdc98 refactor(store): unificar createOrRegroup, Pod.evaluation, persist v6
-1a56572 refactor: eliminar historial, evaluacion por sesion y candado de grupo
+… (ver git log para v5 completo)
 ```
 
-### 12.10 Evolución del flujo UX (iteraciones post-v5)
-
-Cinco rondas de feedback simplificaron el flujo progresivamente:
-
-1. **Modal con selector de 4 modos** (v5 inicial): demasiada UI antes de ver grupos.
-2. **Modal simple + dropdown en grouped**: el modal solo pregunta counts; los modos viven en grouped tras agrupar.
-3. **Sin segundo modal + reagrupar invariante**: el modal solo aparece la primera vez; reagrupar mantiene `pods.length`.
-4. **SessionPrompt al refrescar**: se preguntaba si continuar/nueva sesión. Demasiados popups.
-5. **Estado final** (v5 actual): cero popups. Auto-group al cargar. Min/max recomendados (no estrictos). Toggle Lista/Grupos simétrico. Inputs inline para reconfigurar. Drag handle Equal. Candados con color del grupo. Eliminar grupo desde su cabecera.
-
-### 12.11 Cómo arrancar la próxima sesión
+### 12.7 Cómo arrancar
 
 ```bash
 cd robotix_group_prototype
-npm install                # solo si node_modules cambió
+npm install
 npm run dev                # http://localhost:3000/mi-alumnado
-npm test                   # 77/77 verde
+npm test                   # 78/78
 npm run typecheck          # verde
 npm run build              # estático en out/, verde
 ```
 
-`.env.local` necesita `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (formato `sb_publishable_*`).
+`.env.local` necesita `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 
 ---
 
-*SUPERPROMPT.md v5.0 — Prototipo Grupos (C360 / ROBOTIX). Spec viva. Para historial completo de iteraciones ver `git log`.*
+*SUPERPROMPT.md v6.0 — Prototipo Grupos (C360 / ROBOTIX). Spec viva.*

@@ -9,7 +9,6 @@ import {
   createPodsByProgress,
   DEFAULT_MAX_PER_POD,
   type Pod,
-  type PodEvaluation,
   type RegroupMode,
   type Student,
 } from "@/lib/pods/create-pods";
@@ -25,18 +24,12 @@ import {
 } from "@/lib/pods/edit-pod";
 import { regroupWithLocks } from "@/lib/pods/regroup-with-locks";
 
-export type SortMode = "alphabetical" | "grouped";
-
 export type GroupingMode = "random" | RegroupMode | "by-progress";
 
 type State = {
   pods: Pod[];
   lockedStudentIds: string[];
-  sortMode: SortMode;
   lastRobotCount: number | null;
-  lastPresentCount: number | null;
-  // No persistido. Controla la apertura del PodGroupingModal.
-  groupingModalOpen: boolean;
 };
 
 type CreateOrRegroupInput = {
@@ -50,9 +43,7 @@ type CreateOrRegroupInput = {
 type Actions = {
   createOrRegroup: (input: CreateOrRegroupInput) => void;
   resetPods: () => void;
-  setSortMode: (mode: SortMode) => void;
   setLastRobotCount: (n: number | null) => void;
-  setPodEvaluation: (podId: string, rating: PodEvaluation) => void;
   moveStudent: (studentId: string, toPodId: string) => MoveStudentResult;
   addStudentToPod: (student: Student, toPodId: string) => MoveStudentResult;
   removeStudentFromPod: (studentId: string) => MoveStudentResult;
@@ -69,17 +60,12 @@ type Actions = {
     emoji: string,
     emojiLabel: string,
   ) => ChangeEmojiResult;
-  openGroupingModal: () => void;
-  closeGroupingModal: () => void;
 };
 
 const INITIAL: State = {
   pods: [],
   lockedStudentIds: [],
-  sortMode: "alphabetical",
   lastRobotCount: null,
-  lastPresentCount: null,
-  groupingModalOpen: false,
 };
 
 function renumberPods(pods: Pod[]): Pod[] {
@@ -153,25 +139,11 @@ export const usePodsStore = create<State & Actions>()(
 
         set({
           pods: result.pods,
-          sortMode: "grouped",
           lastRobotCount: robotCount,
-          lastPresentCount: presentStudents.length,
         });
       },
-      resetPods: () =>
-        set((state) => ({
-          ...INITIAL,
-          groupingModalOpen: state.groupingModalOpen,
-        })),
-      setSortMode: (mode) => set({ sortMode: mode }),
+      resetPods: () => set({ ...INITIAL }),
       setLastRobotCount: (n) => set({ lastRobotCount: n }),
-      setPodEvaluation: (podId, rating) => {
-        set((state) => ({
-          pods: state.pods.map((p) =>
-            p.id === podId ? { ...p, evaluation: rating } : p,
-          ),
-        }));
-      },
       moveStudent: (studentId, toPodId) => {
         const result = moveStudentLogic(get().pods, studentId, toPodId);
         if (result.ok) set({ pods: result.pods });
@@ -210,18 +182,13 @@ export const usePodsStore = create<State & Actions>()(
           existing: state.pods,
           maxCapacity,
         });
-        const newPods = [...state.pods, newPod];
-        set({
-          pods: newPods,
-          sortMode: "grouped",
-        });
+        set({ pods: [...state.pods, newPod] });
       },
       deletePod: (podId) => {
         set((state) => {
           const target = state.pods.find((p) => p.id === podId);
           if (!target) return {};
-          // Quitar locks de los alumnos del pod eliminado: dejarian de tener
-          // un grupo al que pertenecer, mejor liberarlos al pool 'pendientes'.
+          // Quitar locks de los alumnos del pod eliminado: vuelven a pendientes.
           const releasedIds = new Set(target.students.map((s) => s.id));
           const remainingLocks = state.lockedStudentIds.filter(
             (id) => !releasedIds.has(id),
@@ -254,34 +221,30 @@ export const usePodsStore = create<State & Actions>()(
           pods: [...cleanedPods, podWithStudent],
         });
       },
-      openGroupingModal: () => set({ groupingModalOpen: true }),
-      closeGroupingModal: () => set({ groupingModalOpen: false }),
     }),
     {
       name: "c360-pods-state",
-      version: 7,
+      version: 8,
       skipHydration: true,
-      partialize: (
-        state,
-      ): Pick<State, "pods" | "lastRobotCount" | "lastPresentCount"> => ({
-        // Solo persistimos composicion (sin evaluation), lastRobotCount y
-        // lastPresentCount (para precarga del editor inline). Candados,
-        // sortMode, evaluation y hydrated se resetean al cerrar pestaña.
-        pods: state.pods.map((p) => ({ ...p, evaluation: null as PodEvaluation })),
+      partialize: (state): Pick<State, "pods" | "lastRobotCount"> => ({
+        pods: state.pods,
         lastRobotCount: state.lastRobotCount,
-        lastPresentCount: state.lastPresentCount,
       }),
       migrate: (persistedState, version) => {
-        if (version < 7) {
-          // v6 -> v7 anade lastPresentCount. Para no descartar pods existentes
-          // del v6, mantenemos lo que haya y dejamos lastPresentCount=null.
+        // v < 8 descarta state: el esquema cambio (sin evaluation ni sortMode).
+        if (version < 8) {
           const prev =
             (persistedState ?? {}) as Partial<
               Pick<State, "pods" | "lastRobotCount">
             >;
+          // Limpia evaluation por si existe en pods de versiones anteriores.
+          const cleanedPods = (prev.pods ?? []).map((p: Pod & { evaluation?: unknown }) => {
+            const { evaluation: _e, ...rest } = p;
+            return rest as Pod;
+          });
           return {
             ...INITIAL,
-            pods: prev.pods ?? [],
+            pods: cleanedPods,
             lastRobotCount: prev.lastRobotCount ?? null,
           };
         }

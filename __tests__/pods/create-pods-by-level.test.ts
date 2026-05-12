@@ -346,18 +346,4 @@ describe("createPodsByLevel — respeta lockedStudentIds + currentPods", () => {
     }
   });
 
-  it("pods generados tienen evaluation: null", () => {
-    const students = makeStudents(8);
-    const { pods } = createPodsByLevel({
-      students,
-      presentCount: 8,
-      robotCount: 2,
-      mode: "leveled",
-      scoreFn: linearScore,
-      maxPerPod: 4,
-    });
-    for (const pod of pods) {
-      expect(pod.evaluation).toBeNull();
-    }
-  });
 });

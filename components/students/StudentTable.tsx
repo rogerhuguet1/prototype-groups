@@ -12,19 +12,14 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { useShallow } from "zustand/react/shallow";
-import { StudentRow } from "./StudentRow";
 import { StudentRowDraggable } from "./StudentRowDraggable";
 import { UNITS, FLAT_COLUMNS } from "@/lib/data/units";
 import { usePodsStore } from "@/store/pods-store";
 import { sortByLastName, displayName } from "@/lib/utils/sort-students";
-import { cn } from "@/lib/utils/cn";
-import { Plus } from "lucide-react";
-import { Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { PodBadge } from "@/components/pods/PodBadge";
 import { PodDroppableTbody } from "@/components/pods/PodDroppableTbody";
 import { PodHeaderTrigger } from "@/components/pods/PodHeaderTrigger";
-import { PodEvaluationRadio } from "@/components/pods/PodEvaluationRadio";
 import { MOVE_ERROR_MESSAGES } from "@/lib/pods/move-student";
 import { MAX_PODS } from "@/lib/pods/pod-emojis";
 import type { StudentRow as StudentRowType } from "@/types/database";
@@ -37,13 +32,7 @@ type Props = {
 const TOTAL_COLUMNS = 1 + FLAT_COLUMNS.length;
 
 export function StudentTable({ students }: Props) {
-  const { pods, sortMode } = usePodsStore(
-    useShallow((s) => ({
-      pods: s.pods,
-      sortMode: s.sortMode,
-    })),
-  );
-  const viewWithPods = pods.length > 0;
+  const pods = usePodsStore((s) => s.pods);
   const assignStudentToPod = usePodsStore((s) => s.addStudentToPod);
   const removeStudentFromPod = usePodsStore((s) => s.removeStudentFromPod);
   const addEmptyPod = usePodsStore((s) => s.addEmptyPod);
@@ -69,40 +58,21 @@ export function StudentTable({ students }: Props) {
     );
   }
 
-  const isGrouped = viewWithPods && sortMode === "grouped";
-  const sortedAlpha = sortByLastName(students);
-
   return (
     <div className="bg-white border-y border-slate-200">
       <div className="overflow-x-auto">
         <table className="w-full text-xs border-separate border-spacing-0">
           <TableHeader />
-          {isGrouped ? (
-            <DndStudentBodies
-              pods={pods}
-              students={students}
-              studentMap={studentMap}
-              studentToPod={studentToPod}
-              onAssign={assignStudentToPod}
-              onRemove={removeStudentFromPod}
-              onAddEmptyPod={addEmptyPod}
-              canAddPod={pods.length < MAX_PODS}
-            />
-          ) : (
-            <tbody>
-              {sortedAlpha.map((s, i) => (
-                <StudentRow
-                  key={s.id}
-                  student={s}
-                  index={i}
-                  columns={FLAT_COLUMNS}
-                  pod={viewWithPods ? studentToPod.get(s.id) : undefined}
-                  showBadge={viewWithPods}
-                  withChangeDropdown={viewWithPods}
-                />
-              ))}
-            </tbody>
-          )}
+          <DndStudentBodies
+            pods={pods}
+            students={students}
+            studentMap={studentMap}
+            studentToPod={studentToPod}
+            onAssign={assignStudentToPod}
+            onRemove={removeStudentFromPod}
+            onAddEmptyPod={addEmptyPod}
+            canAddPod={pods.length < MAX_PODS}
+          />
         </table>
       </div>
     </div>
@@ -315,7 +285,7 @@ function DndStudentBodies({
                 colSpan={TOTAL_COLUMNS}
                 className="px-4 py-2 sticky left-0 z-10 text-xs font-semibold text-slate-700 bg-slate-100 border-t-2 border-slate-300"
               >
-                Pendientes de asignar ({sortedUnassigned.length}) — arrastra al grupo o pulsa el desplegable
+                Pendientes de asignar ({sortedUnassigned.length}) — arrastra a un grupo con hueco o pulsa el desplegable
               </td>
             </tr>
             {sortedUnassigned.map((s, i) => (
@@ -356,6 +326,7 @@ function DndStudentBodies({
 
 function PodSectionHeaderRow({ pod }: { pod: Pod }) {
   const deletePod = usePodsStore((s) => s.deletePod);
+  const isFull = pod.students.length >= pod.maxCapacity;
 
   const onDelete = () => {
     if (pod.students.length > 0) {
@@ -379,22 +350,14 @@ function PodSectionHeaderRow({ pod }: { pod: Pod }) {
           style={{ backgroundColor: `${pod.color.hex}1a` }}
         >
           <PodHeaderTrigger pod={pod} />
-          <PodEvaluationRadio podId={pod.id} current={pod.evaluation} />
-          <span
-            className={cn(
-              "text-xs font-semibold",
-              pod.students.length > pod.maxCapacity
-                ? "text-amber-700"
-                : "text-slate-700",
-            )}
-            title={
-              pod.students.length > pod.maxCapacity
-                ? `Supera el máximo recomendado (${pod.maxCapacity})`
-                : undefined
-            }
-          >
-            {pod.students.length} alumno{pod.students.length === 1 ? "" : "s"}
+          <span className="text-xs font-semibold text-slate-700">
+            {pod.students.length} de {pod.maxCapacity} alumnos
           </span>
+          {isFull && (
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+              Lleno
+            </span>
+          )}
           <button
             type="button"
             onClick={onDelete}

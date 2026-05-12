@@ -198,7 +198,9 @@ describe("regroupWithLocks", () => {
     );
   });
 
-  it("libres > plazas → lanza RegroupLocksError con conteos correctos", () => {
+  it("libres > plazas → los excedentes quedan fuera, sin error", () => {
+    // Antes lanzaba RegroupLocksError; ahora silenciosamente quedan
+    // pendientes (= no asignados a ningún pod).
     const baseStudents = makeStudents(6);
     const extraStudent: Student = { id: "s-extra", full_name: "Nuevo" };
     const initial = createPods({
@@ -210,14 +212,14 @@ describe("regroupWithLocks", () => {
     }).pods;
     const lockedIds = initial[0]!.students.map((s) => s.id);
 
-    expect(() =>
-      regroupWithLocks({
-        currentPods: initial,
-        lockedStudentIds: lockedIds,
-        allPresentStudents: [...baseStudents, extraStudent],
-        seed: "regroup",
-      }),
-    ).toThrow(RegroupLocksError);
+    const result = regroupWithLocks({
+      currentPods: initial,
+      lockedStudentIds: lockedIds,
+      allPresentStudents: [...baseStudents, extraStudent],
+      seed: "regroup",
+    });
+    // Total asignado <= capacity (3 pods * 2 max = 6). s-extra queda fuera.
+    expect(totalAssigned(result.pods)).toBe(6);
   });
 
   it("excepción individual en pod 'todo bloqueado': el alumno excepto va al pool libre", () => {
@@ -273,27 +275,4 @@ describe("regroupWithLocks", () => {
     }
   });
 
-  it("resetea evaluation a null en todos los pods devueltos", () => {
-    const students = makeStudents(12);
-    const initial = createPods({
-      students,
-      presentCount: 12,
-      robotCount: 3,
-      maxPerPod: 4,
-      seed: "init",
-    }).pods;
-    const initialWithEval = initial.map((p, i) => ({
-      ...p,
-      evaluation: (["green", "amber", "red"] as const)[i] ?? null,
-    }));
-    const result = regroupWithLocks({
-      currentPods: initialWithEval,
-      lockedStudentIds: [],
-      allPresentStudents: students,
-      seed: "regroup",
-    });
-    for (const pod of result.pods) {
-      expect(pod.evaluation).toBeNull();
-    }
-  });
 });

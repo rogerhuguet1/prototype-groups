@@ -1,7 +1,6 @@
 import {
-  computePodSizes,
   DEFAULT_MAX_PER_POD,
-  DEFAULT_MIN_PER_POD,
+  computePodSizes,
   shuffleInPlace,
   type Pod,
   type Student,
@@ -57,7 +56,7 @@ export function regroupWithLocks(
     const kept = pod.students.filter(
       (s) => lockedSet.has(s.id) && presentSet.has(s.id),
     );
-    return { ...pod, students: kept, evaluation: null };
+    return { ...pod, students: kept };
   });
 
   const free: Student[] = [];
@@ -74,63 +73,52 @@ export function regroupWithLocks(
     }
   }
 
+  // Capacidad libre tras los locks. El max por pod es duro: si los free
+  // sobrepasan la capacidad libre, los excedentes quedan fuera (= pendientes).
+  const maxPerPod = newPods[0]?.maxCapacity ?? DEFAULT_MAX_PER_POD;
   const totalSlots = newPods.reduce(
-    (acc, p) => acc + (p.maxCapacity - p.students.length),
+    (acc, p) => acc + (maxPerPod - p.students.length),
     0,
   );
-
-  if (free.length > totalSlots) {
-    throw new RegroupLocksError(free.length, totalSlots);
-  }
 
   shuffleInPlace(free, random);
+  const freeAssignable = free.slice(0, totalSlots);
 
-  // Maximizar grupos llenos: calcular tamaños objetivo (4,4,...,4,3,2,...) y
-  // asignarlos a los pods empezando por los que tienen más lockeados, para
-  // garantizar que ningún pod recibe un target menor que sus locks.
-  const maxPerPod = newPods[0]?.maxCapacity ?? DEFAULT_MAX_PER_POD;
-  const presentCount = newPods.reduce(
-    (acc, p) => acc + p.students.length,
-    0,
-  ) + free.length;
-  const robotCount = newPods.length;
+  // Tamaños objetivo balanceados sobre (locked + freeAssignable). Empareja
+  // sizes (desc) con pods ordenados por locked desc para evitar que un pod
+  // quede por debajo de sus locks. Cap a maxPerPod por pod.
+  const lockedTotals = newPods.map((p) => p.students.length);
+  const totalAssignable =
+    lockedTotals.reduce((a, b) => a + b, 0) + freeAssignable.length;
   const sizes = computePodSizes({
-    presentCount,
-    robotCount,
-    minPerPod: DEFAULT_MIN_PER_POD,
-    maxPerPod,
+    assignableCount: totalAssignable,
+    robotCount: newPods.length,
   });
-
-  // Empareja pods (ordenados por locked.length desc) con sizes (desc).
   const podOrder = [...newPods.keys()].sort(
-    (a, b) =>
-      (newPods[b] as Pod).students.length - (newPods[a] as Pod).students.length,
+    (a, b) => (lockedTotals[b] as number) - (lockedTotals[a] as number),
   );
-  const target = new Array<number>(robotCount).fill(0);
+  const targetSize = new Array<number>(newPods.length).fill(0);
   podOrder.forEach((podIdx, sortedI) => {
-    target[podIdx] = sizes[sortedI] as number;
+    targetSize[podIdx] = Math.min(maxPerPod, sizes[sortedI] as number);
   });
 
-  // Llenar cada pod hasta su target con alumnos free (in-order, ya están
-  // mezclados).
   let cursor = 0;
   for (let i = 0; i < newPods.length; i++) {
     const pod = newPods[i] as Pod;
-    const need = Math.max(0, (target[i] as number) - pod.students.length);
-    const take = Math.min(need, free.length - cursor);
+    const need = Math.max(0, (targetSize[i] as number) - pod.students.length);
+    const take = Math.min(need, freeAssignable.length - cursor);
     for (let j = 0; j < take; j++) {
-      pod.students.push(free[cursor++] as Student);
+      pod.students.push(freeAssignable[cursor++] as Student);
     }
   }
-
-  // Si quedó algún alumno por colocar (target ajustado < free disponible por
-  // locks excesivos), rellenar por capacidad hasta maxPerPod.
-  while (cursor < free.length) {
+  // Si quedó alguno por colocar dentro del cap (raro), reparte por capacidad
+  // libre restante sin pasar maxPerPod.
+  while (cursor < freeAssignable.length) {
     let placed = false;
     for (const pod of newPods) {
-      if (cursor >= free.length) break;
-      if (pod.students.length < pod.maxCapacity) {
-        pod.students.push(free[cursor++] as Student);
+      if (cursor >= freeAssignable.length) break;
+      if (pod.students.length < maxPerPod) {
+        pod.students.push(freeAssignable[cursor++] as Student);
         placed = true;
       }
     }

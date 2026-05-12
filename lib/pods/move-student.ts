@@ -7,11 +7,13 @@ export type MoveStudentResult =
 export type MoveError =
   | "student-not-found"
   | "destination-pod-not-found"
+  | "destination-pod-full"
   | "source-pod-not-found";
 
 export const MOVE_ERROR_MESSAGES: Record<MoveError, string> = {
   "student-not-found": "El alumno no está en ningún grupo",
   "destination-pod-not-found": "El grupo destino no existe",
+  "destination-pod-full": "El grupo ya tiene el máximo de 4 alumnos",
   "source-pod-not-found": "Grupo de origen no encontrado",
 };
 
@@ -32,8 +34,11 @@ export function moveStudent(
 
   if (fromPod.id === toPod.id) return { ok: true, pods };
 
-  // Sin validacion de capacidad: max=4 es recomendado, no estricto. El profe
-  // puede crear grupos mas grandes manualmente.
+  // Max duro: un pod no puede recibir más de maxCapacity (=4) alumnos.
+  if (toPod.students.length >= toPod.maxCapacity) {
+    return { ok: false, reason: "destination-pod-full" };
+  }
+
   const student = fromPod.students.find((s) => s.id === studentId);
   if (!student) return { ok: false, reason: "student-not-found" };
 
@@ -61,6 +66,9 @@ export function addStudentToPod(
 
   const toPod = pods.find((p) => p.id === toPodId);
   if (!toPod) return { ok: false, reason: "destination-pod-not-found" };
+  if (toPod.students.length >= toPod.maxCapacity) {
+    return { ok: false, reason: "destination-pod-full" };
+  }
 
   const newPods = pods.map((p) =>
     p.id === toPodId ? { ...p, students: [...p.students, student] } : p,
