@@ -27,7 +27,7 @@ describe("createPods — casos del SUPERPROMPT §5", () => {
     expect(pods.flatMap((p) => p.students.map((s) => s.id))).toHaveLength(24);
   });
 
-  it("22 alumnos / 6 robots → 4 grupos de 4 + 2 de 3 (con maxPerPod 4)", () => {
+  it("22 alumnos / 6 robots → 5 grupos de 4 + 1 de 2 (max 4 prioriza grupos llenos)", () => {
     const { pods } = createPods({
       students: makeStudents(30),
       presentCount: 22,
@@ -35,10 +35,10 @@ describe("createPods — casos del SUPERPROMPT §5", () => {
       maxPerPod: 4,
     });
     expect(pods).toHaveLength(6);
-    expect(pods.map((p) => p.students.length)).toEqual([4, 4, 4, 4, 3, 3]);
+    expect(pods.map((p) => p.students.length)).toEqual([4, 4, 4, 4, 4, 2]);
   });
 
-  it("18 alumnos / 5 robots → 3 grupos de 4 + 2 de 3 (con maxPerPod 4)", () => {
+  it("18 alumnos / 5 robots → 4 grupos de 4 + 1 de 2 (max 4 prioriza grupos llenos)", () => {
     const { pods } = createPods({
       students: makeStudents(20),
       presentCount: 18,
@@ -46,7 +46,16 @@ describe("createPods — casos del SUPERPROMPT §5", () => {
       maxPerPod: 4,
     });
     expect(pods).toHaveLength(5);
-    expect(pods.map((p) => p.students.length)).toEqual([4, 4, 4, 3, 3]);
+    expect(pods.map((p) => p.students.length)).toEqual([4, 4, 4, 4, 2]);
+  });
+
+  it("21 / 6 → cola ajustada [4,4,4,4,3,2] (no permite quedar uno de 1)", () => {
+    const { pods } = createPods({
+      students: makeStudents(21),
+      presentCount: 21,
+      robotCount: 6,
+    });
+    expect(pods.map((p) => p.students.length)).toEqual([4, 4, 4, 4, 3, 2]);
   });
 
   it("20 alumnos / 5 robots → 5 grupos de 4 (con maxPerPod 4)", () => {
@@ -60,7 +69,7 @@ describe("createPods — casos del SUPERPROMPT §5", () => {
     expect(pods.map((p) => p.students.length)).toEqual([4, 4, 4, 4, 4]);
   });
 
-  it("ratio 1:3 por defecto: 30 alumnos / 10 robots → 10 grupos de 3", () => {
+  it("30 alumnos / 10 robots → 5 grupos de 4 + 5 de 2 (maximiza 4s)", () => {
     const { pods } = createPods({
       students: makeStudents(30),
       presentCount: 30,
@@ -68,18 +77,18 @@ describe("createPods — casos del SUPERPROMPT §5", () => {
     });
     expect(pods).toHaveLength(10);
     expect(pods.map((p) => p.students.length)).toEqual([
-      3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+      4, 4, 4, 4, 4, 2, 2, 2, 2, 2,
     ]);
   });
 
-  it("ratio 1:3 con resto: 28 alumnos / 10 robots → primeros llenos, los del final con menos", () => {
+  it("28 / 10 → 4 de 4 + 6 de 2 (maximiza 4s, cola con mínimos)", () => {
     const { pods } = createPods({
       students: makeStudents(30),
       presentCount: 28,
       robotCount: 10,
     });
     expect(pods.map((p) => p.students.length)).toEqual([
-      3, 3, 3, 3, 3, 3, 3, 3, 2, 2,
+      4, 4, 4, 4, 2, 2, 2, 2, 2, 2,
     ]);
   });
 

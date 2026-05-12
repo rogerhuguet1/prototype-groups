@@ -208,10 +208,17 @@ function createPods(input: CreatePodsInput): { pods: Pod[]; seed: string };
 
 1. Toma los primeros `presentCount` alumnos como pool.
 2. Crea `robotCount` pods con emojis únicos (Fisher-Yates con seed) y colores únicos (furthest-point sampling sobre paleta de 15).
-3. Reparto balanceado: `base = floor(presentCount/robotCount)`, `extra = presentCount % robotCount`. Primeros `extra` pods reciben `base+1`, resto `base`.
-4. **Validación dura** (cambio v5): throw si `presentCount < robotCount*minPerPod` o `presentCount > robotCount*maxPerPod`. Mensaje: `distributionErrorMessage(...)` = `"No se puede distribuir {N} alumnos en {M} grupos respetando min {min} y max {max}."`
+3. **Reparto que maximiza grupos llenos**: `computePodSizes` asigna primero el mínimo a cada pod (2) y luego rellena los primeros pods hasta `maxPerPod` (4) hasta agotar el stock. La cola queda con valores en `[minPerPod, maxPerPod-1]`. Ejemplos:
+   - `22/6` → `[4,4,4,4,4,2]`.
+   - `21/6` → `[4,4,4,4,3,2]` (no se permite que el último quede en 1).
+   - `20/6` → `[4,4,4,4,2,2]`.
+   - `18/9` → `[2,2,2,2,2,2,2,2,2]` (caso mínimo).
+   - `30/10` → `[4,4,4,4,4,2,2,2,2,2]`.
+4. **Validación dura**: throw si `presentCount < robotCount*minPerPod` o `presentCount > robotCount*maxPerPod`. Mensaje: `distributionErrorMessage(...)` = `"No se puede distribuir {N} alumnos en {M} grupos respetando min {min} y max {max}."`
 5. Throw también si: `robotCount > 15`, `robotCount > presentCount`, `presentCount > students.length`, valores no enteros.
 6. Cada pod nace con `evaluation: null`.
+
+Helper público: `computePodSizes({ presentCount, robotCount, minPerPod, maxPerPod })` devuelve los tamaños objetivo. Se reusa en `regroupWithLocks` (random con pods). Los modos `leveled`, `mixed`, `by-progress` mantienen el reparto balanceado (`base+extra`) para preservar su semántica (los grupos "juntos por nivel" deben tener tamaños similares).
 
 ### Variantes
 
@@ -222,6 +229,8 @@ function createPods(input: CreatePodsInput): { pods: Pod[]; seed: string };
 ### `regroupWithLocks` (lib/pods/regroup-with-locks.ts)
 
 Mantiene emojis/colores de los pods actuales. Solo redistribuye alumnos no bloqueados respetando capacidad. **Resetea `evaluation: null` en cada pod devuelto.**
+
+Reparto: usa `computePodSizes` para calcular tamaños objetivo (maximizando 4s) y los empareja con los pods ordenados por `lockedCount` descendente — los pods con más alumnos lockeados reciben los tamaños mayores, garantizando que ningún pod recibe un target menor que sus locks. Si quedan alumnos sin colocar tras agotar targets (caso patológico con locks que fuerzan reorganización), rellena por capacidad hasta `maxPerPod`.
 
 ---
 

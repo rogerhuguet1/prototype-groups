@@ -46,6 +46,41 @@ export type CreatePodsOutput = {
 export const DEFAULT_MAX_PER_POD = 4;
 export const DEFAULT_MIN_PER_POD = 2;
 
+/**
+ * Devuelve los tamaños objetivo para `robotCount` grupos que suman
+ * `presentCount`, maximizando los grupos de `maxPerPod` y dejando los grupos
+ * de cola con valores en `[minPerPod, maxPerPod)`. Asume que la combinación es
+ * válida (`presentCount ∈ [robotCount*minPerPod, robotCount*maxPerPod]`).
+ *
+ * Ejemplos con min=2 max=4:
+ *   22/6  → [4,4,4,4,4,2]
+ *   21/6  → [4,4,4,4,3,2]
+ *   20/6  → [4,4,4,4,2,2]
+ *   18/9  → [2,2,2,2,2,2,2,2,2]
+ *   30/10 → [4,4,4,4,4,2,2,2,2,2]
+ */
+export function computePodSizes({
+  presentCount,
+  robotCount,
+  minPerPod,
+  maxPerPod,
+}: {
+  presentCount: number;
+  robotCount: number;
+  minPerPod: number;
+  maxPerPod: number;
+}): number[] {
+  if (robotCount <= 0) return [];
+  const sizes = new Array<number>(robotCount).fill(minPerPod);
+  let stock = presentCount - robotCount * minPerPod;
+  for (let i = 0; i < robotCount && stock > 0; i++) {
+    const add = Math.min(stock, maxPerPod - minPerPod);
+    sizes[i] = (sizes[i] as number) + add;
+    stock -= add;
+  }
+  return sizes;
+}
+
 export function shuffleInPlace<T>(arr: T[], random: () => number): T[] {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));
@@ -96,13 +131,17 @@ export function createPods(input: CreatePodsInput): CreatePodsOutput {
   const emojis = shuffleInPlace([...POD_EMOJIS], random).slice(0, robotCount);
   const colors = pickUniqueColors(robotCount, [], random);
 
-  const base = Math.floor(presentCount / robotCount);
-  const extra = presentCount % robotCount;
+  const sizes = computePodSizes({
+    presentCount,
+    robotCount,
+    minPerPod,
+    maxPerPod,
+  });
 
   const pods: Pod[] = [];
   let cursor = 0;
   for (let i = 0; i < robotCount; i++) {
-    const size = base + (i < extra ? 1 : 0);
+    const size = sizes[i] as number;
     const slice = present.slice(cursor, cursor + size);
     cursor += size;
     const emoji = emojis[i] as PodEmoji;
