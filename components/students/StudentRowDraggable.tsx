@@ -16,6 +16,8 @@ type Props = {
   columns: readonly FlatColumn[];
   pod: Pod | null;
   onRemoveFromPod?: () => void;
+  showBadge?: boolean;
+  withChangeDropdown?: boolean;
 };
 
 export function StudentRowDraggable({
@@ -24,6 +26,8 @@ export function StudentRowDraggable({
   columns,
   pod,
   onRemoveFromPod,
+  showBadge = false,
+  withChangeDropdown = false,
 }: Props) {
   const isLocked = usePodsStore((s) =>
     s.lockedStudentIds.includes(student.id),
@@ -45,6 +49,8 @@ export function StudentRowDraggable({
       index={index}
       columns={columns}
       pod={pod ?? undefined}
+      showBadge={showBadge}
+      withChangeDropdown={withChangeDropdown}
       podColorBorder={Boolean(pod)}
       rowRef={setNodeRef}
       isDragging={isDragging}

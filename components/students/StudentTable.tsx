@@ -314,7 +314,7 @@ function DndStudentBodies({
                 colSpan={TOTAL_COLUMNS}
                 className="px-4 py-2 sticky left-0 z-10 text-xs font-semibold text-slate-700 bg-slate-100 border-t-2 border-slate-300"
               >
-                Pendientes de asignar ({sortedUnassigned.length}) — arrastra al grupo
+                Pendientes de asignar ({sortedUnassigned.length}) — arrastra al grupo o pulsa el desplegable
               </td>
             </tr>
             {sortedUnassigned.map((s, i) => (
@@ -324,6 +324,8 @@ function DndStudentBodies({
                 index={i}
                 columns={FLAT_COLUMNS}
                 pod={null}
+                showBadge
+                withChangeDropdown
               />
             ))}
           </tbody>

@@ -1,6 +1,6 @@
 "use client";
 
-import { GripVertical } from "lucide-react";
+import { Equal } from "lucide-react";
 import { forwardRef, type HTMLAttributes } from "react";
 import { cn } from "@/lib/utils/cn";
 
@@ -26,7 +26,7 @@ export const DragHandle = forwardRef<HTMLButtonElement, Props>(
       )}
       {...rest}
     >
-      <GripVertical className="size-4" aria-hidden />
+      <Equal className="size-4" strokeWidth={2.5} aria-hidden />
     </button>
   ),
 );

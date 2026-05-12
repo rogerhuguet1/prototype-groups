@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ArrowLeft, Shuffle, ChevronDown, LayoutGrid } from "lucide-react";
+import { List, Shuffle, ChevronDown, LayoutGrid } from "lucide-react";
 import { Button } from "../ui/Button";
 import { PodGroupingModal } from "./PodGroupingModal";
 import { PodRegroupModeDropdown } from "./PodRegroupModeDropdown";
@@ -78,11 +78,11 @@ export function PodMainButton({ students }: Props) {
         <Button
           variant="secondary"
           onClick={() => setSortMode("alphabetical")}
-          className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-2"
+          className="text-[11px] font-bold uppercase tracking-wider px-3 py-2"
           title="Volver a la lista alfabética"
-          aria-label="Volver a la lista alfabética"
         >
-          <ArrowLeft className="size-4" aria-hidden />
+          <List className="size-3.5" aria-hidden />
+          Lista
         </Button>
         <PodCountControls students={students} />
         <Button
@@ -127,7 +127,7 @@ export function PodMainButton({ students }: Props) {
         title="Ver la vista por grupos"
       >
         <LayoutGrid className="size-3.5" aria-hidden />
-        Ver grupos
+        Grupos
       </Button>
     );
   }
