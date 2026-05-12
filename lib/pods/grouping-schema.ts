@@ -1,9 +1,4 @@
 import { z } from "zod";
-import {
-  DEFAULT_MAX_PER_POD,
-  DEFAULT_MIN_PER_POD,
-  distributionErrorMessage,
-} from "@/lib/pods/create-pods";
 import { MAX_PODS } from "@/lib/pods/pod-emojis";
 
 export const GROUPING_MODES = [
@@ -14,6 +9,10 @@ export const GROUPING_MODES = [
 ] as const;
 export type GroupingMode = (typeof GROUPING_MODES)[number];
 
+// Validacion laxa: min/max por pod son recomendados, no se imponen. Solo
+// limitaciones duras: enteros >= 1, robotCount <= MAX_PODS, robotCount <=
+// presentCount. Si la combinacion queda fuera del rango recomendado 2-4, los
+// algoritmos de reparto se adaptan (balanceado en vez de error).
 export const groupingSchema = z
   .object({
     mode: z.enum(GROUPING_MODES),
@@ -30,23 +29,6 @@ export const groupingSchema = z
   .refine((d) => d.robotCount <= d.presentCount, {
     message: "No puede haber más grupos que alumnos",
     path: ["robotCount"],
-  })
-  .superRefine((d, ctx) => {
-    if (
-      d.presentCount < d.robotCount * DEFAULT_MIN_PER_POD ||
-      d.presentCount > d.robotCount * DEFAULT_MAX_PER_POD
-    ) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["presentCount"],
-        message: distributionErrorMessage(
-          d.presentCount,
-          d.robotCount,
-          DEFAULT_MIN_PER_POD,
-          DEFAULT_MAX_PER_POD,
-        ),
-      });
-    }
   });
 
 export type GroupingInput = z.infer<typeof groupingSchema>;

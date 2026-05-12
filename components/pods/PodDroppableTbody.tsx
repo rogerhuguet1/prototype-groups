@@ -17,22 +17,16 @@ export function PodDroppableTbody({ pod, children }: Props) {
 
   const fromPodId = active?.data.current?.["fromPodId"] as string | undefined;
   const sourceIsThisPod = fromPodId === pod.id;
-  const isFull = pod.students.length >= pod.maxCapacity;
-  const showInvalid = isOver && isFull && !sourceIsThisPod;
-  const showValid = isOver && !isFull && !sourceIsThisPod;
+  const showValid = isOver && !sourceIsThisPod;
 
-  let style: CSSProperties | undefined;
-  if (showInvalid) {
-    style = {
-      boxShadow: "inset 0 0 0 2px rgb(244 63 94)",
-      backgroundColor: "rgba(244, 63, 94, 0.04)",
-    };
-  } else if (showValid) {
-    style = {
-      boxShadow: "inset 0 0 0 2px rgb(16 185 129)",
-      backgroundColor: "rgba(16, 185, 129, 0.04)",
-    };
-  }
+  // El max recomendado es 4 pero no estricto: aceptamos siempre el drop.
+  // No mostramos estado 'invalido' rojo. Solo highlight verde al hover.
+  const style: CSSProperties | undefined = showValid
+    ? {
+        boxShadow: "inset 0 0 0 2px rgb(16 185 129)",
+        backgroundColor: "rgba(16, 185, 129, 0.04)",
+      }
+    : undefined;
 
   return (
     <tbody ref={setNodeRef} style={style}>

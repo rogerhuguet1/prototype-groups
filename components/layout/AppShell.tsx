@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { CircleUser } from "lucide-react";
 import { useClasses } from "@/hooks/useClasses";
 import { useStudents } from "@/hooks/useStudents";
@@ -8,6 +8,12 @@ import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { ScoreLegend } from "@/components/students/ScoreLegend";
 import { StudentTable } from "@/components/students/StudentTable";
+import { usePodsStore } from "@/store/pods-store";
+import { MAX_PODS } from "@/lib/pods/pod-emojis";
+
+function defaultRobotCount(presentCount: number): number {
+  return Math.min(MAX_PODS, Math.max(1, Math.ceil(presentCount / 4)));
+}
 
 export function AppShell() {
   const classesQuery = useClasses();
@@ -24,6 +30,32 @@ export function AppShell() {
   const studentsQuery = useStudents(classId);
   const classes = classesQuery.data ?? [];
   const students = studentsQuery.data ?? [];
+
+  // Auto-agrupar al primer mount cuando tengamos students cargados y no haya
+  // pods previos. Una vez por vida del componente: si el profe elimina todos
+  // los pods despues, no volvemos a auto-agrupar.
+  const podCount = usePodsStore((s) => s.pods.length);
+  const createOrRegroup = usePodsStore((s) => s.createOrRegroup);
+  const autoGroupedRef = useRef(false);
+
+  useEffect(() => {
+    if (autoGroupedRef.current) return;
+    if (students.length === 0) return;
+    if (podCount > 0) {
+      autoGroupedRef.current = true;
+      return;
+    }
+    autoGroupedRef.current = true;
+    const presentStudents = students.map((s) => ({
+      id: s.id,
+      full_name: s.full_name,
+    }));
+    createOrRegroup({
+      mode: "random",
+      presentStudents,
+      robotCount: defaultRobotCount(students.length),
+    });
+  }, [students, podCount, createOrRegroup]);
 
   return (
     <div className="min-h-screen flex flex-col bg-c360-bg">

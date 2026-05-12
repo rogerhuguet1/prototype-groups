@@ -3,7 +3,6 @@
 import { useRef, useState } from "react";
 import { List, Shuffle, ChevronDown, LayoutGrid } from "lucide-react";
 import { Button } from "../ui/Button";
-import { PodGroupingModal } from "./PodGroupingModal";
 import { PodRegroupModeDropdown } from "./PodRegroupModeDropdown";
 import { PodCountControls } from "./PodCountControls";
 import { usePodsStore } from "@/store/pods-store";
@@ -12,6 +11,7 @@ import {
   getStudentProgress,
   getStudentScore,
 } from "@/lib/pods/student-score";
+import { MAX_PODS } from "@/lib/pods/pod-emojis";
 import type { Student } from "@/lib/pods/create-pods";
 import type { GroupingMode } from "@/lib/pods/grouping-schema";
 
@@ -19,14 +19,15 @@ type Props = {
   students: Student[];
 };
 
+function defaultRobotCount(presentCount: number): number {
+  return Math.min(MAX_PODS, Math.max(1, Math.ceil(presentCount / 4)));
+}
+
 export function PodMainButton({ students }: Props) {
   const sortMode = usePodsStore((s) => s.sortMode);
   const setSortMode = usePodsStore((s) => s.setSortMode);
   const createOrRegroup = usePodsStore((s) => s.createOrRegroup);
   const podCount = usePodsStore((s) => s.pods.length);
-  const groupingModalOpen = usePodsStore((s) => s.groupingModalOpen);
-  const openGroupingModal = usePodsStore((s) => s.openGroupingModal);
-  const closeGroupingModal = usePodsStore((s) => s.closeGroupingModal);
   const hasPods = podCount > 0;
 
   const dropdownTriggerRef = useRef<HTMLButtonElement>(null);
@@ -35,7 +36,7 @@ export function PodMainButton({ students }: Props) {
 
   if (students.length === 0) return null;
 
-  // === Modo grouped: flecha back + dropdown Reagrupar ===
+  // === Modo grouped: Lista + counts + dropdown Reagrupar ===
   if (sortMode === "grouped") {
     const onPickMode = (mode: GroupingMode) => {
       setDropdownRect(null);
@@ -132,24 +133,29 @@ export function PodMainButton({ students }: Props) {
     );
   }
 
-  // Sin pods aun: primer agrupamiento via modal. El modal puede abrirse desde
-  // el boton 'Agrupar' o desde SessionPrompt al elegir 'Empezar nueva sesion'.
+  // Sin pods (fallback): el auto-agrupar inicial ya pasó pero el profe elimino
+  // todos los grupos. Ofrecemos un boton para volver a agrupar con defaults.
+  const onAutoGroup = () => {
+    const presentStudents = students.map((s) => ({
+      id: s.id,
+      full_name: s.full_name,
+    }));
+    createOrRegroup({
+      mode: "random",
+      presentStudents,
+      robotCount: defaultRobotCount(students.length),
+    });
+  };
+
   return (
-    <>
-      <Button
-        variant="secondary"
-        onClick={openGroupingModal}
-        className="text-[11px] font-bold uppercase tracking-wider px-3 py-2"
-        title="Agrupar a los alumnos"
-      >
-        <Shuffle className="size-3.5" aria-hidden />
-        Agrupar
-      </Button>
-      <PodGroupingModal
-        open={groupingModalOpen}
-        onClose={closeGroupingModal}
-        students={students}
-      />
-    </>
+    <Button
+      variant="secondary"
+      onClick={onAutoGroup}
+      className="text-[11px] font-bold uppercase tracking-wider px-3 py-2"
+      title="Agrupar a los alumnos"
+    >
+      <Shuffle className="size-3.5" aria-hidden />
+      Agrupar
+    </Button>
   );
 }

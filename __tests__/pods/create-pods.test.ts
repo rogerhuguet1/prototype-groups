@@ -250,35 +250,39 @@ describe("createPods — comportamiento adicional", () => {
     ).toThrow(/No hay tantos alumnos/);
   });
 
-  it("si presentCount excede robotCount * maxPerPod (default 4) → error duro", () => {
-    expect(() =>
-      createPods({
-        students: makeStudents(30),
-        presentCount: 30,
-        robotCount: 3,
-      }),
-    ).toThrow(/No se puede distribuir 30 alumnos en 3 grupos respetando min 2 y max 4/);
+  it("si presentCount excede robotCount * maxPerPod, reparto balanceado (no error)", () => {
+    // 30/3 con default max=4: 30 > 12. Antes lanzaba error. Ahora min/max son
+    // recomendados; reparte balanceado y los pods exceden max.
+    const { pods } = createPods({
+      students: makeStudents(30),
+      presentCount: 30,
+      robotCount: 3,
+    });
+    expect(pods).toHaveLength(3);
+    expect(pods.map((p) => p.students.length)).toEqual([10, 10, 10]);
   });
 
-  it("si presentCount excede robotCount * maxPerPod custom → error duro", () => {
-    expect(() =>
-      createPods({
-        students: makeStudents(30),
-        presentCount: 30,
-        robotCount: 4,
-        maxPerPod: 5,
-      }),
-    ).toThrow(/No se puede distribuir 30 alumnos en 4 grupos respetando min 2 y max 5/);
+  it("si presentCount excede maxPerPod custom, reparto balanceado", () => {
+    const { pods } = createPods({
+      students: makeStudents(30),
+      presentCount: 30,
+      robotCount: 4,
+      maxPerPod: 5,
+    });
+    expect(pods).toHaveLength(4);
+    // 30/4 = 7 base + 2 extra → [8, 8, 7, 7].
+    expect(pods.map((p) => p.students.length)).toEqual([8, 8, 7, 7]);
   });
 
-  it("si presentCount < robotCount * minPerPod (default 2) → error duro", () => {
-    expect(() =>
-      createPods({
-        students: makeStudents(3),
-        presentCount: 3,
-        robotCount: 2,
-      }),
-    ).toThrow(/No se puede distribuir 3 alumnos en 2 grupos respetando min 2 y max 4/);
+  it("si presentCount < robotCount * minPerPod, reparto balanceado (no error)", () => {
+    // 3 alumnos / 2 robots: pod-1 con 2, pod-2 con 1.
+    const { pods } = createPods({
+      students: makeStudents(3),
+      presentCount: 3,
+      robotCount: 2,
+    });
+    expect(pods).toHaveLength(2);
+    expect(pods.map((p) => p.students.length)).toEqual([2, 1]);
   });
 
   it("18 alumnos / 9 robots → 9 grupos de 2 (min 2 lo permite)", () => {

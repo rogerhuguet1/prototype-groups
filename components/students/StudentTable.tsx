@@ -18,6 +18,7 @@ import { StudentRowDraggable } from "./StudentRowDraggable";
 import { UNITS, FLAT_COLUMNS } from "@/lib/data/units";
 import { usePodsStore } from "@/store/pods-store";
 import { sortByLastName, displayName } from "@/lib/utils/sort-students";
+import { cn } from "@/lib/utils/cn";
 import { Plus } from "lucide-react";
 import { Trash2 } from "lucide-react";
 import { PodBadge } from "@/components/pods/PodBadge";
@@ -379,8 +380,20 @@ function PodSectionHeaderRow({ pod }: { pod: Pod }) {
         >
           <PodHeaderTrigger pod={pod} />
           <PodEvaluationRadio podId={pod.id} current={pod.evaluation} />
-          <span className="text-xs font-semibold text-slate-700">
-            {pod.students.length} de {pod.maxCapacity} alumnos
+          <span
+            className={cn(
+              "text-xs font-semibold",
+              pod.students.length > pod.maxCapacity
+                ? "text-amber-700"
+                : "text-slate-700",
+            )}
+            title={
+              pod.students.length > pod.maxCapacity
+                ? `Supera el máximo recomendado (${pod.maxCapacity})`
+                : undefined
+            }
+          >
+            {pod.students.length} alumno{pod.students.length === 1 ? "" : "s"}
           </span>
           <button
             type="button"

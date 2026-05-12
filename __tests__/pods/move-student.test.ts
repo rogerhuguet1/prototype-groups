@@ -38,7 +38,7 @@ describe("moveStudent", () => {
     expect(podB.students).toHaveLength(3);
   });
 
-  it("rechaza mover a un POD lleno", () => {
+  it("permite mover a un POD lleno (max recomendado, no estricto)", () => {
     const { pods } = createPods({
       students: makeStudents(8),
       presentCount: 8,
@@ -47,9 +47,10 @@ describe("moveStudent", () => {
       random: noShuffle,
     });
     const result = moveStudent(pods, "s-001", "pod-2");
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.reason).toBe("destination-pod-full");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const pod2 = result.pods.find((p) => p.id === "pod-2")!;
+    expect(pod2.students.length).toBe(5);
   });
 
   it("mover al mismo POD es no-op", () => {
@@ -169,7 +170,7 @@ describe("addStudentToPod", () => {
     expect(podB.students.map((s) => s.id)).toContain(unassigned.id);
   });
 
-  it("rechaza si el POD destino está lleno", () => {
+  it("permite anadir a un POD lleno (max recomendado, no estricto)", () => {
     const all = makeStudents(10);
     const { pods } = createPods({
       students: all,
@@ -180,9 +181,10 @@ describe("addStudentToPod", () => {
     });
     const unassigned = all[8]!;
     const result = addStudentToPod(pods, unassigned, "pod-1");
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.reason).toBe("destination-pod-full");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const pod1 = result.pods.find((p) => p.id === "pod-1")!;
+    expect(pod1.students.length).toBe(5);
   });
 
   it("si el alumno ya estaba en otro POD, lo mueve (delega en moveStudent)", () => {
