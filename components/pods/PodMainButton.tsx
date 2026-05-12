@@ -24,9 +24,11 @@ export function PodMainButton({ students }: Props) {
   const setSortMode = usePodsStore((s) => s.setSortMode);
   const createOrRegroup = usePodsStore((s) => s.createOrRegroup);
   const podCount = usePodsStore((s) => s.pods.length);
+  const groupingModalOpen = usePodsStore((s) => s.groupingModalOpen);
+  const openGroupingModal = usePodsStore((s) => s.openGroupingModal);
+  const closeGroupingModal = usePodsStore((s) => s.closeGroupingModal);
   const hasPods = podCount > 0;
 
-  const [modalOpen, setModalOpen] = useState(false);
   const dropdownTriggerRef = useRef<HTMLButtonElement>(null);
   const [dropdownRect, setDropdownRect] = useState<DOMRect | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -41,8 +43,6 @@ export function PodMainButton({ students }: Props) {
         id: s.id,
         full_name: s.full_name,
       }));
-      // Mantener el numero de grupos actual al reagrupar. Si el profe puso 10
-      // robots al crear, sigue habiendo 10 grupos en cada reagrupacion.
       const robotCount = podCount;
       try {
         const args: Parameters<typeof createOrRegroup>[0] = {
@@ -119,10 +119,6 @@ export function PodMainButton({ students }: Props) {
 
   // === Modo alphabetical ===
   if (hasPods) {
-    // Ya hay pods (sesion anterior o tras volver desde grouped). Un solo boton
-    // 'Ver grupos' que cambia a grouped sin re-preguntar. El profe no quiere
-    // que se le pregunte de nuevo: si necesita modificar counts, recarga la
-    // pagina o resetea.
     return (
       <Button
         variant="secondary"
@@ -136,12 +132,13 @@ export function PodMainButton({ students }: Props) {
     );
   }
 
-  // Sin pods aun: primer agrupamiento via modal.
+  // Sin pods aun: primer agrupamiento via modal. El modal puede abrirse desde
+  // el boton 'Agrupar' o desde SessionPrompt al elegir 'Empezar nueva sesion'.
   return (
     <>
       <Button
         variant="secondary"
-        onClick={() => setModalOpen(true)}
+        onClick={openGroupingModal}
         className="text-[11px] font-bold uppercase tracking-wider px-3 py-2"
         title="Agrupar a los alumnos"
       >
@@ -149,8 +146,8 @@ export function PodMainButton({ students }: Props) {
         Agrupar
       </Button>
       <PodGroupingModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        open={groupingModalOpen}
+        onClose={closeGroupingModal}
         students={students}
       />
     </>

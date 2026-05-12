@@ -38,6 +38,9 @@ type State = {
   // No persistido. true cuando el persist middleware ha rehidratado el state.
   // Permite al UI distinguir entre 'aún cargando' y 'no hay sesión guardada'.
   hydrated: boolean;
+  // No persistido. Controla la apertura del PodGroupingModal desde cualquier
+  // sitio (botón 'Agrupar' o SessionPrompt al elegir 'Empezar nueva sesión').
+  groupingModalOpen: boolean;
 };
 
 type CreateOrRegroupInput = {
@@ -71,6 +74,8 @@ type Actions = {
     emojiLabel: string,
   ) => ChangeEmojiResult;
   markHydrated: () => void;
+  openGroupingModal: () => void;
+  closeGroupingModal: () => void;
 };
 
 const INITIAL: State = {
@@ -80,6 +85,7 @@ const INITIAL: State = {
   lastRobotCount: null,
   lastPresentCount: null,
   hydrated: false,
+  groupingModalOpen: false,
 };
 
 function renumberPods(pods: Pod[]): Pod[] {
@@ -162,6 +168,7 @@ export const usePodsStore = create<State & Actions>()(
         set((state) => ({
           ...INITIAL,
           hydrated: state.hydrated,
+          groupingModalOpen: state.groupingModalOpen,
         })),
       setSortMode: (mode) => set({ sortMode: mode }),
       setLastRobotCount: (n) => set({ lastRobotCount: n }),
@@ -255,6 +262,8 @@ export const usePodsStore = create<State & Actions>()(
         });
       },
       markHydrated: () => set({ hydrated: true }),
+      openGroupingModal: () => set({ groupingModalOpen: true }),
+      closeGroupingModal: () => set({ groupingModalOpen: false }),
     }),
     {
       name: "c360-pods-state",
