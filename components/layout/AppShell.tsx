@@ -18,6 +18,7 @@ function defaultRobotCount(presentCount: number): number {
 export function AppShell() {
   const classesQuery = useClasses();
   const [classId, setClassId] = useState<string | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     const list = classesQuery.data;
@@ -68,6 +69,8 @@ export function AppShell() {
           classes={classes}
           activeClassId={classId}
           onSelectClass={setClassId}
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={() => setSidebarCollapsed((v) => !v)}
         />
         <main className="flex-1 flex flex-col min-w-0 bg-c360-bg">
           <TopBar

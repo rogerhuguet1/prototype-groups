@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils/cn";
 import type { ClassRow } from "@/types/database";
@@ -9,6 +9,8 @@ type Props = {
   classes: ClassRow[];
   activeClassId: string | null;
   onSelectClass: (id: string) => void;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
 };
 
 const SUBITEMS = [
@@ -21,7 +23,7 @@ const SUBITEMS = [
 
 const COURSES = ["1º ESO", "2º ESO", "3º ESO"] as const;
 
-export function Sidebar(_props: Props) {
+export function Sidebar({ collapsed, onToggleCollapsed }: Props) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     "1º ESO": true,
     "2º ESO": true,
@@ -29,20 +31,48 @@ export function Sidebar(_props: Props) {
   });
 
   return (
-    <aside className="w-60 shrink-0 bg-c360-bg-muted text-c360-text border-r border-c360-divider flex flex-col">
-      <nav className="flex-1 overflow-y-auto py-4">
-        {COURSES.map((label) => (
-          <CourseSection
-            key={label}
-            label={label}
-            expanded={expanded[label] ?? false}
-            activeSub={label === "1º ESO" ? "alumnado" : null}
-            onToggle={() =>
-              setExpanded((prev) => ({ ...prev, [label]: !prev[label] }))
-            }
-          />
-        ))}
-      </nav>
+    <aside
+      className={cn(
+        "shrink-0 bg-c360-bg-muted text-c360-text border-r border-c360-divider flex flex-col transition-[width] duration-200 ease-out",
+        collapsed ? "w-12" : "w-60",
+      )}
+    >
+      <div
+        className={cn(
+          "flex items-center border-b border-c360-divider px-2 py-2",
+          collapsed ? "justify-center" : "justify-end",
+        )}
+      >
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          aria-label={collapsed ? "Mostrar barra lateral" : "Ocultar barra lateral"}
+          title={collapsed ? "Mostrar barra lateral" : "Ocultar barra lateral"}
+          aria-expanded={!collapsed}
+          className="inline-flex size-7 items-center justify-center rounded text-c360-text-muted hover:bg-c360-blue/10 hover:text-c360-blue focus:outline-none focus:ring-2 focus:ring-c360-blue"
+        >
+          {collapsed ? (
+            <PanelLeftOpen className="size-4" aria-hidden />
+          ) : (
+            <PanelLeftClose className="size-4" aria-hidden />
+          )}
+        </button>
+      </div>
+      {!collapsed && (
+        <nav className="flex-1 overflow-y-auto py-4">
+          {COURSES.map((label) => (
+            <CourseSection
+              key={label}
+              label={label}
+              expanded={expanded[label] ?? false}
+              activeSub={label === "1º ESO" ? "alumnado" : null}
+              onToggle={() =>
+                setExpanded((prev) => ({ ...prev, [label]: !prev[label] }))
+              }
+            />
+          ))}
+        </nav>
+      )}
     </aside>
   );
 }
