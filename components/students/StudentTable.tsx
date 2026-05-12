@@ -19,6 +19,7 @@ import { UNITS, FLAT_COLUMNS } from "@/lib/data/units";
 import { usePodsStore } from "@/store/pods-store";
 import { sortByLastName, displayName } from "@/lib/utils/sort-students";
 import { Plus } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { PodBadge } from "@/components/pods/PodBadge";
 import { PodDroppableTbody } from "@/components/pods/PodDroppableTbody";
 import { PodHeaderTrigger } from "@/components/pods/PodHeaderTrigger";
@@ -351,6 +352,18 @@ function DndStudentBodies({
 }
 
 function PodSectionHeaderRow({ pod }: { pod: Pod }) {
+  const deletePod = usePodsStore((s) => s.deletePod);
+
+  const onDelete = () => {
+    if (pod.students.length > 0) {
+      const ok = window.confirm(
+        `¿Eliminar el grupo ${pod.emoji}? Sus ${pod.students.length} alumno${pod.students.length === 1 ? "" : "s"} pasarán a "Pendientes de asignar".`,
+      );
+      if (!ok) return;
+    }
+    deletePod(pod.id);
+  };
+
   return (
     <tr>
       <td
@@ -367,6 +380,15 @@ function PodSectionHeaderRow({ pod }: { pod: Pod }) {
           <span className="text-xs font-semibold text-slate-700">
             {pod.students.length} de {pod.maxCapacity} alumnos
           </span>
+          <button
+            type="button"
+            onClick={onDelete}
+            aria-label={`Eliminar grupo ${pod.emojiLabel}`}
+            title="Eliminar grupo"
+            className="ml-auto inline-flex size-7 items-center justify-center rounded text-slate-500 hover:bg-rose-100 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400"
+          >
+            <Trash2 className="size-4" aria-hidden />
+          </button>
         </div>
       </td>
     </tr>

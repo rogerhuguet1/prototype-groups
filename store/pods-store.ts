@@ -34,6 +34,10 @@ type State = {
   lockedStudentIds: string[];
   sortMode: SortMode;
   lastRobotCount: number | null;
+  lastPresentCount: number | null;
+  // No persistido. true cuando el persist middleware ha rehidratado el state.
+  // Permite al UI distinguir entre 'aún cargando' y 'no hay sesión guardada'.
+  hydrated: boolean;
 };
 
 type CreateOrRegroupInput = {
@@ -55,6 +59,7 @@ type Actions = {
   removeStudentFromPod: (studentId: string) => MoveStudentResult;
   toggleStudentLock: (studentId: string) => void;
   addEmptyPod: () => void;
+  deletePod: (podId: string) => void;
   createPodAndAssignStudent: (
     student: Student,
     emoji: string,
@@ -65,6 +70,7 @@ type Actions = {
     emoji: string,
     emojiLabel: string,
   ) => ChangeEmojiResult;
+  markHydrated: () => void;
 };
 
 const INITIAL: State = {
@@ -72,27 +78,41 @@ const INITIAL: State = {
   lockedStudentIds: [],
   sortMode: "alphabetical",
   lastRobotCount: null,
+  lastPresentCount: null,
+  hydrated: false,
 };
+
+function renumberPods(pods: Pod[]): Pod[] {
+  return pods.map((p, i) => ({ ...p, id: `pod-${i + 1}` }));
+}
 
 export const usePodsStore = create<State & Actions>()(
   persist(
     (set, get) => ({
       ...INITIAL,
-      createOrRegroup: ({ mode, presentStudents, robotCount, scoreFn, progressFn }) => {
+      createOrRegroup: ({
+        mode,
+        presentStudents,
+        robotCount,
+        scoreFn,
+        progressFn,
+      }) => {
         const state = get();
         const hasPods = state.pods.length > 0;
+        const sameCount = state.pods.length === robotCount;
 
         let result: { pods: Pod[] };
 
         if (mode === "random") {
-          if (hasPods) {
-            // mantiene emojis/colores y respeta candados
+          if (hasPods && sameCount) {
+            // mismo numero de grupos: mantiene emojis/colores y respeta candados
             result = regroupWithLocks({
               currentPods: state.pods,
               lockedStudentIds: state.lockedStudentIds,
               allPresentStudents: presentStudents,
             });
           } else {
+            // primera vez o cambio de count: fresh start
             result = createPods({
               students: presentStudents,
               presentCount: presentStudents.length,
@@ -115,7 +135,6 @@ export const usePodsStore = create<State & Actions>()(
             currentPods: state.pods,
           });
         } else {
-          // "mixed" | "leveled"
           if (!scoreFn) {
             throw new Error(
               "createOrRegroup: modos por nivel requieren scoreFn",
@@ -136,9 +155,14 @@ export const usePodsStore = create<State & Actions>()(
           pods: result.pods,
           sortMode: "grouped",
           lastRobotCount: robotCount,
+          lastPresentCount: presentStudents.length,
         });
       },
-      resetPods: () => set({ ...INITIAL }),
+      resetPods: () =>
+        set((state) => ({
+          ...INITIAL,
+          hydrated: state.hydrated,
+        })),
       setSortMode: (mode) => set({ sortMode: mode }),
       setLastRobotCount: (n) => set({ lastRobotCount: n }),
       setPodEvaluation: (podId, rating) => {
@@ -192,6 +216,23 @@ export const usePodsStore = create<State & Actions>()(
           sortMode: "grouped",
         });
       },
+      deletePod: (podId) => {
+        set((state) => {
+          const target = state.pods.find((p) => p.id === podId);
+          if (!target) return {};
+          // Quitar locks de los alumnos del pod eliminado: dejarian de tener
+          // un grupo al que pertenecer, mejor liberarlos al pool 'pendientes'.
+          const releasedIds = new Set(target.students.map((s) => s.id));
+          const remainingLocks = state.lockedStudentIds.filter(
+            (id) => !releasedIds.has(id),
+          );
+          const remaining = state.pods.filter((p) => p.id !== podId);
+          return {
+            pods: renumberPods(remaining),
+            lockedStudentIds: remainingLocks,
+          };
+        });
+      },
       createPodAndAssignStudent: (student, emoji, emojiLabel) => {
         const state = get();
         const maxCapacity =
@@ -213,20 +254,36 @@ export const usePodsStore = create<State & Actions>()(
           pods: [...cleanedPods, podWithStudent],
         });
       },
+      markHydrated: () => set({ hydrated: true }),
     }),
     {
       name: "c360-pods-state",
-      version: 6,
+      version: 7,
       skipHydration: true,
-      partialize: (state): Pick<State, "pods" | "lastRobotCount"> => ({
-        // v5 spec: solo persistimos composicion (sin evaluation) y lastRobotCount.
+      partialize: (
+        state,
+      ): Pick<State, "pods" | "lastRobotCount" | "lastPresentCount"> => ({
+        // Solo persistimos composicion (sin evaluation), lastRobotCount y
+        // lastPresentCount (para precarga del editor inline). Candados,
+        // sortMode, evaluation y hydrated se resetean al cerrar pestaña.
         pods: state.pods.map((p) => ({ ...p, evaluation: null as PodEvaluation })),
         lastRobotCount: state.lastRobotCount,
+        lastPresentCount: state.lastPresentCount,
       }),
       migrate: (persistedState, version) => {
-        // cualquier version < 6 se descarta porque el esquema cambio
-        // (Pod.isLocked -> Pod.evaluation, fuera history-driven keys).
-        if (version < 6) return { ...INITIAL };
+        if (version < 7) {
+          // v6 -> v7 anade lastPresentCount. Para no descartar pods existentes
+          // del v6, mantenemos lo que haya y dejamos lastPresentCount=null.
+          const prev =
+            (persistedState ?? {}) as Partial<
+              Pick<State, "pods" | "lastRobotCount">
+            >;
+          return {
+            ...INITIAL,
+            pods: prev.pods ?? [],
+            lastRobotCount: prev.lastRobotCount ?? null,
+          };
+        }
         return persistedState as State;
       },
     },

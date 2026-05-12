@@ -5,7 +5,9 @@ import { usePodsStore } from "@/store/pods-store";
 
 export function StoresHydrator() {
   useEffect(() => {
-    usePodsStore.persist.rehydrate();
+    void usePodsStore.persist.rehydrate()?.then(() => {
+      usePodsStore.getState().markHydrated();
+    });
   }, []);
   return null;
 }

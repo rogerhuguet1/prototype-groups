@@ -8,6 +8,7 @@ import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { ScoreLegend } from "@/components/students/ScoreLegend";
 import { StudentTable } from "@/components/students/StudentTable";
+import { SessionPrompt } from "@/components/pods/SessionPrompt";
 
 export function AppShell() {
   const classesQuery = useClasses();
@@ -27,6 +28,7 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen flex flex-col bg-c360-bg">
+      <SessionPrompt />
       <header className="h-14 shrink-0 bg-c360-blue flex items-center justify-between px-4 text-white">
         <p className="text-base font-bold tracking-wide">ROBOTIX</p>
         <CircleUser className="size-7" aria-hidden />

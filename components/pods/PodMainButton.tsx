@@ -5,6 +5,7 @@ import { ArrowLeft, Shuffle, ChevronDown, LayoutGrid } from "lucide-react";
 import { Button } from "../ui/Button";
 import { PodGroupingModal } from "./PodGroupingModal";
 import { PodRegroupModeDropdown } from "./PodRegroupModeDropdown";
+import { PodCountControls } from "./PodCountControls";
 import { usePodsStore } from "@/store/pods-store";
 import {
   getStudentOverallScore,
@@ -83,6 +84,7 @@ export function PodMainButton({ students }: Props) {
         >
           <ArrowLeft className="size-4" aria-hidden />
         </Button>
+        <PodCountControls students={students} />
         <Button
           ref={dropdownTriggerRef}
           variant="secondary"

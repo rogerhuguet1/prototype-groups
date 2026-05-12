@@ -79,15 +79,22 @@ Publishable/anon key, pública por diseño (RLS protege los datos).
 
 ### 5.1 Carga inicial y barra de acciones
 
+Al cargar la página, `<StoresHydrator/>` rehidrata desde localStorage y marca `hydrated=true`. Si tras rehydrate hay `pods.length > 0`, `<SessionPrompt/>` muestra un modal **"¿Continuar con la sesión anterior?"** con dos opciones:
+
+- **Continuar**: cierra el modal y mantiene los pods. `sortMode` arranca en `'alphabetical'` (no se persiste), así que el profe ve "Ver grupos" para entrar.
+- **Empezar nueva sesión**: `resetPods()` → estado inicial limpio. El profe ve "Agrupar" para abrir el modal de counts.
+
+El prompt se muestra **una vez por montaje** (un refresh = nuevo montaje = nueva pregunta). Si no hay pods guardados, no aparece.
+
 `PodMainButton` tiene tres estados según `pods.length` y `sortMode`:
 
-| Estado | Botón(es) | Acción |
+| Estado | Barra de acciones | Acción |
 |---|---|---|
-| `pods.length === 0` + `alphabetical` | 1 botón **"Agrupar"** (Shuffle) | Abre `PodGroupingModal` (única vez en que aparece el modal). |
-| `pods.length > 0` + `alphabetical` | 1 botón **"Ver grupos"** (LayoutGrid) | `setSortMode('grouped')`. **Sin modal, sin preguntas.** |
-| `sortMode === 'grouped'` | Flecha back (`ArrowLeft`) + **"Reagrupar ▼"** (Shuffle + ChevronDown) | Flecha vuelve a alphabetical. Dropdown ofrece 4 modos. |
+| `pods.length === 0` + `alphabetical` | 1 botón **"Agrupar"** (Shuffle) | Abre `PodGroupingModal` (única vez con modal). |
+| `pods.length > 0` + `alphabetical` | 1 botón **"Ver grupos"** (LayoutGrid) | `setSortMode('grouped')`. Sin modal, sin preguntas. |
+| `sortMode === 'grouped'` | Flecha back (`ArrowLeft`) + **inputs "Alumnos" / "Robots"** + **"Reagrupar ▼"** (Shuffle + ChevronDown) | Flecha vuelve a alphabetical. Inputs editables in-place reagrupan en blur/Enter. Dropdown ofrece 4 modos. |
 
-Al cargar la página, `sortMode='alphabetical'`, `lockedStudentIds=[]` y todos los `pod.evaluation = null` (no se persisten). Solo persisten `pods` (composición) y `lastRobotCount`.
+Al cargar la página, `sortMode='alphabetical'`, `lockedStudentIds=[]` y todos los `pod.evaluation = null` (no se persisten). Solo persisten `pods` (composición), `lastRobotCount` y `lastPresentCount`.
 
 ### 5.2 Botón "Agrupar" (única vez, sin pods)
 
@@ -123,17 +130,21 @@ Después de la primera agrupación el modal **no se vuelve a abrir**. Si el prof
 
 Botón **"Ver grupos"** (LayoutGrid) en alphabetical → `setSortMode('grouped')`. No abre modal, no recalcula, no pregunta. Mantiene los pods tal como estaban.
 
-### 5.4 Vista grouped: flecha back + dropdown "Reagrupar"
+### 5.4 Vista grouped: flecha back + counts inline + dropdown "Reagrupar"
 
 - **Flecha back** (`ArrowLeft`, sin texto): vuelve a alfabética. `setSortMode('alphabetical')`. No toca pods, candados ni semáforos.
+- **`PodCountControls`** (inline): dos inputs `Alumnos: [N]` y `Robots: [M]`. Sincronizados con `lastPresentCount` y `pods.length`. Al hacer `blur` o pulsar Enter:
+  - Si los valores son los actuales: no-op.
+  - Si nuevos: valida con `groupingSchema`. Si OK, ejecuta `createOrRegroup({mode: 'random', ...})` con los nuevos counts.
+  - Si inválido: muestra error 4s y revierte los inputs.
 - **"Reagrupar ▼"** (Shuffle + ChevronDown): abre `PodRegroupModeDropdown` con 4 modos. Click en un modo **ejecuta directamente** sin modal intermedio:
-  - **Aleatorio** → `regroupWithLocks`.
+  - **Aleatorio** → si `pods.length === robotCount` usa `regroupWithLocks` (mantiene emojis/colores); si cambió el número de grupos, usa `createPods` fresh.
   - **Compensada / Por niveles** → `createPodsByLevel` con `getStudentScore`, locks y `currentPods`.
   - **Por avance** → `createPodsByProgress` con `getStudentOverallScore` + `getStudentProgress`, locks y `currentPods`.
 
-**Número de grupos invariante**: cualquier reagrupación desde grouped pasa `robotCount = pods.length` (el número actual). Si el profe creó 10 grupos, las reagrupaciones siempre mantienen 10. Lo que el profe puso al inicio se respeta.
+**Número de grupos**: al pulsar "Reagrupar ▼" → un modo, `robotCount` = `pods.length` actual (mantiene el setup). Para **cambiar el número**, el profe edita el input `Robots` en `PodCountControls` y los grupos se recalculan en `blur`/Enter.
 
-En todos los modos: `pod.evaluation` se reinicia a `null`, se mantienen candados individuales. Si un modo lanza error (capacidad imposible), aparece banner rojo fijo arriba a la derecha 4s.
+En todos los modos: `pod.evaluation` se reinicia a `null`, se mantienen candados individuales (excepto cuando se cambia `robotCount` desde `PodCountControls`, que es un fresh start). Si un modo lanza error (capacidad imposible), aparece banner rojo fijo arriba a la derecha 4s.
 
 El profe puede reagrupar las veces que quiera desde grouped sin tener que volver a la lista.
 
@@ -143,6 +154,7 @@ Cada pod renderiza un `<tbody>` con cabecera:
 - Emoji + nombre del grupo editable (popover de emoji al click en el emoji vía `PodHeaderTrigger`).
 - **Semáforo** (`PodEvaluationRadio`): 3 botones radio en orden **🔴 🟡 🟢** (verde a la derecha = "ok"). Click asigna; click en el seleccionado deselecciona (`null`). Selección visual por **opacidad y fondo tintado** (no ring): el seleccionado a opacidad 100% con fondo claro tintado y `scale-110`; los demás a opacidad reducida.
 - Contador `N de 4 alumnos`.
+- **Botón eliminar** (`Trash2`, alineado a la derecha): borra el grupo. Si tiene alumnos, `window.confirm` pide confirmación: los alumnos pasan a "Pendientes de asignar" (al quitar el pod, dejan de tener entrada en `studentToPod` y aparecen automáticamente al final de la tabla). Al borrar, los pods restantes se **renumeran** a `pod-1..pod-N` para mantener IDs contiguos.
 
 Cada fila de alumno (`StudentRowDraggable`):
 - **Candado individual siempre visible**: icono `Lock`/`Unlock`. Bloqueado = fondo amarillo y `aria-pressed=true`.
@@ -224,8 +236,11 @@ components/
   layout/
     AppShell.tsx, Sidebar.tsx, TopBar.tsx, ClassSelector.tsx, StoresHydrator.tsx
   pods/
-    PodMainButton.tsx                      ← botón único Reagrupar / Volver a lista
-    PodGroupingModal.tsx                   ← modal con selector de modo + counts
+    PodMainButton.tsx                      ← barra dinámica según sortMode/hasPods
+    PodGroupingModal.tsx                   ← modal de counts (solo primera vez)
+    PodRegroupModeDropdown.tsx             ← dropdown de 4 modos en grouped
+    PodCountControls.tsx                   ← inputs inline Alumnos/Robots en grouped
+    SessionPrompt.tsx                      ← modal al refrescar (continuar/nueva)
     PodEvaluationRadio.tsx                 ← semáforo 3 colores en cabecera
     PodBadge.tsx, PodBadgeWithDropdown.tsx
     PodChangeDropdown.tsx                  ← cambiar de grupo manualmente
@@ -279,16 +294,12 @@ type State = {
   lockedStudentIds: string[];
   sortMode: 'alphabetical' | 'grouped';
   lastRobotCount: number | null;
+  lastPresentCount: number | null;
+  hydrated: boolean;            // no persistido; lo marca StoresHydrator
 };
 
 type Actions = {
-  createOrRegroup(input: {
-    mode: 'random' | 'mixed' | 'leveled' | 'by-progress';
-    presentStudents: Student[];
-    robotCount: number;
-    scoreFn?: (studentId: string) => number;
-    progressFn?: (studentId: string) => number;
-  }): void;
+  createOrRegroup(input: {...}): void;
   resetPods(): void;
   setSortMode(mode: SortMode): void;
   setLastRobotCount(n: number | null): void;
@@ -298,18 +309,35 @@ type Actions = {
   removeStudentFromPod(studentId): MoveStudentResult;
   toggleStudentLock(studentId): void;
   addEmptyPod(): void;
+  deletePod(podId: string): void;          // borra pod y libera alumnos a 'pendientes'
   createPodAndAssignStudent(student, emoji, emojiLabel): void;
   changeEmoji(podId, emoji, emojiLabel): ChangeEmojiResult;
+  markHydrated(): void;                    // lo llama StoresHydrator tras rehydrate
 };
 ```
 
-**Persist middleware (version 6):**
-- `name: 'c360-pods-state'`, `skipHydration: true`.
-- `partialize: state => ({ pods: state.pods.map(p => ({...p, evaluation: null})), lastRobotCount: state.lastRobotCount })`.
-- `migrate: (state, version) => version < 6 ? {...INITIAL} : state`. Cambio de esquema irreconciliable con v5 anterior; descartar es lo correcto.
-- `<StoresHydrator />` ejecuta `usePodsStore.persist.rehydrate()` en `useEffect`.
+`createOrRegroup` con modo `random`:
+- Si `pods.length === robotCount` (mismo número): `regroupWithLocks` (mantiene emojis/colores y respeta candados).
+- Si `pods.length !== robotCount` (cambio de número desde `PodCountControls`): `createPods` fresh; los candados se pierden.
 
-**NO persisten:** `lockedStudentIds`, `sortMode`, `pod.evaluation`.
+`deletePod`:
+- Quita el pod del array.
+- Renumera los pods restantes a `pod-1..pod-N` para mantener IDs contiguos (importante para `addEmptyPod` y para que los modos por-nivel respeten locks por `pod-id` correctamente).
+- Quita los candados de los alumnos que estaban en ese pod (ya no tienen pod al que pertenecer).
+
+`resetPods`:
+- Vuelve al estado inicial, **pero conserva `hydrated: true`** para no re-disparar la rehidratación.
+
+**Persist middleware (version 7):**
+- `name: 'c360-pods-state'`, `skipHydration: true`.
+- `partialize`: `{ pods (con evaluation: null), lastRobotCount, lastPresentCount }`.
+- `migrate`:
+  - `version < 6` → descartar (esquema irreconciliable con v5).
+  - `version = 6` → mantener `pods` y `lastRobotCount`, inicializar `lastPresentCount: null`.
+  - `version >= 7` → tal cual.
+- `<StoresHydrator />` ejecuta `usePodsStore.persist.rehydrate()` en `useEffect` y luego `markHydrated()`. `<SessionPrompt />` lee `hydrated` + `pods.length > 0` para preguntar.
+
+**NO persisten:** `lockedStudentIds`, `sortMode`, `pod.evaluation`, `hydrated`.
 
 ---
 
@@ -426,6 +454,8 @@ Prototipo **funcionalmente completo según spec v5**. Sirve en `localhost:3000/m
 ### 12.6 Historial de commits relevantes (refactor v5)
 
 ```
+HEAD    feat(pods): eliminar grupo, prompt de sesion al refrescar, edicion inline counts
+02167d8 docs: actualizar SUPERPROMPT.md con UX final post-feedback
 1937a32 fix(ui): reagrupar mantiene num grupos del setup inicial, sin segundo modal
 b5c2dff fix(ui): no re-preguntar al volver a vista por grupos + reset robusto modal
 50b3290 fix(ui): modal simple, dropdown reagrupar en grouped, semaforo sin ring
