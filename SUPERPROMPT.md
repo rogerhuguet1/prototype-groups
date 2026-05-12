@@ -79,12 +79,10 @@ Publishable/anon key, pública por diseño (RLS protege los datos).
 
 ### 5.1 Carga inicial y barra de acciones
 
-Al cargar la página, `<StoresHydrator/>` rehidrata desde localStorage y marca `hydrated=true`. **Primera vez de todas (sin sesión guardada): no aparece nada**, vista alfabética con botón "Agrupar". A partir de la segunda visita, si hay pods guardados, `<SessionPrompt/>` muestra un modal **"¿Continuar con la sesión anterior?"** con dos opciones:
+Al cargar la página, `<StoresHydrator/>` rehidrata desde localStorage. **No hay popups intermedios**. La pantalla siempre arranca en vista **alfabética** (`sortMode` no se persiste). El comportamiento depende solo de si hay pods guardados:
 
-- **Continuar**: mantiene los pods + `setSortMode('grouped')`. El profe entra **directo a la vista por grupos**.
-- **Empezar nueva sesión**: `resetPods()` + `openGroupingModal()`. **Abre directamente el modal de Agrupar** para que el profe configure presentes y robots de la nueva sesión sin pasar por pantallas intermedias.
-
-El prompt se muestra **una vez por montaje** (un refresh = nuevo montaje = nueva pregunta). Si no hay pods guardados, no aparece.
+- **Primera vez de todas (sin pods guardados)**: vista alfabética con botón **"Agrupar"**. Pulsar abre el modal por única vez para configurar presentes y robots.
+- **A partir de la segunda visita (con pods guardados)**: vista alfabética con badges en cada fila y botón **"Ver grupos"**. Sin modal de configuración. Para modificar alumnos/robots, el profe usa los inputs inline dentro de la vista por grupos.
 
 `PodMainButton` tiene tres estados según `pods.length` y `sortMode`:
 
@@ -246,10 +244,9 @@ components/
     AppShell.tsx, Sidebar.tsx, TopBar.tsx, ClassSelector.tsx, StoresHydrator.tsx
   pods/
     PodMainButton.tsx                      ← barra dinámica según sortMode/hasPods
-    PodGroupingModal.tsx                   ← modal de counts (solo primera vez)
+    PodGroupingModal.tsx                   ← modal de counts (solo primera vez de todas)
     PodRegroupModeDropdown.tsx             ← dropdown de 4 modos en grouped
     PodCountControls.tsx                   ← inputs inline Alumnos/Robots en grouped
-    SessionPrompt.tsx                      ← modal al refrescar (continuar/nueva)
     PodEvaluationRadio.tsx                 ← semáforo 3 colores en cabecera
     PodBadge.tsx, PodBadgeWithDropdown.tsx
     PodChangeDropdown.tsx                  ← cambiar de grupo manualmente
@@ -304,7 +301,6 @@ type State = {
   sortMode: 'alphabetical' | 'grouped';
   lastRobotCount: number | null;
   lastPresentCount: number | null;
-  hydrated: boolean;            // no persistido; lo marca StoresHydrator
   groupingModalOpen: boolean;   // no persistido; controla apertura del modal Agrupar
 };
 
@@ -322,8 +318,7 @@ type Actions = {
   deletePod(podId: string): void;          // borra pod y libera alumnos a 'pendientes'
   createPodAndAssignStudent(student, emoji, emojiLabel): void;
   changeEmoji(podId, emoji, emojiLabel): ChangeEmojiResult;
-  markHydrated(): void;                    // lo llama StoresHydrator tras rehydrate
-  openGroupingModal(): void;               // dispara apertura del modal (boton 'Agrupar' o SessionPrompt)
+  openGroupingModal(): void;               // dispara apertura del modal Agrupar
   closeGroupingModal(): void;
 };
 ```

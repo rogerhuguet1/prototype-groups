@@ -35,11 +35,7 @@ type State = {
   sortMode: SortMode;
   lastRobotCount: number | null;
   lastPresentCount: number | null;
-  // No persistido. true cuando el persist middleware ha rehidratado el state.
-  // Permite al UI distinguir entre 'aún cargando' y 'no hay sesión guardada'.
-  hydrated: boolean;
-  // No persistido. Controla la apertura del PodGroupingModal desde cualquier
-  // sitio (botón 'Agrupar' o SessionPrompt al elegir 'Empezar nueva sesión').
+  // No persistido. Controla la apertura del PodGroupingModal.
   groupingModalOpen: boolean;
 };
 
@@ -73,7 +69,6 @@ type Actions = {
     emoji: string,
     emojiLabel: string,
   ) => ChangeEmojiResult;
-  markHydrated: () => void;
   openGroupingModal: () => void;
   closeGroupingModal: () => void;
 };
@@ -84,7 +79,6 @@ const INITIAL: State = {
   sortMode: "alphabetical",
   lastRobotCount: null,
   lastPresentCount: null,
-  hydrated: false,
   groupingModalOpen: false,
 };
 
@@ -167,7 +161,6 @@ export const usePodsStore = create<State & Actions>()(
       resetPods: () =>
         set((state) => ({
           ...INITIAL,
-          hydrated: state.hydrated,
           groupingModalOpen: state.groupingModalOpen,
         })),
       setSortMode: (mode) => set({ sortMode: mode }),
@@ -261,7 +254,6 @@ export const usePodsStore = create<State & Actions>()(
           pods: [...cleanedPods, podWithStudent],
         });
       },
-      markHydrated: () => set({ hydrated: true }),
       openGroupingModal: () => set({ groupingModalOpen: true }),
       closeGroupingModal: () => set({ groupingModalOpen: false }),
     }),
