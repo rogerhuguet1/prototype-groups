@@ -20,12 +20,15 @@ type Props = {
 };
 
 /**
- * Popover compacto para elegir el nombre del grupo. Lista los 17 nombres en
- * una cuadrícula 2 columnas. Para cada nombre:
- *   - Si lo tiene el pod actual: check azul.
- *   - Si lo tiene otro pod: dot con el color de ese pod (al elegirlo se hace
+ * Popover para elegir el nombre del grupo. Mismo diseño visual que
+ * `PodChangeDropdown` (lista vertical con dot de color + nombre en
+ * mayúsculas + check), para que ambos popovers se sientan uniformes.
+ *
+ * Por nombre:
+ *   - Si lo tiene el pod actual: check azul a la derecha.
+ *   - Si lo tiene otro pod: dot del color del otro pod (al elegirlo se hace
  *     swap entre los dos pods).
- *   - Si nadie lo usa: simple texto.
+ *   - Si nadie lo usa: dot vacío con borde dashed.
  */
 export function PodNamePicker({ pod, triggerRect, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
@@ -38,7 +41,6 @@ export function PodNamePicker({ pod, triggerRect, onClose }: Props) {
     })),
   );
 
-  // name → pod que lo está usando (o undefined).
   const nameToPod = useMemo(() => {
     const m = new Map<string, Pod>();
     allPods.forEach((p) => m.set(p.name, p));
@@ -92,12 +94,12 @@ export function PodNamePicker({ pod, triggerRect, onClose }: Props) {
         visibility: position ? "visible" : "hidden",
         zIndex: 60,
       }}
-      className="w-72 rounded-lg border border-slate-200 bg-white shadow-xl overflow-hidden"
+      className="w-60 rounded-md border border-slate-200 bg-white shadow-lg overflow-hidden"
     >
-      <div className="px-3 py-2 border-b border-slate-200 text-[10px] uppercase tracking-wider font-semibold text-slate-500">
-        Nombre del grupo
+      <div className="px-3 py-2 border-b border-slate-200 text-[10px] uppercase tracking-wide font-semibold text-slate-500">
+        Cambiar nombre del grupo
       </div>
-      <ul className="grid grid-cols-2 gap-1 p-2 max-h-[280px] overflow-y-auto">
+      <ul className="py-1 max-h-56 overflow-y-auto">
         {GROUP_NAMES.map((name) => {
           const owner = nameToPod.get(name);
           const isCurrent = owner?.id === pod.id;
@@ -113,34 +115,42 @@ export function PodNamePicker({ pod, triggerRect, onClose }: Props) {
                   isCurrent
                     ? "Nombre actual"
                     : isOtherUsed
-                      ? `Usado por otro grupo — al elegirlo se intercambian los nombres`
+                      ? `En uso por otro grupo — al elegirlo se intercambian los nombres`
                       : "Disponible"
                 }
                 className={cn(
-                  "w-full inline-flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider transition-colors focus:outline-none focus:ring-2 focus:ring-c360-blue",
-                  isCurrent
-                    ? "bg-c360-blue text-white"
-                    : "text-slate-700 hover:bg-c360-blue/10",
+                  "w-full text-left px-3 py-1.5 text-xs font-medium flex items-center gap-2",
+                  "text-slate-700 hover:bg-blue-50 hover:text-blue-800 focus:outline-none focus:bg-blue-50",
                 )}
               >
-                <span className="truncate">{name}</span>
-                {isCurrent ? (
-                  <Check className="size-3.5 shrink-0" aria-hidden />
-                ) : isOtherUsed && owner ? (
+                {owner ? (
                   <span
-                    aria-hidden
-                    title={`En uso por ${owner.name}`}
-                    className="inline-block size-2.5 rounded-full shrink-0 ring-1 ring-white"
+                    className="inline-block size-3 rounded-full shrink-0"
                     style={{ backgroundColor: owner.color.hex }}
+                    aria-hidden
                   />
-                ) : null}
+                ) : (
+                  <span
+                    className="inline-block size-3 rounded-full shrink-0 border border-dashed border-slate-300"
+                    aria-hidden
+                  />
+                )}
+                <span className="flex-1 uppercase tracking-wider font-semibold">
+                  {name}
+                </span>
+                {isCurrent && (
+                  <Check
+                    className="size-3.5 text-blue-700 shrink-0"
+                    aria-hidden
+                  />
+                )}
               </button>
             </li>
           );
         })}
       </ul>
-      <div className="px-3 py-1.5 border-t border-slate-200 text-[10px] text-slate-500 leading-tight">
-        Tocar un nombre con punto lo intercambia con el grupo que ya lo usa.
+      <div className="border-t border-slate-200 px-3 py-1.5 text-[10px] text-slate-500 leading-tight">
+        Nombre con dot de color = en uso por otro grupo (se intercambian al elegirlo).
       </div>
     </div>,
     document.body,
